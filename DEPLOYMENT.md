@@ -116,6 +116,8 @@ npm install --production
 
 ### 5.2 Create Production Environment File
 
+**⚠️ SECURITY CRITICAL: Never commit real credentials to Git!**
+
 ```bash
 nano .env
 ```
@@ -127,20 +129,35 @@ Paste the following (replace with your actual values):
 PORT=4000
 NODE_ENV=production
 
-# JWT Secret - CHANGE THIS TO A RANDOM STRING
-JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters-long
+# JWT Secret - Generate with: openssl rand -base64 32
+JWT_SECRET=PASTE_GENERATED_SECRET_HERE
 
 # MySQL Database Connection
+# Get credentials from Hostinger hPanel → Databases
 # Format: mysql://USERNAME:PASSWORD@HOST:PORT/DATABASE
 DATABASE_URL="mysql://u123456789_hrm:YOUR_DB_PASSWORD@localhost:3306/u123456789_hrm"
 ```
 
+**Generate secure JWT secret:**
+```bash
+openssl rand -base64 32
+```
+
+Copy the output and use it as JWT_SECRET.
+
 **Important Security Notes:**
-- Generate a secure JWT_SECRET: `openssl rand -base64 32`
-- Never commit `.env` to Git
-- Use strong database passwords
+- The `.env` file is automatically excluded from Git
+- Never share or commit real credentials
+- Use unique secrets for each environment (dev/staging/prod)
+- See **SECURITY.md** for complete security guidelines
 
 Save and exit (Ctrl+X, then Y, then Enter).
+
+**Secure the file:**
+```bash
+chmod 600 .env
+chown root:root .env
+```
 
 ### 5.3 Build Backend
 

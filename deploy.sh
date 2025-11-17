@@ -7,12 +7,15 @@ set -e  # Exit on any error
 
 echo "🚀 Starting 6soft HRM Deployment..."
 
-# Configuration - EDIT THESE VALUES
+## Configuration - EDIT THESE VALUES BEFORE RUNNING
+## Get MySQL credentials from Hostinger hPanel → Databases
 DOMAIN="hrm.yourdomain.com"
 SERVER_IP="YOUR_SERVER_IP"
-DB_NAME="your_database_name"
-DB_USER="your_db_user"
-DB_PASSWORD="your_db_password"
+DB_NAME="your_database_name"  # e.g., u123456789_hrm
+DB_USER="your_db_user"         # e.g., u123456789_hrm
+DB_PASSWORD="your_db_password" # Use strong password from Hostinger
+
+## SECURITY: JWT secret is auto-generated - DO NOT hardcode here
 JWT_SECRET=$(openssl rand -base64 32)
 
 # Paths
@@ -63,15 +66,21 @@ cd $APP_DIR/backend
 # Install dependencies
 npm install --production
 
-# Create .env file
+# Generate secure JWT secret
+GENERATED_JWT_SECRET=$(openssl rand -base64 32)
+
+# Create .env file (NEVER commit this to Git!)
 cat > .env <<EOF
 PORT=4000
 NODE_ENV=production
-JWT_SECRET=$JWT_SECRET
+JWT_SECRET=$GENERATED_JWT_SECRET
 DATABASE_URL="mysql://$DB_USER:$DB_PASSWORD@localhost:3306/$DB_NAME"
 EOF
 
-echo "   ✓ Created .env file"
+# Secure the .env file
+chmod 600 .env
+
+echo "   ✓ Created .env file (secured with chmod 600)"
 
 # Build backend
 npm run build
