@@ -1,0 +1,232 @@
+import React from 'react'
+import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api'
+
+export default function Employees() {
+  const [items, setItems] = React.useState<any[]>([])
+  const [showForm, setShowForm] = React.useState(false)
+  const [editingId, setEditingId] = React.useState<number | null>(null)
+  const [formData, setFormData] = React.useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: '',
+    jobTitle: '',
+    employeeType: 'EMPLOYEE',
+    department: '',
+    niNumber: '',
+    startDate: ''
+  })
+
+  const loadEmployees = () => {
+    apiGet('/employees')
+      .then(setItems)
+      .catch(() => setItems([]))
+  }
+
+  React.useEffect(() => {
+    loadEmployees()
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      if (editingId) {
+        await apiPut(`/employees/${editingId}`, formData)
+        alert('Employee updated successfully!')
+      } else {
+        await apiPost('/employees', formData)
+        alert('Employee added successfully!')
+      }
+      setShowForm(false)
+      setEditingId(null)
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phoneNumber: '',
+        jobTitle: '',
+        employeeType: 'EMPLOYEE',
+        department: '',
+        niNumber: '',
+        startDate: ''
+      })
+      loadEmployees()
+    } catch (err: any) {
+      console.error('Error saving employee:', err)
+      alert('Failed to save employee: ' + (err.message || JSON.stringify(err)))
+    }
+  }
+
+  const handleEdit = (employee: any) => {
+    setEditingId(employee.id)
+    setFormData({
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      email: employee.email,
+      phoneNumber: employee.phoneNumber || '',
+      jobTitle: employee.jobTitle || '',
+      employeeType: employee.employeeType || 'EMPLOYEE',
+      department: employee.department || '',
+      niNumber: employee.niNumber || '',
+      startDate: employee.startDate ? employee.startDate.split('T')[0] : ''
+    })
+    setShowForm(true)
+  }
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this employee?')) return
+    
+    try {
+      await apiDelete(`/employees/${id}`)
+      alert('Employee deleted successfully!')
+      loadEmployees()
+    } catch (err: any) {
+      console.error('Error deleting employee:', err)
+      alert('Failed to delete employee: ' + (err.message || JSON.stringify(err)))
+    }
+  }
+
+  const handleCancel = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneNumber: '',
+      jobTitle: '',
+      employeeType: 'EMPLOYEE',
+      department: '',
+      niNumber: '',
+      startDate: ''
+    })
+  }
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-semibold">Employees</h2>
+        <button
+          onClick={() => { setEditingId(null); setShowForm(!showForm); }}
+          className="px-4 py-2 bg-yellow-400 dark:bg-yellow-600 rounded hover:bg-yellow-500"
+        >
+          {showForm ? 'Cancel' : '+ Add Employee'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="mb-6 p-4 border rounded bg-slate-50 dark:bg-slate-800">
+          <h3 className="text-lg font-semibold mb-3">{editingId ? 'Edit Employee' : 'New Employee'}</h3>
+          <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+            <input
+              value={formData.firstName}
+              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              placeholder="First Name *"
+              required
+              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+            />
+            <input
+              value={formData.lastName}
+              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              placeholder="Last Name *"
+              required
+              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+            />
+            <input
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="Email *"
+              type="email"
+              required
+              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+            />
+            <input
+              value={formData.phoneNumber}
+              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              placeholder="Phone Number"
+              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+            />
+            <input
+              value={formData.jobTitle}
+              onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+              placeholder="Job Title *"
+              required
+              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+            />
+            <select
+              value={formData.employeeType}
+              onChange={(e) => setFormData({ ...formData, employeeType: e.target.value })}
+              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors cursor-pointer"
+            >
+              <option value="EMPLOYEE">Employee</option>
+              <option value="DIRECTOR">Director</option>
+            </select>
+            <input
+              value={formData.department}
+              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              placeholder="Department"
+              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+            />
+            <input
+              value={formData.niNumber}
+              onChange={(e) => setFormData({ ...formData, niNumber: e.target.value })}
+              placeholder="NI Number (UK)"
+              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+            />
+            <input
+              value={formData.startDate}
+              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+              placeholder="Start Date"
+              type="date"
+              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+            />
+            <div className="col-span-2 flex gap-2">
+              <button type="submit" className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                {editingId ? 'Update Employee' : 'Add Employee'}
+              </button>
+              {editingId && (
+                <button type="button" onClick={handleCancel} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="grid gap-3">
+        {items.map((e) => (
+          <div key={e.id} className="p-3 border rounded bg-white dark:bg-slate-800">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="font-bold">{e.firstName} {e.lastName}</div>
+                  {e.employeeType === 'DIRECTOR' && (
+                    <span className="px-2 py-1 text-xs bg-purple-500 text-white rounded">Director</span>
+                  )}
+                </div>
+                <div className="text-sm">{e.jobTitle} — {e.email}</div>
+                {e.department && <div className="text-sm text-slate-600 dark:text-slate-400">Department: {e.department}</div>}
+                {e.niNumber && <div className="text-sm text-slate-600 dark:text-slate-400">NI: {e.niNumber}</div>}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEdit(e)}
+                  className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(e.id)}
+                  className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

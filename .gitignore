@@ -1,0 +1,17 @@
+# Node & tooling
+node_modules/
+**/node_modules/
+.env
+.env.*
+/dist
+build/
+.vscode/
+/.DS_Store
+/dev.db
+**/dev.db
+coverage/
+*.log
+# local uploads
+backend/uploads/
+frontend/node_modules/
+frontend/dist/
