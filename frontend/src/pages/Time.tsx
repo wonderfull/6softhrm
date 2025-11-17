@@ -208,7 +208,7 @@ export default function Time() {
         <h2 className="text-2xl font-semibold">Timesheets</h2>
         <button
           onClick={() => { setEditingId(null); setShowForm(!showForm); }}
-          className="px-4 py-2 bg-yellow-400 dark:bg-yellow-600 rounded hover:bg-yellow-500"
+          className="btn-primary"
         >
           {showForm ? 'Cancel' : '+ Add Entry'}
         </button>
@@ -222,7 +222,7 @@ export default function Time() {
               <select
                 value={formData.projectId}
                 onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600"
+                className="form-input w-full"
               >
                 <option value="">Select Project *</option>
                 {projects.map(proj => (
@@ -238,14 +238,14 @@ export default function Time() {
                 type="number"
                 step="0.5"
                 placeholder="Hours"
-                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600"
+                className="form-input w-full"
               />
               
               <input
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 placeholder="Notes (optional)"
-                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600"
+                className="form-input w-full"
               />
               
               <div className="flex gap-2">
@@ -275,7 +275,7 @@ export default function Time() {
               value={formData.employeeId}
               onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             >
               <option value="">Select Employee *</option>
               {employees.map(emp => (
@@ -288,7 +288,7 @@ export default function Time() {
             <select
               value={formData.projectId}
               onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             >
               <option value="">No Project</option>
               {projects.map(proj => (
@@ -303,7 +303,7 @@ export default function Time() {
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               type="date"
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <input
@@ -313,14 +313,14 @@ export default function Time() {
               step="0.5"
               placeholder="Hours (default: 8)"
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <input
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Notes"
-              className="col-span-2 px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
 
             <div className="col-span-2 flex gap-2">
@@ -346,7 +346,7 @@ export default function Time() {
           <span className="font-semibold">
             {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
           </span>
-          <button onClick={thisWeek} className="px-3 py-1 bg-yellow-400 dark:bg-yellow-600 rounded text-sm hover:bg-yellow-500">
+          <button onClick={thisWeek} className="btn-ghost text-sm">
             This Week
           </button>
         </div>
@@ -360,7 +360,7 @@ export default function Time() {
         <select
           value={selectedEmployee}
           onChange={(e) => setSelectedEmployee(e.target.value)}
-          className="px-4 py-2 border-2 border-slate-300 rounded-lg dark:bg-slate-700"
+          className="form-input"
         >
           <option value="">All Employees</option>
           {employees.map(emp => (
@@ -373,7 +373,7 @@ export default function Time() {
         <select
           value={selectedProject}
           onChange={(e) => setSelectedProject(e.target.value)}
-          className="px-4 py-2 border-2 border-slate-300 rounded-lg dark:bg-slate-700"
+          className="form-input"
         >
           <option value="">All Projects</option>
           {projects.map(proj => (

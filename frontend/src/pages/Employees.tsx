@@ -1,5 +1,7 @@
 import React from 'react'
 import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api'
+import Card from '../components/Card'
+import { HiPlus } from 'react-icons/hi'
 
 export default function Employees() {
   const [items, setItems] = React.useState<any[]>([])
@@ -104,13 +106,31 @@ export default function Employees() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">Employees</h2>
         <button
-          onClick={() => { setEditingId(null); setShowForm(!showForm); }}
-          className="px-4 py-2 bg-yellow-400 dark:bg-yellow-600 rounded hover:bg-yellow-500"
+          onClick={() => {
+            if (showForm && !editingId) {
+              setShowForm(false);
+            } else {
+              setEditingId(null);
+              setFormData({
+                firstName: '',
+                lastName: '',
+                email: '',
+                phoneNumber: '',
+                jobTitle: '',
+                employeeType: 'EMPLOYEE',
+                department: '',
+                niNumber: '',
+                startDate: ''
+              });
+              setShowForm(true);
+            }
+          }}
+          className="btn-primary"
         >
-          {showForm ? 'Cancel' : '+ Add Employee'}
+          <HiPlus /> {showForm ? 'Cancel' : 'Add Employee'}
         </button>
       </div>
 
@@ -123,14 +143,14 @@ export default function Employees() {
               onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
               placeholder="First Name *"
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             <input
               value={formData.lastName}
               onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
               placeholder="Last Name *"
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             <input
               value={formData.email}
@@ -138,25 +158,25 @@ export default function Employees() {
               placeholder="Email *"
               type="email"
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             <input
               value={formData.phoneNumber}
               onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
               placeholder="Phone Number"
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             <input
               value={formData.jobTitle}
               onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
               placeholder="Job Title *"
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             <select
               value={formData.employeeType}
               onChange={(e) => setFormData({ ...formData, employeeType: e.target.value })}
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors cursor-pointer"
+              className="form-input"
             >
               <option value="EMPLOYEE">Employee</option>
               <option value="DIRECTOR">Director</option>
@@ -165,20 +185,20 @@ export default function Employees() {
               value={formData.department}
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
               placeholder="Department"
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             <input
               value={formData.niNumber}
               onChange={(e) => setFormData({ ...formData, niNumber: e.target.value })}
               placeholder="NI Number (UK)"
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             <input
               value={formData.startDate}
               onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
               placeholder="Start Date"
               type="date"
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             <div className="col-span-2 flex gap-2">
               <button type="submit" className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
@@ -194,9 +214,9 @@ export default function Employees() {
         </div>
       )}
 
-      <div className="grid gap-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {items.map((e) => (
-          <div key={e.id} className="p-3 border rounded bg-white dark:bg-slate-800">
+          <Card key={e.id} className="p-4">
             <div className="flex justify-between items-start">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -224,7 +244,7 @@ export default function Employees() {
                 </button>
               </div>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>

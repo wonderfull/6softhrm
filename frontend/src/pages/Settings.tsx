@@ -30,7 +30,7 @@ export default function Settings() {
         <div className="p-3 border rounded bg-white dark:bg-slate-800">
           Google Drive: {driveConnected === null ? 'Checking...' : driveConnected ? 'Connected' : 'Not connected'}
           <div className="mt-2">
-            <button onClick={connectDrive} className="px-3 py-1 bg-yellow-400 rounded">Connect Google Drive</button>
+            <button onClick={connectDrive} className="btn-primary">Connect Google Drive</button>
           </div>
         </div>
       </div>

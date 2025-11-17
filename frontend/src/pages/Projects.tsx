@@ -79,7 +79,7 @@ export default function Projects() {
         <h2 className="text-2xl font-semibold">Projects</h2>
         <button
           onClick={() => { setEditingId(null); setShowForm(!showForm); }}
-          className="px-4 py-2 bg-yellow-400 dark:bg-yellow-600 rounded hover:bg-yellow-500"
+          className="btn-primary"
         >
           {showForm ? 'Cancel' : '+ Add Project'}
         </button>
@@ -94,7 +94,7 @@ export default function Projects() {
               onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
               placeholder="Project Code * (e.g., PROJ001)"
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <input
@@ -102,7 +102,7 @@ export default function Projects() {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Project Name *"
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <textarea
@@ -110,7 +110,7 @@ export default function Projects() {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Description"
               rows={3}
-              className="col-span-2 px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <label className="col-span-2 flex items-center gap-2">

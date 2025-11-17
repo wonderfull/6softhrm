@@ -9,7 +9,6 @@ import timesheetRoutes from './routes/timesheets'
 import projectRoutes from './routes/projects'
 import documentRoutes from './routes/documents'
 import calendarRoutes from './routes/calendar'
-import driveRoutes from './routes/drive'
 
 dotenv.config()
 
@@ -29,7 +28,6 @@ app.use('/api/timesheets', timesheetRoutes)
 app.use('/api/projects', projectRoutes)
 app.use('/api/documents', documentRoutes)
 app.use('/api/calendar', calendarRoutes)
-app.use('/api/drive', driveRoutes)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

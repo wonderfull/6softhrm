@@ -9,6 +9,8 @@ build/
 /.DS_Store
 /dev.db
 **/dev.db
+**/dev.db.backup
+**/dev.db-*
 coverage/
 *.log
 # local uploads

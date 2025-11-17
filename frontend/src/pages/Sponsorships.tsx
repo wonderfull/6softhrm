@@ -1,5 +1,6 @@
 import React from 'react'
 import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api'
+import Card from '../components/Card'
 
 export default function Sponsorships() {
   const [items, setItems] = React.useState<any[]>([])
@@ -114,13 +115,13 @@ export default function Sponsorships() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">Sponsorships</h2>
         <button
           onClick={() => { setEditingId(null); setShowForm(!showForm); }}
-          className="px-4 py-2 bg-yellow-400 dark:bg-yellow-600 rounded hover:bg-yellow-500"
+          className="btn-primary"
         >
-          {showForm ? 'Cancel' : '+ Add Sponsorship'}
+          {showForm ? 'Cancel' : 'Add Sponsorship'}
         </button>
       </div>
 
@@ -132,7 +133,7 @@ export default function Sponsorships() {
               value={formData.employeeId}
               onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             >
               <option value="">Select Employee *</option>
               {employees.map(emp => (
@@ -147,21 +148,21 @@ export default function Sponsorships() {
               onChange={(e) => setFormData({ ...formData, visaType: e.target.value })}
               placeholder="Visa Type *"
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <input
               value={formData.casNumber}
               onChange={(e) => setFormData({ ...formData, casNumber: e.target.value })}
               placeholder="CAS Number"
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <input
               value={formData.sponsorLicenseNumber}
               onChange={(e) => setFormData({ ...formData, sponsorLicenseNumber: e.target.value })}
               placeholder="Sponsor License Number"
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <input
@@ -170,7 +171,7 @@ export default function Sponsorships() {
               placeholder="Start Date"
               type="date"
               required
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <input
@@ -178,7 +179,7 @@ export default function Sponsorships() {
               onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
               placeholder="End Date"
               type="date"
-              className="px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <textarea
@@ -186,7 +187,7 @@ export default function Sponsorships() {
               onChange={(e) => setFormData({ ...formData, complianceNotes: e.target.value })}
               placeholder="Compliance Notes"
               rows={3}
-              className="col-span-2 px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-yellow-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:focus:border-yellow-500 transition-colors"
+              className="form-input"
             />
             
             <label className="col-span-2 flex items-center gap-2">
@@ -213,9 +214,9 @@ export default function Sponsorships() {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="grid gap-4">
         {items.map((s) => (
-          <div key={s.id} className="p-3 border rounded bg-yellow-50 dark:bg-slate-800">
+          <Card key={s.id} className="p-4">
             <div className="flex justify-between items-start">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -249,7 +250,7 @@ export default function Sponsorships() {
                 </button>
               </div>
             </div>
-          </div>
+          </Card>
         ))}
         {items.length === 0 && <div className="text-slate-500">No sponsorships yet.</div>}
       </div>

@@ -8,36 +8,36 @@ datasource db {
 }
 
 model User {
-  id            Int             @id @default(autoincrement())
-  email         String          @unique
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
   password      String
   name          String?
-  role          String          @default("USER")
-  createdAt     DateTime        @default(now())
+  role          String         @default("USER")
+  createdAt     DateTime       @default(now())
   googleAccount GoogleAccount?
 }
 
 model Employee {
-  id             Int             @id @default(autoincrement())
-  firstName      String
-  lastName       String
-  email          String          @unique
-  phoneNumber    String?
-  niNumber       String?         // National Insurance placeholder
-  jobTitle       String?
-  employeeType   String          @default("EMPLOYEE") // EMPLOYEE or DIRECTOR
-  department     String?
-  startDate      DateTime?
-  endDate        DateTime?
-  sponsorships   Sponsorship[]
-  documents      Document[]
-  timesheets     Timesheet[]
-  leaveRequests  LeaveRequest[]
+  id            Int            @id @default(autoincrement())
+  firstName     String
+  lastName      String
+  email         String         @unique
+  phoneNumber   String?
+  niNumber      String? // National Insurance placeholder
+  jobTitle      String?
+  employeeType  String         @default("EMPLOYEE") // EMPLOYEE or DIRECTOR
+  department    String?
+  startDate     DateTime?
+  endDate       DateTime?
+  sponsorships  Sponsorship[]
+  documents     Document[]
+  timesheets    Timesheet[]
+  leaveRequests LeaveRequest[]
 }
 
 model Sponsorship {
-  id                   Int      @id @default(autoincrement())
-  employee             Employee @relation(fields: [employeeId], references: [id])
+  id                   Int       @id @default(autoincrement())
+  employee             Employee  @relation(fields: [employeeId], references: [id])
   employeeId           Int
   visaType             String
   casNumber            String? // Confirmation of acceptance for studies or CAS if relevant
@@ -45,7 +45,7 @@ model Sponsorship {
   startDate            DateTime
   endDate              DateTime?
   complianceNotes      String?
-  active               Boolean  @default(true)
+  active               Boolean   @default(true)
 }
 
 model Project {
@@ -90,12 +90,12 @@ model Document {
 }
 
 model GoogleAccount {
-  id           Int      @id @default(autoincrement())
-  user         User     @relation(fields: [userId], references: [id])
-  userId       Int      @unique
+  id           Int       @id @default(autoincrement())
+  user         User      @relation(fields: [userId], references: [id])
+  userId       Int       @unique
   refreshToken String
-  accessToken  String?  
+  accessToken  String?
   scope        String?
   expiry       DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 }
