@@ -8,12 +8,12 @@ set -e  # Exit on any error
 echo "🚀 Starting 6soft HRM Deployment..."
 
 ## Configuration - EDIT THESE VALUES BEFORE RUNNING
-## Get MySQL credentials from Hostinger hPanel → Databases
-DOMAIN="hrm.yourdomain.com"
-SERVER_IP="YOUR_SERVER_IP"
-DB_NAME="your_database_name"  # e.g., u123456789_hrm
-DB_USER="your_db_user"         # e.g., u123456789_hrm
-DB_PASSWORD="your_db_password" # Use strong password from Hostinger
+## MySQL credentials from Hostinger
+DOMAIN="hrm.yourdomain.com"          # UPDATE: Your subdomain
+SERVER_IP="YOUR_SERVER_IP"           # UPDATE: Your VPS IP address
+DB_NAME="u104553007_sixsoft_hrm"
+DB_USER="u104553007_hrmadmin"
+DB_PASSWORD="Netsc@pe99"
 
 ## SECURITY: JWT secret is auto-generated - DO NOT hardcode here
 JWT_SECRET=$(openssl rand -base64 32)

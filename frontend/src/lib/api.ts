@@ -1,3 +1,8 @@
+// API Configuration
+// In production, VITE_API_URL should be set to your Railway backend URL
+// Example: https://your-app.up.railway.app/api
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+
 type ReqInit = RequestInit & { query?: Record<string, any> }
 
 function buildQuery(q?: Record<string, any>) {
@@ -12,7 +17,7 @@ export async function api(path: string, init?: ReqInit) {
   const headers: Record<string, string> = { ...(init?.headers as Record<string, string> || {}) }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const url = `/api${path}${buildQuery(init?.query)}`
+  const url = `${API_BASE_URL}${path}${buildQuery(init?.query)}`
   const res = await fetch(url, { ...(init || {}), headers })
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
