@@ -1,0 +1,15 @@
+# Production Environment Variables for Render
+# Copy these to Render dashboard → Environment → Environment Variables
+
+PORT=4000
+NODE_ENV=production
+
+# JWT Secret - Generate with: openssl rand -base64 32
+# IMPORTANT: Generate your own unique secret!
+JWT_SECRET=REPLACE_WITH_YOUR_GENERATED_SECRET
+
+# Clever Cloud MySQL Database
+DATABASE_URL=mysql://u5zqbjwcw6ccmt0v:ldgBNesOks6fBs6aWBPw@bea6vkgx2o9qqkhtuvww-mysql.services.clever-cloud.com:3306/bea6vkgx2o9qqkhtuvww
+
+# Frontend URL (update after deploying frontend to Hostinger)
+FRONTEND_URL=https://hrm.yourdomain.com
