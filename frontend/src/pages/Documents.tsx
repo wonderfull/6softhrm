@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { apiGet } from '../lib/api'
+import { apiGet, API_BASE_URL, apiUpload } from '../lib/api'
 
 export default function Documents() {
   const [items, setItems] = React.useState<any[]>([])
@@ -36,12 +36,17 @@ export default function Documents() {
 
     const token = localStorage.getItem('token')
     try {
-      const res = await fetch('/api/documents/upload', { method: 'POST', body: fd, headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
-        return alert(`Upload failed: ${errorData.error || res.statusText}`)
+      try {
+        const d = await apiUpload('/documents/upload', fd)
+        setFile(null)
+        setName('')
+        setEmployeeId('')
+        const updatedDocs = await apiGet('/documents')
+        setItems(updatedDocs)
+        alert('Document uploaded successfully!')
+      } catch (e: any) {
+        return alert(`Upload failed: ${e.message || 'Unknown error'}`)
       }
-      const d = await res.json()
       setFile(null)
       setName('')
       setEmployeeId('')
@@ -125,7 +130,7 @@ export default function Documents() {
                 <div className="font-bold">{d.name}</div>
                 <div className="text-sm text-slate-600 dark:text-slate-400">{d.employee ? `${d.employee.firstName} ${d.employee.lastName}` : `Employee ID: ${d.employeeId}`}</div>
               </div>
-              <a className="text-sm underline truncate ml-4" href={`http://localhost:4000${d.path}`} target="_blank" rel="noopener noreferrer">Open</a>
+              <a className="text-sm underline truncate ml-4" href={`${API_BASE_URL.replace('/api', '')}${d.path}`} target="_blank" rel="noopener noreferrer">Open</a>
             </div>
           </div>
         ))}

@@ -1,4 +1,5 @@
 import React from 'react'
+import { apiPost } from '../lib/api'
 
 export default function Register() {
   const [email, setEmail] = React.useState('')
@@ -7,8 +8,7 @@ export default function Register() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, name }) })
-    const data = await res.json()
+    const data = await apiPost('/auth/register', { email, password, name })
     if (data.id) {
       alert('Registered. Please login.')
     } else {

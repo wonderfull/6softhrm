@@ -1,4 +1,5 @@
 import React from 'react'
+import { apiPost } from '../lib/api'
 import { useNavigate } from 'react-router-dom'
 import { LockClosedIcon, UserIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 
@@ -15,12 +16,7 @@ export default function Login() {
     setLoading(true)
     
     try {
-      const res = await fetch('/api/auth/login', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ email, password }) 
-      })
-      const data = await res.json()
+      const data = await apiPost('/auth/login', { email, password })
       
       if (data.token) {
         localStorage.setItem('token', data.token)

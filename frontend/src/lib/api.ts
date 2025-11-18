@@ -1,7 +1,7 @@
 // API Configuration
 // In production, VITE_API_URL should be set to your Railway backend URL
 // Example: https://your-app.up.railway.app/api
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 type ReqInit = RequestInit & { query?: Record<string, any> }
 
@@ -30,6 +30,20 @@ export const apiGet = (p: string, q?: Record<string, any>) => api(p, { method: '
 export const apiPost = (p: string, body?: any) => api(p, { method: 'POST', body: body ? JSON.stringify(body) : undefined, headers: { 'Content-Type': 'application/json' } })
 export const apiPut = (p: string, body?: any) => api(p, { method: 'PUT', body: body ? JSON.stringify(body) : undefined, headers: { 'Content-Type': 'application/json' } })
 export const apiDelete = (p: string) => api(p, { method: 'DELETE' })
+
+// Upload helper for FormData (keeps Content-Type unset so browser sets the boundary)
+export async function apiUpload(path: string, formData: FormData) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const url = `${API_BASE_URL}${path}`
+  const res = await fetch(url, { method: 'POST', body: formData, headers })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.error || `API error ${res.status}`)
+  }
+  return res.json()
+}
 
 export function getCurrentUser() {
   try {
