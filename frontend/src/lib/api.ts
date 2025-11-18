@@ -2,6 +2,8 @@
 // In production, VITE_API_URL should be set to your Railway backend URL
 // Example: https://your-app.up.railway.app/api
 export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+// If API_BASE_URL is a relative '/api' during local dev, use local backend base
+export const BACKEND_BASE_URL = API_BASE_URL === '/api' ? 'http://localhost:4000' : API_BASE_URL.replace(/\/api$/, '')
 
 type ReqInit = RequestInit & { query?: Record<string, any> }
 

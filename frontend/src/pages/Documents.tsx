@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { apiGet, API_BASE_URL, apiUpload } from '../lib/api'
+import { apiGet, API_BASE_URL, apiUpload, BACKEND_BASE_URL } from '../lib/api'
 
 export default function Documents() {
   const [items, setItems] = React.useState<any[]>([])
@@ -130,7 +130,7 @@ export default function Documents() {
                 <div className="font-bold">{d.name}</div>
                 <div className="text-sm text-slate-600 dark:text-slate-400">{d.employee ? `${d.employee.firstName} ${d.employee.lastName}` : `Employee ID: ${d.employeeId}`}</div>
               </div>
-              <a className="text-sm underline truncate ml-4" href={`${API_BASE_URL.replace('/api', '')}${d.path}`} target="_blank" rel="noopener noreferrer">Open</a>
+              <a className="text-sm underline truncate ml-4" href={`${BACKEND_BASE_URL}${d.path}`} target="_blank" rel="noopener noreferrer">Open</a>
             </div>
           </div>
         ))}
