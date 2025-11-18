@@ -28,6 +28,12 @@ if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL)
 }
 
+// Log CORS configuration on startup
+console.log('🔒 CORS Configuration:')
+console.log('NODE_ENV:', process.env.NODE_ENV)
+console.log('FRONTEND_URL:', process.env.FRONTEND_URL)
+console.log('Allowed Origins:', allowedOrigins)
+
 app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow requests with no origin (mobile apps, Postman, etc)
