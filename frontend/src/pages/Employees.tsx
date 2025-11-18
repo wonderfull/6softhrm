@@ -7,6 +7,8 @@ export default function Employees() {
   const [items, setItems] = React.useState<any[]>([])
   const [showForm, setShowForm] = React.useState(false)
   const [editingId, setEditingId] = React.useState<number | null>(null)
+  const [userRole, setUserRole] = React.useState('USER')
+  const [userEmail, setUserEmail] = React.useState('')
   const [formData, setFormData] = React.useState({
     firstName: '',
     lastName: '',
@@ -35,6 +37,17 @@ export default function Employees() {
   }
 
   React.useEffect(() => {
+    // Get user role and email from token
+    const token = localStorage.getItem('token')
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        setUserRole(payload.role || 'USER')
+        setUserEmail(payload.email || '')
+      } catch (e) {
+        console.error('Failed to parse token:', e)
+      }
+    }
     loadEmployees()
   }, [])
 
@@ -134,11 +147,23 @@ export default function Employees() {
     })
   }
 
+  // Filter employees for non-admin users
+  const filteredItems = React.useMemo(() => {
+    if (userRole === 'ADMIN' || userRole === 'MANAGER') {
+      return items
+    }
+    // Show only the logged-in employee's data
+    return items.filter(emp => emp.email === userEmail)
+  }, [items, userRole, userEmail])
+
+  const isAdmin = userRole === 'ADMIN' || userRole === 'MANAGER'
+  const pageTitle = isAdmin ? 'Employees' : 'My Profile'
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Employees</h2>
-        <button
+        <h2 className="text-2xl font-semibold">{pageTitle}</h2>
+        {isAdmin && <button
           onClick={() => {
             if (showForm && !editingId) {
               setShowForm(false);
@@ -168,7 +193,7 @@ export default function Employees() {
           className="btn-primary"
         >
           <HiPlus /> {showForm ? 'Cancel' : 'Add Employee'}
-        </button>
+        </button>}
       </div>
 
       {showForm && (
@@ -307,7 +332,7 @@ export default function Employees() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {items.map((e) => (
+        {filteredItems.map((e) => (
           <Card key={e.id} className="p-4">
             <div className="flex justify-between items-start">
               <div className="flex-1">
@@ -339,20 +364,22 @@ export default function Employees() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEdit(e)}
-                  className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(e.id)}
-                  className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                >
-                  Delete
-                </button>
-              </div>
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(e)}
+                    className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(e.id)}
+                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
           </Card>
         ))}

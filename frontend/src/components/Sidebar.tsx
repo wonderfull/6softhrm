@@ -15,9 +15,10 @@ const adminMenu = [
 
 const userMenu = [
   { to: '/dashboard', label: 'Dashboard', icon: <HiHome size={18} /> },
-  { to: '/time', label: 'Time', icon: <HiClock size={18} /> },
-  { to: '/leave', label: 'Leave', icon: <HiCalendar size={18} /> },
-  { to: '/documents', label: 'Documents', icon: <HiFolder size={18} /> },
+  { to: '/employees', label: 'My Profile', icon: <HiUsers size={18} /> },
+  { to: '/time', label: 'Timesheet', icon: <HiClock size={18} /> },
+  { to: '/leave', label: 'Leave Requests', icon: <HiCalendar size={18} /> },
+  { to: '/documents', label: 'My Documents', icon: <HiFolder size={18} /> },
 ]
 
 export default function Sidebar() {
