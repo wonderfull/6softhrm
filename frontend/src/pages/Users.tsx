@@ -7,6 +7,7 @@ export default function Users() {
   const [items, setItems] = React.useState<any[]>([])
   const [showForm, setShowForm] = React.useState(false)
   const [editingId, setEditingId] = React.useState<number | null>(null)
+  const [newUserCredentials, setNewUserCredentials] = React.useState<{email: string, password: string} | null>(null)
   const [formData, setFormData] = React.useState({
     email: '',
     password: '',
@@ -32,13 +33,18 @@ export default function Users() {
         if (formData.password) updateData.password = formData.password
         await apiPut(`/auth/users/${editingId}`, updateData)
         alert('User updated successfully!')
+        setShowForm(false)
+        setEditingId(null)
+        setFormData({ email: '', password: '', name: '', role: 'USER' })
       } else {
+        // Save credentials before clearing form
+        const credentials = { email: formData.email, password: formData.password }
         await apiPost('/auth/register', formData)
-        alert('User created successfully!')
+        // Show success with credentials
+        setNewUserCredentials(credentials)
+        setShowForm(false)
+        setFormData({ email: '', password: '', name: '', role: 'USER' })
       }
-      setShowForm(false)
-      setEditingId(null)
-      setFormData({ email: '', password: '', name: '', role: 'USER' })
       loadUsers()
     } catch (err: any) {
       console.error('Error saving user:', err)
@@ -96,6 +102,36 @@ export default function Users() {
         </button>
       </div>
 
+      {newUserCredentials && (
+        <div className="mb-6 p-6 border-2 border-green-500 rounded-lg bg-green-50 dark:bg-green-900/20">
+          <div className="flex justify-between items-start mb-3">
+            <h3 className="text-lg font-semibold text-green-800 dark:text-green-300">✓ User Created Successfully!</h3>
+            <button 
+              onClick={() => setNewUserCredentials(null)}
+              className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="text-sm text-green-700 dark:text-green-300 mb-4">
+            Save these login credentials - they won't be shown again:
+          </p>
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 space-y-2 font-mono text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 dark:text-slate-400">Email:</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{newUserCredentials.email}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 dark:text-slate-400">Password:</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{newUserCredentials.password}</span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-3">
+            The user can login at <a href="/login" className="underline text-blue-600 dark:text-blue-400">/login</a> with these credentials.
+          </p>
+        </div>
+      )}
+
       {showForm && (
         <div className="mb-6 p-4 border rounded bg-slate-50 dark:bg-slate-800">
           <h3 className="text-lg font-semibold mb-3">{editingId ? 'Edit User' : 'New User'}</h3>
@@ -126,10 +162,12 @@ export default function Users() {
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               className="form-input"
+              required
             >
-              <option value="USER">User</option>
+              <option value="">Select Role *</option>
+              <option value="USER">Employee (User)</option>
+              <option value="ADMIN">Administrator (Admin)</option>
               <option value="MANAGER">Manager</option>
-              <option value="ADMIN">Admin</option>
             </select>
             <div className="col-span-2 flex gap-2">
               <button type="submit" className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
@@ -161,6 +199,9 @@ export default function Users() {
                   </span>
                 </div>
                 <div className="text-sm text-slate-600 dark:text-slate-400">{user.email}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                  Login: Use email as username
+                </div>
               </div>
               <div className="flex gap-2">
                 <button
