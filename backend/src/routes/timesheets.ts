@@ -4,7 +4,24 @@ import { requireAuth } from '../middleware/auth'
 
 const router = Router()
 
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req: any, res) => {
+  const userRole = req.user?.role || 'USER'
+  const userEmail = req.user?.email
+  
+  // If user is not ADMIN, find their employee record and filter timesheets
+  if (userRole !== 'ADMIN' && userEmail) {
+    const employee = await prisma.employee.findUnique({ where: { email: userEmail } })
+    if (employee) {
+      const items = await prisma.timesheet.findMany({ 
+        where: { employeeId: employee.id },
+        include: { employee: true, project: true } 
+      })
+      return res.json(items)
+    }
+    return res.json([]) // No employee record found
+  }
+  
+  // Admin users see all timesheets
   const items = await prisma.timesheet.findMany({ include: { employee: true, project: true } })
   res.json(items)
 })

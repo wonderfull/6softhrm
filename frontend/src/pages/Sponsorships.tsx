@@ -118,7 +118,23 @@ export default function Sponsorships() {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">Sponsorships</h2>
         <button
-          onClick={() => { setEditingId(null); setShowForm(!showForm); }}
+          onClick={() => { 
+            setEditingId(null);
+            if (!showForm) {
+              // Clear form when opening new sponsorship
+              setFormData({
+                employeeId: '',
+                visaType: '',
+                casNumber: '',
+                sponsorLicenseNumber: '',
+                startDate: '',
+                endDate: '',
+                complianceNotes: '',
+                active: true
+              });
+            }
+            setShowForm(!showForm);
+          }}
           className="btn-primary"
         >
           {showForm ? 'Cancel' : 'Add Sponsorship'}

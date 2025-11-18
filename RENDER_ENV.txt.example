@@ -1,0 +1,17 @@
+# Production Environment Variables for Render
+# Copy these to Render dashboard → Environment → Environment Variables
+# DO NOT commit the actual RENDER_ENV.txt file with real credentials
+
+PORT=4000
+NODE_ENV=production
+
+# JWT Secret - Generate with: openssl rand -base64 32
+# IMPORTANT: Generate your own unique secret!
+JWT_SECRET=REPLACE_WITH_YOUR_GENERATED_SECRET
+
+# Database URL - Replace with your actual database credentials
+# Format: mysql://USERNAME:PASSWORD@HOST:PORT/DATABASE
+DATABASE_URL=mysql://YOUR_DB_USER:YOUR_DB_PASSWORD@YOUR_DB_HOST:3306/YOUR_DATABASE_NAME
+
+# Frontend URL (update after deploying frontend)
+FRONTEND_URL=https://your-frontend-domain.com

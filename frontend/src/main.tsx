@@ -1,6 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Dashboard from './pages/Dashboard'
 import Sponsorships from './pages/Sponsorships'
 import Employees from './pages/Employees'
 import Leave from './pages/Leave'
@@ -67,6 +68,7 @@ function App() {
                     </div>
                   </div>
                   <Routes>
+                    <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/employees" element={<Employees />} />
                     <Route path="/sponsorships" element={<Sponsorships />} />
                     <Route path="/time" element={<Time />} />
@@ -75,7 +77,7 @@ function App() {
                     <Route path="/documents" element={<Documents />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/users" element={<Users />} />
-                    <Route path="/" element={<Navigate to="/employees" replace />} />
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   </Routes>
                 </main>
               </div>

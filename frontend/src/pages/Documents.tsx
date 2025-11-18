@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { apiGet, API_BASE_URL, apiUpload, BACKEND_BASE_URL } from '../lib/api'
+import { apiGet, API_BASE_URL, apiUpload, apiDelete, BACKEND_BASE_URL } from '../lib/api'
 
 export default function Documents() {
   const [items, setItems] = React.useState<any[]>([])
@@ -130,7 +130,25 @@ export default function Documents() {
                 <div className="font-bold">{d.name}</div>
                 <div className="text-sm text-slate-600 dark:text-slate-400">{d.employee ? `${d.employee.firstName} ${d.employee.lastName}` : `Employee ID: ${d.employeeId}`}</div>
               </div>
-              <a className="text-sm underline truncate ml-4" href={`${BACKEND_BASE_URL}${d.path}`} target="_blank" rel="noopener noreferrer">Open</a>
+              <div className="flex gap-2">
+                <a className="text-sm underline truncate" href={`${BACKEND_BASE_URL}${d.path}`} target="_blank" rel="noopener noreferrer">Open</a>
+                <button
+                  onClick={async () => {
+                    if (!confirm('Are you sure you want to delete this document?')) return
+                    try {
+                      await apiDelete(`/documents/${d.id}`)
+                      const updatedDocs = await apiGet('/documents')
+                      setItems(updatedDocs)
+                      alert('Document deleted successfully!')
+                    } catch (err: any) {
+                      alert(`Delete error: ${err.message}`)
+                    }
+                  }}
+                  className="text-sm text-red-500 hover:text-red-700 underline"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         ))}

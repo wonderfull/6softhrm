@@ -17,3 +17,7 @@ coverage/
 backend/uploads/
 frontend/node_modules/
 frontend/dist/
+# Sensitive config files
+RENDER_ENV.txt
+*.zip
+.htaccess

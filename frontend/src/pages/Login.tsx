@@ -20,7 +20,7 @@ export default function Login() {
       
       if (data.token) {
         localStorage.setItem('token', data.token)
-        window.location.href = '/employees'
+        window.location.href = '/dashboard'
       } else {
         setError(data.error || 'Invalid credentials')
       }
@@ -59,6 +59,7 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)} 
                   placeholder="you@example.com" 
                   type="email"
+                  autoComplete="email"
                   required
                   className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white transition-all" 
                 />
@@ -77,6 +78,7 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)} 
                   placeholder="••••••••" 
                   type="password"
+                  autoComplete="current-password"
                   required
                   className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white transition-all" 
                 />

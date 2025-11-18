@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { HiHome, HiUsers, HiDocumentText, HiClock, HiOutlineSquares2X2, HiUserGroup, HiCalendar, HiFolder } from 'react-icons/hi2'
 
 const adminMenu = [
-  { to: '/', label: 'Dashboard', icon: <HiHome size={18} /> },
+  { to: '/dashboard', label: 'Dashboard', icon: <HiHome size={18} /> },
   { to: '/employees', label: 'Employees', icon: <HiUsers size={18} /> },
   { to: '/users', label: 'User Management', icon: <HiUserGroup size={18} /> },
   { to: '/sponsorships', label: 'Sponsorships', icon: <HiDocumentText size={18} /> },
@@ -14,7 +14,7 @@ const adminMenu = [
 ]
 
 const userMenu = [
-  { to: '/', label: 'Dashboard', icon: <HiHome size={18} /> },
+  { to: '/dashboard', label: 'Dashboard', icon: <HiHome size={18} /> },
   { to: '/time', label: 'Time', icon: <HiClock size={18} /> },
   { to: '/leave', label: 'Leave', icon: <HiCalendar size={18} /> },
   { to: '/documents', label: 'Documents', icon: <HiFolder size={18} /> },
