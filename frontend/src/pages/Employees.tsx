@@ -16,7 +16,16 @@ export default function Employees() {
     employeeType: 'EMPLOYEE',
     department: '',
     niNumber: '',
-    startDate: ''
+    startDate: '',
+    // Bank Details
+    bankName: '',
+    accountNumber: '',
+    sortCode: '',
+    // Emergency Contact
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    emergencyContactRelation: '',
+    emergencyContactAddress: ''
   })
 
   const loadEmployees = () => {
@@ -50,7 +59,14 @@ export default function Employees() {
         employeeType: 'EMPLOYEE',
         department: '',
         niNumber: '',
-        startDate: ''
+        startDate: '',
+        bankName: '',
+        accountNumber: '',
+        sortCode: '',
+        emergencyContactName: '',
+        emergencyContactPhone: '',
+        emergencyContactRelation: '',
+        emergencyContactAddress: ''
       })
       loadEmployees()
     } catch (err: any) {
@@ -70,7 +86,14 @@ export default function Employees() {
       employeeType: employee.employeeType || 'EMPLOYEE',
       department: employee.department || '',
       niNumber: employee.niNumber || '',
-      startDate: employee.startDate ? employee.startDate.split('T')[0] : ''
+      startDate: employee.startDate ? employee.startDate.split('T')[0] : '',
+      bankName: employee.bankName || '',
+      accountNumber: employee.accountNumber || '',
+      sortCode: employee.sortCode || '',
+      emergencyContactName: employee.emergencyContactName || '',
+      emergencyContactPhone: employee.emergencyContactPhone || '',
+      emergencyContactRelation: employee.emergencyContactRelation || '',
+      emergencyContactAddress: employee.emergencyContactAddress || ''
     })
     setShowForm(true)
   }
@@ -100,7 +123,14 @@ export default function Employees() {
       employeeType: 'EMPLOYEE',
       department: '',
       niNumber: '',
-      startDate: ''
+      startDate: '',
+      bankName: '',
+      accountNumber: '',
+      sortCode: '',
+      emergencyContactName: '',
+      emergencyContactPhone: '',
+      emergencyContactRelation: '',
+      emergencyContactAddress: ''
     })
   }
 
@@ -123,7 +153,14 @@ export default function Employees() {
                 employeeType: 'EMPLOYEE',
                 department: '',
                 niNumber: '',
-                startDate: ''
+                startDate: '',
+                bankName: '',
+                accountNumber: '',
+                sortCode: '',
+                emergencyContactName: '',
+                emergencyContactPhone: '',
+                emergencyContactRelation: '',
+                emergencyContactAddress: ''
               });
               setShowForm(true);
             }
@@ -200,6 +237,61 @@ export default function Employees() {
               type="date"
               className="form-input"
             />
+
+            {/* Bank Details Section */}
+            <div className="col-span-2 mt-4 mb-2">
+              <h4 className="text-md font-semibold text-slate-700 dark:text-slate-300">Bank Details</h4>
+              <div className="h-px bg-slate-300 dark:bg-slate-600 mt-1"></div>
+            </div>
+            <input
+              value={formData.bankName}
+              onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+              placeholder="Bank Name"
+              className="form-input"
+            />
+            <input
+              value={formData.accountNumber}
+              onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+              placeholder="Account Number"
+              className="form-input"
+            />
+            <input
+              value={formData.sortCode}
+              onChange={(e) => setFormData({ ...formData, sortCode: e.target.value })}
+              placeholder="Sort Code"
+              className="form-input"
+            />
+
+            {/* Emergency Contact Section */}
+            <div className="col-span-2 mt-4 mb-2">
+              <h4 className="text-md font-semibold text-slate-700 dark:text-slate-300">Emergency Contact Information</h4>
+              <div className="h-px bg-slate-300 dark:bg-slate-600 mt-1"></div>
+            </div>
+            <input
+              value={formData.emergencyContactName}
+              onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
+              placeholder="Emergency Contact Name"
+              className="form-input"
+            />
+            <input
+              value={formData.emergencyContactPhone}
+              onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
+              placeholder="Emergency Contact Phone"
+              className="form-input"
+            />
+            <input
+              value={formData.emergencyContactRelation}
+              onChange={(e) => setFormData({ ...formData, emergencyContactRelation: e.target.value })}
+              placeholder="Relationship"
+              className="form-input"
+            />
+            <input
+              value={formData.emergencyContactAddress}
+              onChange={(e) => setFormData({ ...formData, emergencyContactAddress: e.target.value })}
+              placeholder="Emergency Contact Address"
+              className="form-input col-span-2"
+            />
+
             <div className="col-span-2 flex gap-2">
               <button type="submit" className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
                 {editingId ? 'Update Employee' : 'Add Employee'}
@@ -228,6 +320,24 @@ export default function Employees() {
                 <div className="text-sm">{e.jobTitle} — {e.email}</div>
                 {e.department && <div className="text-sm text-slate-600 dark:text-slate-400">Department: {e.department}</div>}
                 {e.niNumber && <div className="text-sm text-slate-600 dark:text-slate-400">NI: {e.niNumber}</div>}
+                
+                {/* Bank Details Preview */}
+                {e.bankName && (
+                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
+                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Bank Details</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">{e.bankName}</div>
+                    {e.sortCode && <div className="text-xs text-slate-500 dark:text-slate-500">Sort: {e.sortCode}</div>}
+                  </div>
+                )}
+                
+                {/* Emergency Contact Preview */}
+                {e.emergencyContactName && (
+                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
+                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Emergency Contact</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">{e.emergencyContactName}</div>
+                    {e.emergencyContactPhone && <div className="text-xs text-slate-500 dark:text-slate-500">{e.emergencyContactPhone}</div>}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
