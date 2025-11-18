@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "deploy:render": "npx prisma generate && npx prisma migrate deploy && npm run seed",
     "db:reset": "prisma migrate reset --force",
     "db:push": "prisma db push",
     "seed": "ts-node prisma/seed.ts",
@@ -33,7 +34,6 @@
     "typescript": "^5.0.0"
   },
   "devDependencies": {
-    "prisma": "^5.0.0",
     "ts-node": "^10.9.1",
     "ts-node-dev": "^2.0.0"
   }
