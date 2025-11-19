@@ -97,16 +97,17 @@ export default function Settings() {
   const handleSeedData = async () => {
     try {
       setDevToolsStatus('Creating sample data...')
-      const result = await apiPost(`${API_BASE_URL}/admin/seed-data`, {})
+      const result = await apiPost('/admin/seed-data', {})
       setDevToolsStatus('✅ Sample data created successfully!')
+      const counts = result.results || result
       alert(
         `Sample data created successfully!\n\n` +
-        `${result.employees || 0} employees\n` +
-        `${result.projects || 0} projects\n` +
-        `${result.timesheets || 0} timesheets\n` +
-        `${result.leaveRequests || 0} leave requests\n` +
-        `${result.sponsorships || 0} sponsorships\n` +
-        `${result.users || 0} user accounts\n\n` +
+        `${counts.employees || 0} employees\n` +
+        `${counts.projects || 0} projects\n` +
+        `${counts.timesheets || 0} timesheets\n` +
+        `${counts.leaveRequests || 0} leave requests\n` +
+        `${counts.sponsorships || 0} sponsorships\n` +
+        `${counts.users || 0} user accounts\n\n` +
         `Test credentials:\n` +
         `Email: john.smith@company.com\n` +
         `Password: password123`
@@ -145,7 +146,7 @@ export default function Settings() {
     
     try {
       setDevToolsStatus('Clearing all data...')
-      const result = await apiPost(`${API_BASE_URL}/admin/clear-data`, {})
+      const result = await apiPost('/admin/clear-data', {})
       setDevToolsStatus('✅ All data cleared successfully!')
       alert(`Data cleared successfully!\n\nDeleted ${result.deleted || 0} records.`)
       setTimeout(() => setDevToolsStatus(''), 3000)

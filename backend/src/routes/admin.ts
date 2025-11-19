@@ -106,16 +106,27 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
       }
     ]
 
+    console.log('[SEED] Creating/updating employees...')
     for (const emp of employees) {
-      const created = await prisma.employee.create({ data: emp })
+      const created = await prisma.employee.upsert({
+        where: { email: emp.email },
+        update: emp,
+        create: emp
+      })
       results.employees++
+      console.log(`[SEED] Employee ${created.id}: ${emp.email}`)
       
       // Create user account for first two employees
       if (results.employees <= 2) {
         try {
           const password = await bcrypt.hash('password123', 10)
-          await prisma.user.create({
-            data: {
+          const user = await prisma.user.upsert({
+            where: { email: emp.email },
+            update: {
+              name: `${emp.firstName} ${emp.lastName}`,
+              employeeId: created.id
+            },
+            create: {
               email: emp.email,
               password,
               role: 'USER',
@@ -124,11 +135,13 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
             }
           })
           results.users++
-        } catch (e) {
-          console.log('User already exists:', emp.email)
+          console.log(`[SEED] User ${user.id}: ${emp.email}`)
+        } catch (e: any) {
+          console.log('[SEED] User upsert error:', emp.email, e.message)
         }
       }
     }
+    console.log(`[SEED] Employees created/updated: ${results.employees}, Users: ${results.users}`)
 
     // Create sample projects
     const projects = [
@@ -138,16 +151,41 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
       { code: 'API', name: 'API Integration', description: 'Third-party API integration project', active: true }
     ]
 
+    console.log('[SEED] Creating/updating projects...')
     for (const proj of projects) {
-      await prisma.project.create({ data: proj })
+      const created = await prisma.project.upsert({
+        where: { code: proj.code },
+        update: proj,
+        create: proj
+      })
       results.projects++
+      console.log(`[SEED] Project ${created.id}: ${proj.code}`)
     }
+    console.log(`[SEED] Projects created/updated: ${results.projects}`)
 
     // Get created employee and project IDs
     const empRecords = await prisma.employee.findMany({ take: 4 })
     const projRecords = await prisma.project.findMany({ take: 4 })
+    console.log(`[SEED] Found ${empRecords.length} employees and ${projRecords.length} projects`)
+
+    if (empRecords.length === 0 || projRecords.length === 0) {
+      return res.status(400).json({ error: 'No employees or projects found. Please create them first.' })
+    }
+
+    // Delete existing sample data first (timesheets, leave, sponsorships for these employees)
+    console.log('[SEED] Clearing old timesheets, leave, sponsorships...')
+    await prisma.timesheet.deleteMany({
+      where: { employeeId: { in: empRecords.map(e => e.id) } }
+    })
+    await prisma.leaveRequest.deleteMany({
+      where: { employeeId: { in: empRecords.map(e => e.id) } }
+    })
+    await prisma.sponsorship.deleteMany({
+      where: { employeeId: { in: empRecords.map(e => e.id) } }
+    })
 
     // Create sample timesheets
+    console.log('[SEED] Creating timesheets...')
     const timesheets = [
       { employeeId: empRecords[0].id, projectId: projRecords[0].id, date: new Date('2025-11-18'), hours: 8, notes: 'Working on employee module' },
       { employeeId: empRecords[0].id, projectId: projRecords[0].id, date: new Date('2025-11-19'), hours: 7.5, notes: 'Bug fixes and testing' },
@@ -159,8 +197,10 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
       await prisma.timesheet.create({ data: ts })
       results.timesheets++
     }
+    console.log(`[SEED] Timesheets created: ${results.timesheets}`)
 
     // Create sample leave requests
+    console.log('[SEED] Creating leave requests...')
     const leaveRequests = [
       { employeeId: empRecords[0].id, type: 'Annual Leave', startDate: new Date('2025-12-23'), endDate: new Date('2025-12-27'), status: 'PENDING', reason: 'Christmas holiday' },
       { employeeId: empRecords[1].id, type: 'Sick Leave', startDate: new Date('2025-11-10'), endDate: new Date('2025-11-11'), status: 'APPROVED', reason: 'Flu' }
@@ -170,17 +210,39 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
       await prisma.leaveRequest.create({ data: lr })
       results.leaveRequests++
     }
+    console.log(`[SEED] Leave requests created: ${results.leaveRequests}`)
 
     // Create sample sponsorships
+    console.log('[SEED] Creating sponsorships...')
     const sponsorships = [
-      { employeeId: empRecords[0].id, type: 'Skilled Worker', visaType: 'Tier 2', certificateNumber: 'SW12345', startDate: new Date('2023-01-01'), issueDate: new Date('2023-01-01'), expiryDate: new Date('2026-01-01'), status: 'Active', notes: 'Initial sponsorship' },
-      { employeeId: empRecords[1].id, type: 'Skilled Worker', visaType: 'Tier 2', certificateNumber: 'SW23456', startDate: new Date('2023-03-01'), issueDate: new Date('2023-03-01'), expiryDate: new Date('2025-12-15'), status: 'Active', notes: 'Expiring soon - needs renewal' }
+      { 
+        employeeId: empRecords[0].id, 
+        visaType: 'Tier 2 (Skilled Worker)', 
+        casNumber: 'CAS12345678', 
+        sponsorLicenseNumber: 'SPL123456',
+        startDate: new Date('2023-01-01'), 
+        endDate: new Date('2026-01-01'), 
+        complianceNotes: 'Initial sponsorship - all documents verified',
+        active: true
+      },
+      { 
+        employeeId: empRecords[1].id, 
+        visaType: 'Tier 2 (Skilled Worker)', 
+        casNumber: 'CAS23456789',
+        sponsorLicenseNumber: 'SPL123456', 
+        startDate: new Date('2023-03-01'), 
+        endDate: new Date('2025-12-15'), 
+        complianceNotes: 'Expiring soon - needs renewal',
+        active: true
+      }
     ]
 
     for (const sp of sponsorships) {
       await prisma.sponsorship.create({ data: sp })
       results.sponsorships++
     }
+    console.log(`[SEED] Sponsorships created: ${results.sponsorships}`)
+    console.log(`[SEED] Final results:`, results)
 
     res.json({ 
       message: 'Sample data seeded successfully', 

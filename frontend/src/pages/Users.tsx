@@ -5,7 +5,9 @@ import { HiPlus } from 'react-icons/hi'
 
 export default function Users() {
   const [items, setItems] = React.useState<any[]>([])
+  const [employees, setEmployees] = React.useState<any[]>([])
   const [showForm, setShowForm] = React.useState(false)
+  const [showEmployeeList, setShowEmployeeList] = React.useState(false)
   const [editingId, setEditingId] = React.useState<number | null>(null)
   const [newUserCredentials, setNewUserCredentials] = React.useState<{email: string, password: string} | null>(null)
   const [formData, setFormData] = React.useState({
@@ -21,8 +23,15 @@ export default function Users() {
       .catch(() => setItems([]))
   }
 
+  const loadEmployees = () => {
+    apiGet('/employees')
+      .then(setEmployees)
+      .catch(() => setEmployees([]))
+  }
+
   React.useEffect(() => {
     loadUsers()
+    loadEmployees()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,6 +89,42 @@ export default function Users() {
     setShowForm(false)
     setEditingId(null)
     setFormData({ email: '', password: '', name: '', role: 'USER' })
+  }
+
+  const handleCreateUserForEmployee = async (employee: any) => {
+    const password = prompt(`Create user account for ${employee.firstName} ${employee.lastName}\n\nEnter password (or leave blank for default "password123"):`) 
+    const finalPassword = password?.trim() || 'password123'
+    
+    if (!confirm(`Create user account for:\n\nName: ${employee.firstName} ${employee.lastName}\nEmail: ${employee.email}\nPassword: ${finalPassword}\n\nContinue?`)) {
+      return
+    }
+
+    try {
+      await apiPost('/auth/register', {
+        email: employee.email,
+        password: finalPassword,
+        name: `${employee.firstName} ${employee.lastName}`,
+        role: 'USER'
+      })
+      
+      // Link user to employee
+      const users = await apiGet('/auth/users')
+      const newUser = users.find((u: any) => u.email === employee.email)
+      if (newUser) {
+        await apiPut(`/auth/users/${newUser.id}`, {
+          email: newUser.email,
+          name: newUser.name,
+          role: newUser.role,
+          employeeId: employee.id
+        })
+      }
+
+      setNewUserCredentials({ email: employee.email, password: finalPassword })
+      loadUsers()
+      loadEmployees()
+    } catch (err: any) {
+      alert('Failed to create user: ' + (err.message || JSON.stringify(err)))
+    }
   }
 
   return (
@@ -243,6 +288,86 @@ export default function Users() {
             </div>
           </Card>
         ))}
+      </div>
+
+      {/* Employee to User Creation Section */}
+      <div className="mt-8 border-t pt-8 border-slate-200 dark:border-slate-700">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+            Employees Without User Accounts
+          </h3>
+          <button
+            onClick={() => setShowEmployeeList(!showEmployeeList)}
+            className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 flex items-center gap-2"
+          >
+            {showEmployeeList ? '▼ Hide' : '▶ Show'} Employee List
+          </button>
+        </div>
+
+        {showEmployeeList && (
+          <Card className="p-6">
+            {(() => {
+              const employeesWithoutUsers = employees.filter(emp => 
+                !items.find(user => user.email === emp.email)
+              )
+              
+              if (employeesWithoutUsers.length === 0) {
+                return (
+                  <div className="text-center py-8 text-slate-600 dark:text-slate-400">
+                    <div className="text-4xl mb-3">✓</div>
+                    <div className="text-lg font-semibold mb-1">All employees have user accounts!</div>
+                    <div className="text-sm">Every employee in the system is linked to a user account.</div>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300">ID</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Name</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Email</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Department</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Job Title</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {employeesWithoutUsers.map((employee) => (
+                        <tr key={employee.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
+                          <td className="px-4 py-3 text-sm text-slate-900 dark:text-slate-100">{employee.id}</td>
+                          <td className="px-4 py-3 text-sm text-slate-900 dark:text-slate-100 font-medium">
+                            {employee.firstName} {employee.lastName}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{employee.email}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{employee.department || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{employee.jobTitle || '-'}</td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => handleCreateUserForEmployee(employee)}
+                              className="px-4 py-2 bg-green-500 text-white rounded text-sm hover:bg-green-600 font-semibold flex items-center gap-1"
+                            >
+                              <HiPlus size={16} />
+                              Create User
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="text-sm text-blue-800 dark:text-blue-300">
+                      <strong>ℹ️ Info:</strong> Creating a user account will automatically link it to the employee record.
+                      The user will be created with role "USER" and can login with their email address.
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+          </Card>
+        )}
       </div>
     </div>
   )
