@@ -108,6 +108,33 @@ export default function Users() {
     }
   }
 
+  const handleBackup = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/backup`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+      
+      if (!response.ok) throw new Error('Backup failed')
+      
+      const data = await response.json()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `hrm-backup-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      alert('✅ Backup downloaded successfully!')
+    } catch (err: any) {
+      alert('❌ Failed to create backup: ' + (err.message || JSON.stringify(err)))
+    }
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -149,7 +176,13 @@ export default function Users() {
           <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-4">
             Use these tools to quickly populate or reset the database for testing.
           </p>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleBackup}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold"
+            >
+              💾 Download Backup
+            </button>
             <button
               onClick={handleSeedData}
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-semibold"
@@ -164,6 +197,7 @@ export default function Users() {
             </button>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-3">
+            <strong>Backup:</strong> Downloads complete database as JSON file (passwords redacted).<br/>
             <strong>Seed:</strong> Creates 4 employees, 4 projects, timesheets, leave requests, and sponsorships. Also creates 2 user accounts.<br/>
             <strong>Clear:</strong> Deletes all data except user accounts. Users will remain but be unlinked from employees.
           </p>
