@@ -3,6 +3,7 @@ import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
 import fs from 'fs/promises'
 import path from 'path'
+import bcrypt from 'bcryptjs'
 
 const router = Router()
 
@@ -48,6 +49,200 @@ router.get('/backup', requireAuth, async (req: any, res) => {
   } catch (error: any) {
     console.error('Backup error:', error)
     res.status(500).json({ error: 'Failed to create backup' })
+  }
+})
+
+// Seed sample data (employees, projects, timesheets, leave, sponsorships)
+router.post('/seed-data', requireAuth, async (req: any, res) => {
+  try {
+    // Check if user is admin
+    const userRole = req.user?.role || 'USER'
+    if (userRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'Admin access required' })
+    }
+
+    const results = {
+      employees: 0,
+      projects: 0,
+      timesheets: 0,
+      leaveRequests: 0,
+      sponsorships: 0,
+      users: 0
+    }
+
+    // Create sample employees
+    const employees = [
+      {
+        firstName: 'John', lastName: 'Smith', email: 'john.smith@company.com',
+        phoneNumber: '+44 7700 900001', niNumber: 'AB123456C', jobTitle: 'Senior Developer',
+        employeeType: 'EMPLOYEE', department: 'Engineering', startDate: new Date('2023-01-15'),
+        bankName: 'Barclays', accountNumber: '12345678', sortCode: '20-00-00',
+        emergencyContactName: 'Jane Smith', emergencyContactPhone: '+44 7700 900002',
+        emergencyContactRelation: 'Spouse', emergencyContactAddress: '123 High Street, London, SW1A 1AA'
+      },
+      {
+        firstName: 'Sarah', lastName: 'Johnson', email: 'sarah.johnson@company.com',
+        phoneNumber: '+44 7700 900003', niNumber: 'CD234567D', jobTitle: 'Product Manager',
+        employeeType: 'EMPLOYEE', department: 'Product', startDate: new Date('2023-03-20'),
+        bankName: 'HSBC', accountNumber: '23456789', sortCode: '40-00-00',
+        emergencyContactName: 'Mike Johnson', emergencyContactPhone: '+44 7700 900004',
+        emergencyContactRelation: 'Spouse', emergencyContactAddress: '456 Park Lane, Manchester, M1 1AA'
+      },
+      {
+        firstName: 'Michael', lastName: 'Brown', email: 'michael.brown@company.com',
+        phoneNumber: '+44 7700 900005', niNumber: 'EF345678E', jobTitle: 'UX Designer',
+        employeeType: 'EMPLOYEE', department: 'Design', startDate: new Date('2023-06-10'),
+        bankName: 'Lloyds', accountNumber: '34567890', sortCode: '30-00-00',
+        emergencyContactName: 'Emma Brown', emergencyContactPhone: '+44 7700 900006',
+        emergencyContactRelation: 'Partner', emergencyContactAddress: '789 Queen Street, Birmingham, B1 1AA'
+      },
+      {
+        firstName: 'Emily', lastName: 'Davis', email: 'emily.davis@company.com',
+        phoneNumber: '+44 7700 900007', niNumber: 'GH456789F', jobTitle: 'HR Manager',
+        employeeType: 'EMPLOYEE', department: 'Human Resources', startDate: new Date('2022-09-01'),
+        bankName: 'NatWest', accountNumber: '45678901', sortCode: '60-00-00',
+        emergencyContactName: 'Tom Davis', emergencyContactPhone: '+44 7700 900008',
+        emergencyContactRelation: 'Brother', emergencyContactAddress: '321 King Road, Leeds, LS1 1AA'
+      }
+    ]
+
+    for (const emp of employees) {
+      const created = await prisma.employee.create({ data: emp })
+      results.employees++
+      
+      // Create user account for first two employees
+      if (results.employees <= 2) {
+        try {
+          const password = await bcrypt.hash('password123', 10)
+          await prisma.user.create({
+            data: {
+              email: emp.email,
+              password,
+              role: 'USER',
+              name: `${emp.firstName} ${emp.lastName}`,
+              employeeId: created.id
+            }
+          })
+          results.users++
+        } catch (e) {
+          console.log('User already exists:', emp.email)
+        }
+      }
+    }
+
+    // Create sample projects
+    const projects = [
+      { code: 'HRMS', name: 'HR Management System', description: 'Internal HR system development', active: true },
+      { code: 'WEBAPP', name: 'Customer Web Portal', description: 'Public-facing customer portal', active: true },
+      { code: 'MOBILE', name: 'Mobile App Development', description: 'iOS and Android mobile applications', active: true },
+      { code: 'API', name: 'API Integration', description: 'Third-party API integration project', active: true }
+    ]
+
+    for (const proj of projects) {
+      await prisma.project.create({ data: proj })
+      results.projects++
+    }
+
+    // Get created employee and project IDs
+    const empRecords = await prisma.employee.findMany({ take: 4 })
+    const projRecords = await prisma.project.findMany({ take: 4 })
+
+    // Create sample timesheets
+    const timesheets = [
+      { employeeId: empRecords[0].id, projectId: projRecords[0].id, date: new Date('2025-11-18'), hours: 8, notes: 'Working on employee module' },
+      { employeeId: empRecords[0].id, projectId: projRecords[0].id, date: new Date('2025-11-19'), hours: 7.5, notes: 'Bug fixes and testing' },
+      { employeeId: empRecords[1].id, projectId: projRecords[1].id, date: new Date('2025-11-18'), hours: 8, notes: 'Sprint planning' },
+      { employeeId: empRecords[1].id, projectId: projRecords[1].id, date: new Date('2025-11-19'), hours: 7, notes: 'Stakeholder meetings' }
+    ]
+
+    for (const ts of timesheets) {
+      await prisma.timesheet.create({ data: ts })
+      results.timesheets++
+    }
+
+    // Create sample leave requests
+    const leaveRequests = [
+      { employeeId: empRecords[0].id, type: 'Annual Leave', startDate: new Date('2025-12-23'), endDate: new Date('2025-12-27'), status: 'PENDING', reason: 'Christmas holiday' },
+      { employeeId: empRecords[1].id, type: 'Sick Leave', startDate: new Date('2025-11-10'), endDate: new Date('2025-11-11'), status: 'APPROVED', reason: 'Flu' }
+    ]
+
+    for (const lr of leaveRequests) {
+      await prisma.leaveRequest.create({ data: lr })
+      results.leaveRequests++
+    }
+
+    // Create sample sponsorships
+    const sponsorships = [
+      { employeeId: empRecords[0].id, type: 'Skilled Worker', visaType: 'Tier 2', certificateNumber: 'SW12345', startDate: new Date('2023-01-01'), issueDate: new Date('2023-01-01'), expiryDate: new Date('2026-01-01'), status: 'Active', notes: 'Initial sponsorship' },
+      { employeeId: empRecords[1].id, type: 'Skilled Worker', visaType: 'Tier 2', certificateNumber: 'SW23456', startDate: new Date('2023-03-01'), issueDate: new Date('2023-03-01'), expiryDate: new Date('2025-12-15'), status: 'Active', notes: 'Expiring soon - needs renewal' }
+    ]
+
+    for (const sp of sponsorships) {
+      await prisma.sponsorship.create({ data: sp })
+      results.sponsorships++
+    }
+
+    res.json({ 
+      message: 'Sample data seeded successfully', 
+      results,
+      note: 'User accounts created: john.smith@company.com and sarah.johnson@company.com with password: password123'
+    })
+  } catch (error: any) {
+    console.error('Seed error:', error)
+    res.status(500).json({ error: 'Failed to seed data: ' + error.message })
+  }
+})
+
+// Clear all data EXCEPT users (dangerous!)
+router.post('/clear-data', requireAuth, async (req: any, res) => {
+  try {
+    // Check if user is admin
+    const userRole = req.user?.role || 'USER'
+    if (userRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'Admin access required' })
+    }
+
+    const results = {
+      timesheets: 0,
+      leaveRequests: 0,
+      sponsorships: 0,
+      documents: 0,
+      employees: 0,
+      projects: 0
+    }
+
+    // Delete in correct order due to foreign keys
+    const deletedTimesheets = await prisma.timesheet.deleteMany({})
+    results.timesheets = deletedTimesheets.count
+
+    const deletedLeave = await prisma.leaveRequest.deleteMany({})
+    results.leaveRequests = deletedLeave.count
+
+    const deletedSponsors = await prisma.sponsorship.deleteMany({})
+    results.sponsorships = deletedSponsors.count
+
+    const deletedDocs = await prisma.document.deleteMany({})
+    results.documents = deletedDocs.count
+
+    // Unlink users from employees before deleting employees
+    await prisma.user.updateMany({
+      where: { employeeId: { not: null } },
+      data: { employeeId: null }
+    })
+
+    const deletedEmployees = await prisma.employee.deleteMany({})
+    results.employees = deletedEmployees.count
+
+    const deletedProjects = await prisma.project.deleteMany({})
+    results.projects = deletedProjects.count
+
+    res.json({ 
+      message: 'All data cleared (users preserved)', 
+      results 
+    })
+  } catch (error: any) {
+    console.error('Clear error:', error)
+    res.status(500).json({ error: 'Failed to clear data: ' + error.message })
   }
 })
 
