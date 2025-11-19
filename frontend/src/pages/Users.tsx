@@ -8,7 +8,6 @@ export default function Users() {
   const [showForm, setShowForm] = React.useState(false)
   const [editingId, setEditingId] = React.useState<number | null>(null)
   const [newUserCredentials, setNewUserCredentials] = React.useState<{email: string, password: string} | null>(null)
-  const [showDevTools, setShowDevTools] = React.useState(false)
   const [formData, setFormData] = React.useState({
     email: '',
     password: '',
@@ -83,66 +82,10 @@ export default function Users() {
     setFormData({ email: '', password: '', name: '', role: 'USER' })
   }
 
-  const handleSeedData = async () => {
-    if (!confirm('This will create sample employees, projects, timesheets, leave requests, and sponsorships. Continue?')) return
-    
-    try {
-      const result = await apiPost('/admin/seed-data', {})
-      alert('✅ Sample data created!\n\n' + JSON.stringify(result.results, null, 2) + '\n\n' + (result.note || ''))
-      loadUsers()
-    } catch (err: any) {
-      alert('❌ Failed to seed data: ' + (err.message || JSON.stringify(err)))
-    }
-  }
-
-  const handleClearData = async () => {
-    if (!confirm('⚠️ WARNING: This will DELETE all employees, projects, timesheets, leave requests, sponsorships, and documents!\n\nUser accounts will be preserved.\n\nAre you SURE?')) return
-    if (!confirm('This action CANNOT be undone! Click OK to proceed.')) return
-    
-    try {
-      const result = await apiPost('/admin/clear-data', {})
-      alert('✅ Data cleared!\n\n' + JSON.stringify(result.results, null, 2))
-      loadUsers()
-    } catch (err: any) {
-      alert('❌ Failed to clear data: ' + (err.message || JSON.stringify(err)))
-    }
-  }
-
-  const handleBackup = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/backup`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      
-      if (!response.ok) throw new Error('Backup failed')
-      
-      const data = await response.json()
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `hrm-backup-${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      
-      alert('✅ Backup downloaded successfully!')
-    } catch (err: any) {
-      alert('❌ Failed to create backup: ' + (err.message || JSON.stringify(err)))
-    }
-  }
-
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 
-          className="text-2xl font-semibold cursor-pointer" 
-          onDoubleClick={() => setShowDevTools(!showDevTools)}
-          title="Double-click for dev tools"
-        >
+        <h2 className="text-2xl font-semibold">
           User Management
         </h2>
         <button
@@ -161,48 +104,6 @@ export default function Users() {
           <HiPlus /> {showForm ? 'Cancel' : 'Add User'}
         </button>
       </div>
-
-      {showDevTools && (
-        <div className="mb-6 p-4 border-2 border-yellow-500 rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-300">🔧 Developer Tools</h3>
-            <button 
-              onClick={() => setShowDevTools(false)}
-              className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              ✕
-            </button>
-          </div>
-          <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-4">
-            Use these tools to quickly populate or reset the database for testing.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={handleBackup}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold"
-            >
-              💾 Download Backup
-            </button>
-            <button
-              onClick={handleSeedData}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-semibold"
-            >
-              🌱 Seed Sample Data
-            </button>
-            <button
-              onClick={handleClearData}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-semibold"
-            >
-              🗑️ Clear All Data
-            </button>
-          </div>
-          <p className="text-xs text-slate-600 dark:text-slate-400 mt-3">
-            <strong>Backup:</strong> Downloads complete database as JSON file (passwords redacted).<br/>
-            <strong>Seed:</strong> Creates 4 employees, 4 projects, timesheets, leave requests, and sponsorships. Also creates 2 user accounts.<br/>
-            <strong>Clear:</strong> Deletes all data except user accounts. Users will remain but be unlinked from employees.
-          </p>
-        </div>
-      )}
 
       {newUserCredentials && (
         <div className="mb-6 p-6 border-2 border-green-500 rounded-lg bg-green-50 dark:bg-green-900/20">
