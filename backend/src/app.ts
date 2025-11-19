@@ -31,8 +31,10 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://localhost:5175',
   'http://localhost:3000',
-  // Add your Hostinger subdomain here when deploying
-  // 'https://hrm.yourdomain.com'
+  'https://6soft.co.uk',
+  'http://6soft.co.uk',
+  'https://www.6soft.co.uk',
+  'http://www.6soft.co.uk',
 ]
 
 // If FRONTEND_URL is set in environment, use it
