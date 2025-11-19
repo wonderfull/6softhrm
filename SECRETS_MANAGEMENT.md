@@ -9,6 +9,7 @@ You correctly noticed that putting database passwords and JWT secrets in files c
 ### 1. **Template Files Only in Git**
 
 **backend/.env.production** (in Git):
+
 ```env
 # This file has PLACEHOLDERS only
 JWT_SECRET=REPLACE_WITH_OUTPUT_OF_openssl_rand_base64_32
@@ -16,6 +17,7 @@ DATABASE_URL="mysql://DB_USERNAME:DB_PASSWORD@DB_HOST:3306/DB_NAME"
 ```
 
 **backend/.env** (NOT in Git - excluded by .gitignore):
+
 ```env
 # This file has REAL credentials
 JWT_SECRET=K8f2nX7pQ9mR...  # Real generated secret
@@ -25,6 +27,7 @@ DATABASE_URL="mysql://u123_hrm:RealPassword123@localhost:3306/u123_hrm"
 ### 2. **Automatic Secret Generation**
 
 The deployment script (`deploy.sh`) now:
+
 - Auto-generates JWT secret: `openssl rand -base64 32`
 - Creates `.env` file on the server (never committed to Git)
 - Secures the file with `chmod 600`
@@ -32,6 +35,7 @@ The deployment script (`deploy.sh`) now:
 ### 3. **Security Documentation**
 
 Created comprehensive guides:
+
 - **SECURITY.md** - Complete security best practices
 - **backend/ENV_README.md** - How to manage environment variables
 - Updated **DEPLOYMENT.md** - Secure deployment steps
@@ -62,12 +66,14 @@ chmod 600 backend/.env  # Secure the file
 ## What's Safe in Git
 
 ✅ **Safe to commit:**
+
 - `.env.production` - Template with placeholders
 - `.env.example` - Example configuration
 - `deploy.sh` - Auto-generates secrets (doesn't hardcode)
 - All documentation files
 
 ❌ **NEVER commit:**
+
 - `.env` - Real credentials (automatically excluded)
 - Files with actual passwords, API keys, tokens
 - Database connection strings with real passwords
@@ -111,6 +117,7 @@ DB_PASSWORD="YourDBPass"     # From Hostinger
 ```
 
 **Note:** JWT_SECRET is auto-generated - don't touch this line:
+
 ```bash
 JWT_SECRET=$(openssl rand -base64 32)  # Auto-generated ✅
 ```
@@ -125,6 +132,7 @@ chmod +x /root/deploy.sh
 ```
 
 The script will:
+
 1. Create `.env` file with real credentials
 2. Generate unique JWT secret automatically
 3. Secure the file (`chmod 600`)
@@ -154,6 +162,7 @@ curl https://hrm.yourdomain.com/.env
 ### Change Default Passwords
 
 Login to your app and immediately change:
+
 - Admin password (admin@example.com)
 - Manager password (manager@example.com)
 

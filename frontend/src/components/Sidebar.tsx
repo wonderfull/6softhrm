@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { HiHome, HiUsers, HiDocumentText, HiClock, HiOutlineSquares2X2, HiUserGroup, HiCalendar, HiFolder, HiClipboardDocumentList, HiArrowDownTray, HiShieldCheck, HiBell } from 'react-icons/hi2'
+import { HiHome, HiUsers, HiDocumentText, HiClock, HiOutlineSquares2X2, HiUserGroup, HiCalendar, HiFolder, HiClipboardDocumentList, HiArrowDownTray, HiShieldCheck, HiBell, HiCog6Tooth } from 'react-icons/hi2'
 
 const adminMenu = [
   { to: '/dashboard', label: 'Dashboard', icon: <HiHome size={18} /> },
@@ -14,6 +14,7 @@ const adminMenu = [
   { to: '/notifications', label: 'Notifications', icon: <HiBell size={18} /> },
   { to: '/audit-logs', label: 'Audit Logs', icon: <HiClipboardDocumentList size={18} /> },
   { to: '/data-export', label: 'Data Export', icon: <HiArrowDownTray size={18} /> },
+  { to: '/settings', label: 'Settings', icon: <HiCog6Tooth size={18} /> },
 ]
 
 const userMenu = [

@@ -32,6 +32,7 @@ npx prisma migrate deploy
 ```
 
 This will apply these new migrations:
+
 - `20251118215037_add_gdpr_compliance` - Adds GDPR tables
 - `20251119093200_add_document_expiry` - Adds expiry dates to documents
 - `20251119141150_add_employee_link_to_user` - Links users to employees
@@ -50,6 +51,7 @@ mysql -u <username> -p <database_name> < seed-sample-data.sql
 ```
 
 This creates:
+
 - 6 sample employees
 - 4 projects
 - Sample timesheets, leave requests, and sponsorships
@@ -57,6 +59,7 @@ This creates:
 #### Option B: Manually create initial data
 
 1. **Create Admin User** (via SQL or register endpoint):
+
 ```sql
 -- Already have users, just need to link them
 ```
@@ -64,6 +67,7 @@ This creates:
 2. **Create Employee Records** (via UI after deployment)
 
 3. **Link Users to Employees**:
+
 ```bash
 cd backend
 node tools/link-users-to-employees.js
@@ -97,10 +101,12 @@ PORT=4000
 If deploying to Render:
 
 ### Backend Service:
+
 - Build Command: `cd backend && npm install && npx prisma generate && npx prisma migrate deploy`
 - Start Command: `cd backend && npm start`
 
 ### Frontend Service:
+
 - Build Command: `cd frontend && npm install && npm run build`
 - Start Command: `cd frontend && npx serve -s dist -l 3000`
 
@@ -112,17 +118,20 @@ If deploying to Render:
 ## 8. Verify Deployment
 
 ### Check Backend Health:
+
 ```bash
 curl https://your-backend-domain.com/api/health
 ```
 
 ### Test Login:
+
 1. Go to your frontend URL
 2. Try logging in with:
    - Email: `john.smith@company.com` (if you seeded sample data)
    - Password: (the one you set during user creation)
 
 ### Check Database:
+
 ```bash
 # On production
 mysql -u user -p database -e "SELECT COUNT(*) as Users FROM User; SELECT COUNT(*) as Employees FROM Employee;"
@@ -139,6 +148,7 @@ node tools/link-users-to-employees.js
 ```
 
 This will output:
+
 ```
 Starting to link users to employees...
 Found X users without employee links
@@ -155,6 +165,7 @@ Total processed: X
 Test these features:
 
 ### As Admin:
+
 - [ ] Login works
 - [ ] Can see all employees
 - [ ] Can see all leave requests
@@ -162,6 +173,7 @@ Test these features:
 - [ ] Can approve/reject leave
 
 ### As Employee (if you have employee users):
+
 - [ ] Login works
 - [ ] Only sees own data
 - [ ] Can request leave
@@ -211,19 +223,25 @@ git push origin change_to_mysql
 ## Common Issues & Solutions
 
 ### Issue: "User account is not linked to an employee record"
+
 **Solution**: Run `node tools/link-users-to-employees.js`
 
 ### Issue: Employees see all data instead of just their own
+
 **Solution**: Check that JWT token includes `employeeId` and user has `role: 'USER'`
 
 ### Issue: Leave request button not showing
+
 **Solution**: Ensure user is linked to employee (check `user.employeeId` exists)
 
 ### Issue: Dark mode text not visible
+
 **Solution**: Check that `frontend/src/styles/tailwind.css` was deployed with dark mode CSS
 
 ### Issue: Migrations fail on production
-**Solution**: 
+
+**Solution**:
+
 1. Check DATABASE_URL is correct
 2. Ensure database user has migration permissions
 3. Check for data conflicts (unique constraints)
@@ -244,6 +262,7 @@ git push origin change_to_mysql
 ## Support
 
 If you encounter issues:
+
 1. Check application logs
 2. Verify environment variables
 3. Test database connectivity

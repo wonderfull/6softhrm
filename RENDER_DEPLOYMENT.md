@@ -34,43 +34,53 @@ Deploy your backend to Render (free tier) and frontend to Hostinger.
 Fill in these settings:
 
 **Name:**
+
 ```
 sixsoft-hrm
 ```
+
 (or any name you prefer - this will be part of your URL)
 
 **Region:**
+
 ```
 Oregon (US West)
 ```
+
 (or closest to your users)
 
 **Branch:**
+
 ```
 change_to_mysql
 ```
 
 **Root Directory:**
+
 ```
 backend
 ```
 
 **Runtime:**
+
 ```
 Node
 ```
 
 **Build Command:**
+
 ```
 npm install && npx prisma generate && npm run build
 ```
 
 **Start Command:**
+
 ```
 npm start
 ```
 
 **Instance Type:**
+
 ```
 Free
 ```
@@ -80,32 +90,39 @@ Free
 Scroll down to **Environment Variables** section, click **"Add Environment Variable"** for each:
 
 **PORT**
+
 ```
 4000
 ```
 
 **NODE_ENV**
+
 ```
 production
 ```
 
 **JWT_SECRET**
 Generate a secure secret:
+
 ```bash
 # Run this locally:
 openssl rand -base64 32
 ```
+
 Copy the output and paste it as JWT_SECRET value.
 
 **DATABASE_URL**
+
 ```
 mysql://YOUR_DB_USER:YOUR_DB_PASSWORD@YOUR_DB_HOST:3306/YOUR_DATABASE_NAME
 ```
 
 **FRONTEND_URL** (add after you know your Hostinger subdomain)
+
 ```
 https://hrm.yourdomain.com
 ```
+
 (Replace with your actual subdomain - you can update this later)
 
 ### Step 5: Create Web Service
@@ -118,6 +135,7 @@ https://hrm.yourdomain.com
 ### Step 6: Get Your Backend URL
 
 After deployment completes:
+
 1. You'll see: **"Your service is live 🎉"**
 2. Copy your URL: `https://sixsoft-hrm.onrender.com`
 3. **Save this URL** - you'll need it for the frontend
@@ -127,6 +145,7 @@ After deployment completes:
 After first deployment, you need to initialize the database:
 
 **Option A: Render Shell (Recommended)**
+
 1. In Render dashboard, click your service
 2. Click **"Shell"** tab in the top menu
 3. Run these commands:
@@ -138,6 +157,7 @@ npm run seed
 ```
 
 **Option B: Manually via Render Dashboard**
+
 1. Go to **"Manual Deploy"**
 2. Enable **"Clear build cache & deploy"**
 3. After deploy, use Shell to run seed
@@ -147,17 +167,21 @@ npm run seed
 Visit these URLs to verify:
 
 **Health Check:**
+
 ```
 https://sixsoft-hrm.onrender.com/api/health
 ```
+
 Should return: `{"ok":true}`
 
 **Test Login:**
+
 ```bash
 curl -X POST https://sixsoft-hrm.onrender.com/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@example.com","password":"password123"}'
 ```
+
 Should return a JWT token.
 
 ---
@@ -267,6 +291,7 @@ Create `.htaccess` file in `public_html/hrm/` with this content:
 ```
 
 **How to create .htaccess:**
+
 - In File Manager, click **"New File"**
 - Name it: `.htaccess`
 - Edit and paste the content above
@@ -324,6 +349,7 @@ curl https://sixsoft-hrm.onrender.com/api/health
 ### Check Browser Console
 
 Press **F12** to open Developer Tools:
+
 - **No CORS errors** ✅
 - API calls go to your Render URL
 - No 404 errors for assets
@@ -335,6 +361,7 @@ Press **F12** to open Developer Tools:
 ### CORS Error: "blocked by CORS policy"
 
 **Solution:**
+
 1. Go to Render → Your service → Environment
 2. Add or update: `FRONTEND_URL=https://hrm.yourdomain.com`
 3. Save (Render auto-redeploys)
@@ -342,6 +369,7 @@ Press **F12** to open Developer Tools:
 ### API Calls Return 404
 
 **Check:**
+
 - Frontend `.env.production` has correct URL
 - Rebuild frontend: `npm run build`
 - Re-upload `dist/` files to Hostinger
@@ -349,6 +377,7 @@ Press **F12** to open Developer Tools:
 ### 404 When Refreshing Page
 
 **Solution:**
+
 - Ensure `.htaccess` file exists in subdomain root
 - Check file permissions: 644
 - Verify mod_rewrite is enabled (Hostinger has it by default)
@@ -356,8 +385,10 @@ Press **F12** to open Developer Tools:
 ### Database Connection Failed
 
 **Check:**
+
 1. Verify DATABASE_URL in Render environment variables
 2. Test connection:
+
 ```bash
 mysql -h bea6vkgx2o9qqkhtuvww-mysql.services.clever-cloud.com \
   -u u5zqbjwcw6ccmt0v -p bea6vkgx2o9qqkhtuvww
@@ -367,6 +398,7 @@ mysql -h bea6vkgx2o9qqkhtuvww-mysql.services.clever-cloud.com \
 
 **Wait:** SSL can take 5-30 minutes to activate
 **Force HTTPS:** In `.htaccess`, add before `RewriteEngine On`:
+
 ```apache
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
@@ -378,6 +410,7 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 **First request takes 30-60 seconds to wake up**
 
 **Solutions:**
+
 1. Use https://uptimerobot.com (free) to ping every 14 minutes
 2. Upgrade to Render paid plan ($7/month) for always-on
 
@@ -390,12 +423,14 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 - **512 MB RAM**
 - **100 GB bandwidth**
 
-**Good for:** 
+**Good for:**
+
 - Small teams (5-20 users)
 - Internal tools
 - MVP/demos
 
 **Limitations:**
+
 - First request after sleep: 30-60 seconds
 - Not suitable for high-traffic public apps
 
@@ -403,13 +438,13 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 ## Cost Breakdown
 
-| Service | Cost | What For |
-|---------|------|----------|
-| Render | **FREE** | Backend API |
-| Clever Cloud | **Your plan** | MySQL Database |
-| Hostinger | **Your plan** | Frontend + Domain |
-| SSL | **FREE** | Let's Encrypt |
-| **Total New Cost** | **$0** | Complete app |
+| Service            | Cost          | What For          |
+| ------------------ | ------------- | ----------------- |
+| Render             | **FREE**      | Backend API       |
+| Clever Cloud       | **Your plan** | MySQL Database    |
+| Hostinger          | **Your plan** | Frontend + Domain |
+| SSL                | **FREE**      | Let's Encrypt     |
+| **Total New Cost** | **$0**        | Complete app      |
 
 ---
 
@@ -428,6 +463,7 @@ git push origin change_to_mysql
 Render detects changes and redeploys automatically.
 
 **Manual Deploy:**
+
 1. Render dashboard → Your service
 2. Click **"Manual Deploy"** → **"Deploy latest commit"**
 
@@ -462,6 +498,7 @@ npm run build
 ### Application Health
 
 Add monitoring with **UptimeRobot** (free):
+
 1. Sign up: https://uptimerobot.com
 2. Add monitor: `https://sixsoft-hrm.onrender.com/api/health`
 3. Interval: 5 minutes
@@ -486,10 +523,12 @@ Add monitoring with **UptimeRobot** (free):
 ### Backup Strategy
 
 **Database Backups:**
+
 - Clever Cloud provides automatic backups
 - Check your Clever Cloud dashboard for backup settings
 
 **Manual Backup:**
+
 ```bash
 # Export database
 mysqldump -h bea6vkgx2o9qqkhtuvww-mysql.services.clever-cloud.com \
@@ -505,6 +544,7 @@ mysql -h bea6vkgx2o9qqkhtuvww-mysql.services.clever-cloud.com \
 **Issue:** Render has ephemeral filesystem - uploaded files lost on redeploy
 
 **Solutions:**
+
 1. **Use Cloudinary** (free tier: 25GB, 25k transformations/month)
 2. **Use AWS S3** (pay-as-you-go, ~$0.01/GB/month)
 3. **Use Render Disk** (persistent volume, $0.25/GB/month)
@@ -524,6 +564,7 @@ For now, files stored temporarily work for testing.
 ## Summary
 
 **You now have:**
+
 - ✅ Backend API on Render (free)
 - ✅ Frontend on Hostinger subdomain
 - ✅ MySQL database on Clever Cloud
@@ -535,6 +576,7 @@ For now, files stored temporarily work for testing.
 **Access your app:** `https://hrm.yourdomain.com`
 
 **Default credentials:**
+
 - Admin: admin@example.com / password123
 - Manager: manager@example.com / password123
 

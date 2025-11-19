@@ -15,6 +15,7 @@ All deployment files have been created and committed locally:
 ### Option 1: One-Command Automated (Fastest)
 
 1. **Edit `deploy.sh`** - Update these variables:
+
    ```bash
    DOMAIN="hrm.yourdomain.com"
    SERVER_IP="123.456.789.012"
@@ -24,24 +25,27 @@ All deployment files have been created and committed locally:
    ```
 
 2. **Upload and run:**
+
    ```bash
    # Upload script to server
    scp deploy.sh root@YOUR_SERVER_IP:/root/
-   
+
    # SSH to server
    ssh root@YOUR_SERVER_IP
-   
+
    # Run it
    chmod +x /root/deploy.sh
    /root/deploy.sh
    ```
 
 3. **Configure DNS in Hostinger hPanel:**
+
    - Go to: Domains → DNS Zone Editor
    - Add A Record: `hrm` → `YOUR_SERVER_IP`
    - Wait 10-30 minutes for propagation
 
 4. **Install SSL:**
+
    ```bash
    certbot --nginx -d hrm.yourdomain.com
    ```
@@ -55,19 +59,23 @@ Open **DEPLOYMENT.md** and follow all 12 steps for full control.
 ## What You Need
 
 ### Hostinger Requirements
+
 - ✅ VPS or Cloud Hosting plan (not shared hosting)
 - ✅ SSH access to server
 - ✅ MySQL database created in hPanel
 - ✅ Domain with DNS access
 
 ### From Hostinger hPanel
+
 Get these from hPanel → Databases → MySQL:
+
 - Database name (usually: `u123456789_something`)
 - Username (usually matches DB name)
 - Password (you set this)
 - Host (usually: `localhost`)
 
 Get these from hPanel → VPS:
+
 - Server IP address
 - SSH username (usually `root`)
 - SSH password or key
@@ -75,6 +83,7 @@ Get these from hPanel → VPS:
 ## Default Login Credentials
 
 After deployment, login with:
+
 - **Admin:** admin@example.com / password123
 - **Manager:** manager@example.com / password123
 
@@ -172,6 +181,7 @@ cd ../frontend && npm install && npm run build && cp -r dist/* /var/www/hrm.your
 ## Troubleshooting
 
 ### Site not loading
+
 ```bash
 # Check Nginx
 nginx -t
@@ -183,6 +193,7 @@ dig hrm.yourdomain.com +short
 ```
 
 ### 502 Bad Gateway
+
 ```bash
 # Backend not running
 pm2 status
@@ -191,6 +202,7 @@ pm2 logs 6soft-hrm-backend --lines 50
 ```
 
 ### Database errors
+
 ```bash
 # Check connection
 mysql -u u123456789_hrm -p u123456789_hrm
@@ -205,6 +217,7 @@ npx prisma migrate deploy
 ```
 
 ### SSL certificate issues
+
 ```bash
 # Check certificate
 certbot certificates
@@ -219,6 +232,7 @@ certbot --nginx -d hrm.yourdomain.com
 ## Security Checklist
 
 After deployment:
+
 - [ ] Change admin/manager passwords
 - [ ] Verify `.env` is not accessible via web
 - [ ] Enable firewall (UFW)
@@ -239,6 +253,7 @@ After deployment:
 ## Backup Strategy
 
 Create `/root/backup-hrm.sh`:
+
 ```bash
 #!/bin/bash
 BACKUP_DIR="/root/backups/hrm"
@@ -285,6 +300,7 @@ Add to crontab: `0 2 * * * /root/backup-hrm.sh`
 ## Need Help?
 
 Check **DEPLOYMENT.md** for:
+
 - Detailed explanations of each step
 - Alternative configurations
 - Advanced security settings

@@ -5,6 +5,7 @@
 ### ⚠️ NEVER Commit Real Credentials to Git
 
 **Files that should NEVER be committed with real values:**
+
 - `.env` - Production secrets
 - `backend/.env` - Backend secrets
 - Any file with passwords, API keys, or tokens
@@ -195,11 +196,13 @@ openssl rand -base64 24
 ### 3. Rotate Secrets Regularly
 
 **JWT Secret Rotation:**
+
 - Every 90 days for production
 - After any security incident
 - When team member leaves
 
 **Database Password Rotation:**
+
 - Every 180 days
 - After suspected compromise
 
@@ -351,18 +354,20 @@ chmod 600 /root/backups/hrm/*
 ### If Secrets are Compromised
 
 1. **Immediately rotate all secrets:**
+
    ```bash
    # Generate new JWT secret
    NEW_JWT=$(openssl rand -base64 32)
-   
+
    # Update .env
    sed -i "s/JWT_SECRET=.*/JWT_SECRET=$NEW_JWT/" /var/www/6softhrm/backend/.env
-   
+
    # Restart backend
    pm2 restart 6soft-hrm-backend
    ```
 
 2. **Change database password:**
+
    ```bash
    mysql -u root -p
    ALTER USER 'hrm_user'@'localhost' IDENTIFIED BY 'NewSecurePassword';

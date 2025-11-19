@@ -11,7 +11,7 @@ The email notification system provides automated alerts for:
 ✅ **Leave Request Notifications** - Notifies managers when employees request leave  
 ✅ **Leave Approval/Rejection** - Notifies employees when their leave is approved or rejected  
 ✅ **Document Upload Notifications** - Notifies employees when new documents are uploaded  
-✅ **Welcome Emails** - Sends welcome email to new employees  
+✅ **Welcome Emails** - Sends welcome email to new employees
 
 ## Setup Instructions
 
@@ -90,6 +90,7 @@ If configuration fails, you'll see an error message with details.
 5. Check your inbox for a test email
 
 If you don't receive the test email:
+
 - Check your spam/junk folder
 - Verify SMTP credentials are correct
 - Check backend server logs for error messages
@@ -98,10 +99,12 @@ If you don't receive the test email:
 ## Automated Daily Checks
 
 The system runs an automated task **daily at 9:00 AM UK time** to check for:
+
 - Visas expiring in 30, 60, or 90 days
 - Contracts expiring in 30, 60, or 90 days
 
 Notifications are automatically sent to:
+
 - All users with ADMIN or MANAGER role
 - The affected employee
 
@@ -117,42 +120,49 @@ Admins can trigger a manual check at any time:
 ## Email Templates
 
 ### 1. Visa Expiry Alert
+
 **Trigger:** Visa expires in 30/60/90 days  
 **Recipients:** Admins, Managers, Employee  
 **Subject:** `⚠️ Visa Expiry Alert: [Employee Name]`  
 **Contains:** Employee name, visa type, expiry date, days remaining
 
 ### 2. Contract Expiry Alert
+
 **Trigger:** Contract ends in 30/60/90 days  
 **Recipients:** Admins, Managers, Employee  
 **Subject:** `⚠️ Contract Expiry Alert: [Employee Name]`  
 **Contains:** Employee name, job title, end date, days remaining
 
 ### 3. Leave Request Pending
+
 **Trigger:** Employee submits leave request  
 **Recipients:** Admins, Managers  
 **Subject:** `📋 Leave Request Pending Approval: [Employee Name]`  
 **Contains:** Employee name, leave type, start date, end date, reason
 
 ### 4. Leave Request Approved
+
 **Trigger:** Manager approves leave request  
 **Recipients:** Employee  
 **Subject:** `✅ Leave Request Approved`  
 **Contains:** Leave type, start date, end date
 
 ### 5. Leave Request Rejected
+
 **Trigger:** Manager rejects leave request  
 **Recipients:** Employee  
 **Subject:** `❌ Leave Request Rejected`  
 **Contains:** Leave type, start date, end date, rejection reason
 
 ### 6. Document Uploaded
+
 **Trigger:** Admin uploads document for employee  
 **Recipients:** Employee  
 **Subject:** `📄 New Document Available`  
 **Contains:** Document name, type, upload date
 
 ### 7. Welcome New Employee
+
 **Trigger:** New employee created  
 **Recipients:** Employee  
 **Subject:** `Welcome to the Team! 🎉`  
@@ -161,12 +171,15 @@ Admins can trigger a manual check at any time:
 ## Integration with Workflows
 
 ### Leave Requests
+
 - **Create Request:** Automatically notifies all admins/managers
 - **Approve Request:** Automatically notifies employee of approval
 - **Reject Request:** Automatically notifies employee of rejection (include reason in request body)
 
 ### Document Management
+
 - When uploading documents, call the notification endpoint:
+
 ```javascript
 POST /api/notifications/notify-document-upload
 {
@@ -177,7 +190,9 @@ POST /api/notifications/notify-document-upload
 ```
 
 ### Employee Onboarding
+
 - When creating a new employee, send welcome email:
+
 ```javascript
 // Use EmailTemplates.welcomeNewEmployee in your code
 ```
@@ -193,6 +208,7 @@ Admins can view all upcoming expiries on the **Notifications** page:
    - **📄 Contract Expiries** - Shows all contracts ending in selected period
 
 Each item displays:
+
 - Employee name and email
 - Visa type or job title
 - Expiry/end date
@@ -203,6 +219,7 @@ Each item displays:
 ### No emails are being sent
 
 **Check:**
+
 1. ✅ SMTP configuration is correct in `.env`
 2. ✅ Backend server restarted after changing `.env`
 3. ✅ Test email button works
@@ -213,6 +230,7 @@ Each item displays:
 ### Gmail App Password not working
 
 **Solutions:**
+
 1. Ensure 2FA is enabled on your Google account
 2. Generate a new App Password
 3. Use the 16-character password without spaces
@@ -222,6 +240,7 @@ Each item displays:
 ### Emails going to spam
 
 **Solutions:**
+
 1. Add sender email to your contacts
 2. Mark test email as "Not Spam"
 3. For production: Configure SPF, DKIM, and DMARC records for your domain
@@ -230,15 +249,17 @@ Each item displays:
 ### Cron job not running
 
 **Check:**
+
 1. Server is running continuously (not restarting)
 2. Backend logs show: `[CRON] Scheduled daily expiry check at 9:00 AM UK time`
 3. Server timezone is correct
 4. No errors in backend logs at 9:00 AM
 
 **Test cron job manually:**
+
 ```typescript
 // In backend/src/lib/cronJobs.ts, uncomment this line:
-checkExpiringRecords()
+checkExpiringRecords();
 ```
 
 This will run the expiry check immediately when server starts.
@@ -246,6 +267,7 @@ This will run the expiry check immediately when server starts.
 ### Missing email addresses
 
 **Emails won't be sent if:**
+
 - Employee record has no email address
 - User record has no email address
 - Email field is empty or invalid
@@ -275,6 +297,7 @@ For production, consider using:
 ### Rate Limiting
 
 Be aware of email provider limits:
+
 - **Gmail:** 500 emails/day, 100 recipients per email
 - **SendGrid Free:** 100 emails/day
 - **Mailgun Free:** 100 emails/day
@@ -294,32 +317,37 @@ To improve deliverability in production:
 
 ## Environment Variables Reference
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `SMTP_HOST` | Yes | `smtp.gmail.com` | SMTP server hostname |
-| `SMTP_PORT` | Yes | `587` | SMTP server port (587 for STARTTLS, 465 for SSL) |
-| `SMTP_SECURE` | Yes | `false` | Use SSL/TLS (true for port 465, false for port 587) |
-| `SMTP_USER` | Yes | - | Email address to send from |
-| `SMTP_PASSWORD` | Yes | - | Email password or app-specific password |
-| `SMTP_FROM_NAME` | No | `6Soft HRM` | Display name for sent emails |
+| Variable         | Required | Default          | Description                                         |
+| ---------------- | -------- | ---------------- | --------------------------------------------------- |
+| `SMTP_HOST`      | Yes      | `smtp.gmail.com` | SMTP server hostname                                |
+| `SMTP_PORT`      | Yes      | `587`            | SMTP server port (587 for STARTTLS, 465 for SSL)    |
+| `SMTP_SECURE`    | Yes      | `false`          | Use SSL/TLS (true for port 465, false for port 587) |
+| `SMTP_USER`      | Yes      | -                | Email address to send from                          |
+| `SMTP_PASSWORD`  | Yes      | -                | Email password or app-specific password             |
+| `SMTP_FROM_NAME` | No       | `6Soft HRM`      | Display name for sent emails                        |
 
 ## API Endpoints
 
 ### Check Expiries (Manual)
+
 ```
 POST /api/notifications/check-expiries
 Authorization: Bearer <token>
 ```
+
 Checks and sends notifications for expiring visas/contracts.
 
 ### Get Upcoming Expiries
+
 ```
 GET /api/notifications/upcoming-expiries?days=90
 Authorization: Bearer <token>
 ```
+
 Returns list of upcoming expiries (no emails sent).
 
 ### Test Email
+
 ```
 POST /api/notifications/test-email
 Authorization: Bearer <token>
@@ -329,9 +357,11 @@ Content-Type: application/json
   "to": "test@example.com"
 }
 ```
+
 Sends a test email to verify SMTP configuration.
 
 ### Notify Leave Request
+
 ```
 POST /api/notifications/notify-leave-request
 Authorization: Bearer <token>
@@ -341,9 +371,11 @@ Content-Type: application/json
   "leaveRequestId": 123
 }
 ```
+
 Sends leave request notification to admins/managers.
 
 ### Notify Leave Status
+
 ```
 POST /api/notifications/notify-leave-status
 Authorization: Bearer <token>
@@ -355,9 +387,11 @@ Content-Type: application/json
   "reason": "Optional rejection reason"
 }
 ```
+
 Sends leave approval/rejection notification to employee.
 
 ### Notify Document Upload
+
 ```
 POST /api/notifications/notify-document-upload
 Authorization: Bearer <token>
@@ -369,11 +403,13 @@ Content-Type: application/json
   "documentType": "CONTRACT"
 }
 ```
+
 Sends document upload notification to employee.
 
 ## Support
 
 For issues or questions:
+
 1. Check backend server logs for error messages
 2. Review this documentation
 3. Test with the "Test Email" button
@@ -383,6 +419,7 @@ For issues or questions:
 ## Compliance Notes
 
 This notification system supports UK GDPR compliance by:
+
 - ✅ Providing automated reminders for visa and contract renewals
 - ✅ Maintaining audit trail of notifications (check backend logs)
 - ✅ Using secure email protocols (TLS/SSL)

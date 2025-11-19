@@ -15,6 +15,7 @@ This directory contains configuration files for deploying 6soft HRM to Hostinger
 ### Option 1: Automated Deployment (Recommended)
 
 1. **Edit `deploy.sh`** with your details:
+
    ```bash
    DOMAIN="hrm.yourdomain.com"
    SERVER_IP="YOUR_SERVER_IP"
@@ -24,19 +25,21 @@ This directory contains configuration files for deploying 6soft HRM to Hostinger
    ```
 
 2. **Upload to server and run:**
+
    ```bash
    # On your local machine
    scp deploy.sh root@YOUR_SERVER_IP:/root/
-   
+
    # SSH to server
    ssh root@YOUR_SERVER_IP
-   
+
    # Run deployment script
    chmod +x /root/deploy.sh
    /root/deploy.sh
    ```
 
 3. **Configure DNS** (Hostinger hPanel):
+
    - Add A record: `hrm` → `YOUR_SERVER_IP`
    - Wait 5-30 minutes for propagation
 

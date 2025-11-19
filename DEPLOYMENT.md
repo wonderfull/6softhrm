@@ -5,12 +5,14 @@ This guide explains how to deploy 6soft HRM as a subdomain on Hostinger (e.g., `
 ## Prerequisites
 
 ### Required
+
 - **Hostinger VPS** or **Cloud Hosting** plan (with SSH access)
 - Domain name managed in Hostinger
 - MySQL database (Hostinger provides this)
 - Basic command line knowledge
 
 ### What You'll Get
+
 - Frontend: `https://hrm.yourdomain.com`
 - Backend API: `https://hrm.yourdomain.com/api`
 - SSL certificate (free via Let's Encrypt)
@@ -21,7 +23,9 @@ This guide explains how to deploy 6soft HRM as a subdomain on Hostinger (e.g., `
 ## Step 1: Server Access & Prerequisites
 
 ### 1.1 Get Your Hostinger VPS/Cloud Details
+
 From Hostinger hPanel:
+
 - Go to **VPS** → Select your server → **SSH Access**
 - Note down:
   - Server IP: `___.___.___.___`
@@ -29,7 +33,9 @@ From Hostinger hPanel:
   - SSH Password or use SSH keys
 
 ### 1.2 Get MySQL Database Details
+
 From Hostinger hPanel:
+
 - Go to **Databases** → **MySQL Databases**
 - Create a new database:
   - Database name: `u123456789_hrm` (or similar)
@@ -139,6 +145,7 @@ DATABASE_URL="mysql://u123456789_hrm:YOUR_DB_PASSWORD@localhost:3306/u123456789_
 ```
 
 **Generate secure JWT secret:**
+
 ```bash
 openssl rand -base64 32
 ```
@@ -146,6 +153,7 @@ openssl rand -base64 32
 Copy the output and use it as JWT_SECRET.
 
 **Important Security Notes:**
+
 - The `.env` file is automatically excluded from Git
 - Never share or commit real credentials
 - Use unique secrets for each environment (dev/staging/prod)
@@ -154,6 +162,7 @@ Copy the output and use it as JWT_SECRET.
 Save and exit (Ctrl+X, then Y, then Enter).
 
 **Secure the file:**
+
 ```bash
 chmod 600 .env
 chown root:root .env
@@ -179,6 +188,7 @@ npm run seed
 ```
 
 You should see:
+
 ```
 ✅ Seed completed successfully!
    - Users: 1, 2
@@ -187,6 +197,7 @@ You should see:
 ```
 
 **Default Login Credentials:**
+
 - Admin: `admin@example.com` / `password123`
 - Manager: `manager@example.com` / `password123`
 
@@ -249,6 +260,7 @@ pm2 logs 6soft-hrm-backend --lines 50
 ```
 
 **Useful PM2 Commands:**
+
 ```bash
 pm2 list                        # List all processes
 pm2 logs 6soft-hrm-backend      # View logs
@@ -380,6 +392,7 @@ certbot --nginx -d hrm.yourdomain.com
 ```
 
 Certbot will automatically:
+
 - Obtain SSL certificate from Let's Encrypt
 - Update Nginx configuration
 - Setup auto-renewal
@@ -483,6 +496,7 @@ crontab -e
 ```
 
 Add this line:
+
 ```
 0 2 * * * /root/backup-hrm.sh >> /var/log/hrm-backup.log 2>&1
 ```

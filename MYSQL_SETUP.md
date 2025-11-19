@@ -1,7 +1,9 @@
 # MySQL Setup Instructions
 
 ## Prerequisites
+
 1. Install MySQL Server (8.0 or higher recommended)
+
    - macOS: `brew install mysql`
    - Ubuntu/Debian: `sudo apt install mysql-server`
    - Windows: Download from https://dev.mysql.com/downloads/mysql/
@@ -14,6 +16,7 @@
 ## Database Setup
 
 ### Step 1: Create the Database
+
 Login to MySQL and create the database:
 
 ```bash
@@ -39,6 +42,7 @@ EXIT;
 ```
 
 ### Step 2: Update .env File
+
 Edit `backend/.env` and update the DATABASE_URL:
 
 ```env
@@ -52,6 +56,7 @@ DATABASE_URL="mysql://hrm_user:your_secure_password@localhost:3306/sixsoft_hrm"
 **Important:** Replace `your_root_password` or `your_secure_password` with your actual MySQL password.
 
 ### Step 3: Run Prisma Migrations
+
 ```bash
 cd backend
 npx prisma migrate dev --name init
@@ -59,17 +64,20 @@ npx prisma generate
 ```
 
 ### Step 4: Seed the Database (Optional)
+
 ```bash
 cd backend
 npm run seed
 ```
 
 This will create:
+
 - Admin user: `admin@example.com` / `password123`
 - Regular user: `user@example.com` / `password123`
 - Sample employees and data
 
 ### Step 5: Start the Application
+
 ```bash
 # From project root
 npm run dev:all
@@ -85,11 +93,14 @@ cd frontend && npm run dev
 ## Troubleshooting
 
 ### Connection Issues
+
 1. **Can't connect to MySQL server:**
+
    - Verify MySQL is running: `mysql.server status` (macOS) or `sudo systemctl status mysql` (Linux)
    - Check if MySQL is listening on port 3306: `netstat -an | grep 3306`
 
 2. **Access denied for user:**
+
    - Check username and password in DATABASE_URL
    - Verify user has permissions: Login to MySQL and run `SHOW GRANTS FOR 'your_user'@'localhost';`
 
@@ -97,6 +108,7 @@ cd frontend && npm run dev
    - Create it manually using the SQL commands above
 
 ### Reset Database
+
 If you need to reset the database:
 
 ```bash
@@ -120,11 +132,13 @@ Your SQLite data has been backed up to `dev.db.sqlite-backup-*` files.
 To migrate data from SQLite to MySQL, you can:
 
 1. **Export SQLite data:**
+
    ```bash
    sqlite3 dev.db.sqlite-backup-YYYYMMDD-HHMMSS .dump > sqlite_dump.sql
    ```
 
 2. **Convert and import to MySQL:**
+
    - Manual approach: Export data as CSV from SQLite and import to MySQL
    - Or use a migration tool like `prisma db push` after setting up both connections
 
@@ -137,14 +151,16 @@ To migrate data from SQLite to MySQL, you can:
 
 1. **Enable Query Logging (Development):**
    Add to `backend/src/prismaClient.ts`:
+
    ```typescript
    export const prisma = new PrismaClient({
      log: ['query', 'info', 'warn', 'error'],
-   })
+   });
    ```
 
 2. **Connection Pooling:**
    MySQL connection string supports pool settings:
+
    ```
    DATABASE_URL="mysql://user:pass@localhost:3306/sixsoft_hrm?connection_limit=10"
    ```
