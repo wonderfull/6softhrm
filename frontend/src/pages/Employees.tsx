@@ -1,5 +1,5 @@
 import React from 'react'
-import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api'
+import { apiGet, apiPost, apiPut, apiDelete, API_BASE_URL } from '../lib/api'
 import Card from '../components/Card'
 import { HiPlus } from 'react-icons/hi'
 
@@ -159,41 +159,78 @@ export default function Employees() {
   const isAdmin = userRole === 'ADMIN' || userRole === 'MANAGER'
   const pageTitle = isAdmin ? 'Employees' : 'My Profile'
 
+  async function handleExportExcel() {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/employees/export/excel`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error('Export failed')
+      }
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `employees-${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (err: any) {
+      alert('Export failed: ' + err.message)
+    }
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">{pageTitle}</h2>
-        {isAdmin && <button
-          onClick={() => {
-            if (showForm && !editingId) {
-              setShowForm(false);
-            } else {
-              setEditingId(null);
-              setFormData({
-                firstName: '',
-                lastName: '',
-                email: '',
-                phoneNumber: '',
-                jobTitle: '',
-                employeeType: 'EMPLOYEE',
-                department: '',
-                niNumber: '',
-                startDate: '',
-                bankName: '',
-                accountNumber: '',
-                sortCode: '',
-                emergencyContactName: '',
-                emergencyContactPhone: '',
-                emergencyContactRelation: '',
-                emergencyContactAddress: ''
-              });
-              setShowForm(true);
-            }
-          }}
-          className="btn-primary"
-        >
-          <HiPlus /> {showForm ? 'Cancel' : 'Add Employee'}
-        </button>}
+        <div className="flex gap-2">
+          <button
+            onClick={handleExportExcel}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
+            📊 Export to Excel
+          </button>
+          {isAdmin && (
+            <button
+              onClick={() => {
+                if (showForm && !editingId) {
+                  setShowForm(false);
+                } else {
+                  setEditingId(null);
+                  setFormData({
+                    firstName: '',
+                    lastName: '',
+                    email: '',
+                    phoneNumber: '',
+                    jobTitle: '',
+                    employeeType: 'EMPLOYEE',
+                    department: '',
+                    niNumber: '',
+                    startDate: '',
+                    bankName: '',
+                    accountNumber: '',
+                    sortCode: '',
+                    emergencyContactName: '',
+                    emergencyContactPhone: '',
+                    emergencyContactRelation: '',
+                    emergencyContactAddress: ''
+                  });
+                  setShowForm(true);
+                }
+              }}
+              className="btn-primary"
+            >
+              <HiPlus /> {showForm ? 'Cancel' : 'Add Employee'}
+            </button>
+          )}
+        </div>
       </div>
 
       {showForm && (
@@ -255,13 +292,17 @@ export default function Employees() {
               placeholder="NI Number (UK)"
               className="form-input"
             />
-            <input
-              value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              placeholder="Start Date"
-              type="date"
-              className="form-input"
-            />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Employment Start Date
+              </label>
+              <input
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                type="date"
+                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              />
+            </div>
 
             {/* Bank Details Section */}
             <div className="col-span-2 mt-4 mb-2">
@@ -331,40 +372,99 @@ export default function Employees() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredItems.map((e) => (
-          <Card key={e.id} className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <div className="font-bold">{e.firstName} {e.lastName}</div>
-                  {e.employeeType === 'DIRECTOR' && (
-                    <span className="px-2 py-1 text-xs bg-purple-500 text-white rounded">Director</span>
+      {/* Employee Profile View - Full Details */}
+      {!isAdmin && filteredItems.length > 0 && (
+        <Card className="p-6 max-w-4xl">
+          {filteredItems.map((e) => (
+            <div key={e.id}>
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold">{e.firstName} {e.lastName}</h3>
+                  <p className="text-slate-600 dark:text-slate-400">{e.jobTitle}</p>
+                </div>
+                <button
+                  onClick={() => handleEdit(e)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  Update Profile
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Personal Information */}
+                <div>
+                  <h4 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300">Personal Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <div><span className="font-medium">Email:</span> {e.email}</div>
+                    <div><span className="font-medium">Phone:</span> {e.phoneNumber || 'Not provided'}</div>
+                    <div><span className="font-medium">Department:</span> {e.department || 'Not assigned'}</div>
+                    <div><span className="font-medium">Employee Type:</span> {e.employeeType}</div>
+                    <div><span className="font-medium">NI Number:</span> {e.niNumber || 'Not provided'}</div>
+                    <div><span className="font-medium">Start Date:</span> {e.startDate ? new Date(e.startDate).toLocaleDateString() : 'Not set'}</div>
+                  </div>
+                </div>
+
+                {/* Bank Details */}
+                <div>
+                  <h4 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300">Bank Details</h4>
+                  <div className="space-y-2 text-sm">
+                    <div><span className="font-medium">Bank Name:</span> {e.bankName || 'Not provided'}</div>
+                    <div><span className="font-medium">Account Number:</span> {e.accountNumber ? '****' + e.accountNumber.slice(-4) : 'Not provided'}</div>
+                    <div><span className="font-medium">Sort Code:</span> {e.sortCode || 'Not provided'}</div>
+                  </div>
+                </div>
+
+                {/* Emergency Contact */}
+                <div className="md:col-span-2">
+                  <h4 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300">Emergency Contact</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div><span className="font-medium">Name:</span> {e.emergencyContactName || 'Not provided'}</div>
+                    <div><span className="font-medium">Phone:</span> {e.emergencyContactPhone || 'Not provided'}</div>
+                    <div><span className="font-medium">Relationship:</span> {e.emergencyContactRelation || 'Not provided'}</div>
+                    <div><span className="font-medium">Address:</span> {e.emergencyContactAddress || 'Not provided'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {/* Admin Grid View */}
+      {isAdmin && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredItems.map((e) => (
+            <Card key={e.id} className="p-4">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="font-bold">{e.firstName} {e.lastName}</div>
+                    {e.employeeType === 'DIRECTOR' && (
+                      <span className="px-2 py-1 text-xs bg-purple-500 text-white rounded">Director</span>
+                    )}
+                  </div>
+                  <div className="text-sm">{e.jobTitle} — {e.email}</div>
+                  {e.department && <div className="text-sm text-slate-600 dark:text-slate-400">Department: {e.department}</div>}
+                  {e.niNumber && <div className="text-sm text-slate-600 dark:text-slate-400">NI: {e.niNumber}</div>}
+                  
+                  {/* Bank Details Preview */}
+                  {e.bankName && (
+                    <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
+                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Bank Details</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">{e.bankName}</div>
+                      {e.sortCode && <div className="text-xs text-slate-500 dark:text-slate-500">Sort: {e.sortCode}</div>}
+                    </div>
+                  )}
+                  
+                  {/* Emergency Contact Preview */}
+                  {e.emergencyContactName && (
+                    <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
+                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Emergency Contact</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">{e.emergencyContactName}</div>
+                      {e.emergencyContactPhone && <div className="text-xs text-slate-500 dark:text-slate-500">{e.emergencyContactPhone}</div>}
+                    </div>
                   )}
                 </div>
-                <div className="text-sm">{e.jobTitle} — {e.email}</div>
-                {e.department && <div className="text-sm text-slate-600 dark:text-slate-400">Department: {e.department}</div>}
-                {e.niNumber && <div className="text-sm text-slate-600 dark:text-slate-400">NI: {e.niNumber}</div>}
-                
-                {/* Bank Details Preview */}
-                {e.bankName && (
-                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
-                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Bank Details</div>
-                    <div className="text-sm text-slate-600 dark:text-slate-400">{e.bankName}</div>
-                    {e.sortCode && <div className="text-xs text-slate-500 dark:text-slate-500">Sort: {e.sortCode}</div>}
-                  </div>
-                )}
-                
-                {/* Emergency Contact Preview */}
-                {e.emergencyContactName && (
-                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
-                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Emergency Contact</div>
-                    <div className="text-sm text-slate-600 dark:text-slate-400">{e.emergencyContactName}</div>
-                    {e.emergencyContactPhone && <div className="text-xs text-slate-500 dark:text-slate-500">{e.emergencyContactPhone}</div>}
-                  </div>
-                )}
-              </div>
-              {isAdmin && (
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleEdit(e)}
@@ -379,11 +479,11 @@ export default function Employees() {
                     Delete
                   </button>
                 </div>
-              )}
-            </div>
-          </Card>
-        ))}
-      </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -24,6 +24,18 @@ body { @apply bg-gradient-to-br from-primary-50 to-white text-slate-900; font-fa
 	@apply w-full px-4 py-3 border-2 border-slate-300 rounded-lg bg-white text-slate-900 focus:border-primary-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 dark:focus:border-primary-600 transition-colors;
 }
 
+/* Ensure all form elements have proper text colors in dark mode */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+	color: rgb(226 232 240); /* slate-200 */
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+	color: rgb(148 163 184); /* slate-400 */
+}
+
 /* Make sure native date picker calendar icon is visible and clickable */
 input[type="date"].form-input {
 	padding-right: 2.5rem;

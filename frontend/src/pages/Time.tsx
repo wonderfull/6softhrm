@@ -8,6 +8,7 @@ export default function Time() {
   const [selectedEmployee, setSelectedEmployee] = React.useState<string>('')
   const [selectedProject, setSelectedProject] = React.useState<string>('')
   const [currentWeek, setCurrentWeek] = React.useState(new Date())
+  const [viewMode, setViewMode] = React.useState<'week' | 'month'>('week')
   const [showForm, setShowForm] = React.useState(false)
   const [showQuickAdd, setShowQuickAdd] = React.useState(false)
   const [editingId, setEditingId] = React.useState<number | null>(null)
@@ -176,10 +177,6 @@ export default function Time() {
     setShowForm(true)
   }
 
-  const filteredEmployees = selectedEmployee 
-    ? employees.filter(e => e.id.toString() === selectedEmployee)
-    : employees
-
   const previousWeek = () => {
     const d = new Date(currentWeek)
     d.setDate(d.getDate() - 7)
@@ -202,62 +199,142 @@ export default function Time() {
     return `${month} ${day}`
   }
 
+  // Monthly view functions
+  const getMonthDays = (date: Date) => {
+    const year = date.getFullYear()
+    const month = date.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const days = []
+    
+    for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d))
+    }
+    return days
+  }
+
+  const previousMonth = () => {
+    const d = new Date(currentWeek)
+    d.setMonth(d.getMonth() - 1)
+    setCurrentWeek(d)
+  }
+
+  const nextMonth = () => {
+    const d = new Date(currentWeek)
+    d.setMonth(d.getMonth() + 1)
+    setCurrentWeek(d)
+  }
+
+  const thisMonth = () => {
+    setCurrentWeek(new Date())
+  }
+
+  const formatMonth = (date: Date) => {
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+  }
+
+  const getTotalHoursForMonth = (employeeId: number) => {
+    const monthDays = getMonthDays(currentWeek)
+    return monthDays.reduce((total, day) => {
+      return total + getTotalHoursForDate(employeeId, day)
+    }, 0)
+  }
+
+  // Filter employees based on selection
+  const filteredEmployees = React.useMemo(() => {
+    if (selectedEmployee) {
+      return employees.filter(emp => emp.id.toString() === selectedEmployee)
+    }
+    return employees
+  }, [employees, selectedEmployee])
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-semibold">Timesheets</h2>
-        <button
-          onClick={() => { setEditingId(null); setShowForm(!showForm); }}
-          className="btn-primary"
-        >
-          {showForm ? 'Cancel' : '+ Add Entry'}
-        </button>
+        <div className="flex gap-2">
+          <div className="flex rounded-lg border border-slate-300 dark:border-slate-600 overflow-hidden">
+            <button
+              onClick={() => setViewMode('week')}
+              className={`px-4 py-2 ${viewMode === 'week' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
+            >
+              Weekly
+            </button>
+            <button
+              onClick={() => setViewMode('month')}
+              className={`px-4 py-2 ${viewMode === 'month' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
+            >
+              Monthly
+            </button>
+          </div>
+          <button
+            onClick={() => { setEditingId(null); setShowForm(!showForm); }}
+            className="btn-primary"
+          >
+            {showForm ? 'Cancel' : '+ Add Entry'}
+          </button>
+        </div>
       </div>
 
       {showQuickAdd && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Add Time Entry</h3>
-            <div className="space-y-3">
-              <select
-                value={formData.projectId}
-                onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-                className="form-input w-full"
-              >
-                <option value="">Select Project *</option>
-                {projects.map(proj => (
-                  <option key={proj.id} value={proj.id}>
-                    {proj.code} - {proj.name}
-                  </option>
-                ))}
-              </select>
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl max-w-md w-full border border-slate-300 dark:border-slate-600">
+            <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">Add Time Entry</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Project (Optional)
+                </label>
+                <select
+                  value={formData.projectId}
+                  onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                  className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                >
+                  <option value="">No Project</option>
+                  {projects.map(proj => (
+                    <option key={proj.id} value={proj.id}>
+                      {proj.code} - {proj.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               
-              <input
-                value={formData.hours}
-                onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
-                type="number"
-                step="0.5"
-                placeholder="Hours"
-                className="form-input w-full"
-              />
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Hours *
+                </label>
+                <input
+                  value={formData.hours}
+                  onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
+                  type="number"
+                  step="0.5"
+                  placeholder="8"
+                  className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                />
+              </div>
               
-              <input
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Notes (optional)"
-                className="form-input w-full"
-              />
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Notes (Optional)
+                </label>
+                <input
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Add any notes..."
+                  className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                />
+              </div>
               
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-2">
                 <button
                   onClick={submitQuickAdd}
-                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 font-medium"
                 >
                   Add Entry
                 </button>
                 <button
                   onClick={() => setShowQuickAdd(false)}
-                  className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                  className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 font-medium"
                 >
                   Cancel
                 </button>
@@ -268,60 +345,85 @@ export default function Time() {
       )}
 
       {showForm && (
-        <div className="mb-6 p-4 border rounded bg-slate-50 dark:bg-slate-800">
-          <h3 className="text-lg font-semibold mb-3">{editingId ? 'Edit Entry' : 'New Entry'}</h3>
+        <div className="mb-6 p-4 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800">
+          <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">{editingId ? 'Edit Entry' : 'New Entry'}</h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-            <select
-              value={formData.employeeId}
-              onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-              required
-              className="form-input"
-            >
-              <option value="">Select Employee *</option>
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.firstName} {emp.lastName}
-                </option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Employee *
+              </label>
+              <select
+                value={formData.employeeId}
+                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                required
+                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              >
+                <option value="">Select Employee</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.firstName} {emp.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
             
-            <select
-              value={formData.projectId}
-              onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-              className="form-input"
-            >
-              <option value="">No Project</option>
-              {projects.map(proj => (
-                <option key={proj.id} value={proj.id}>
-                  {proj.code} - {proj.name}
-                </option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Project (Optional)
+              </label>
+              <select
+                value={formData.projectId}
+                onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              >
+                <option value="">No Project</option>
+                {projects.map(proj => (
+                  <option key={proj.id} value={proj.id}>
+                    {proj.code} - {proj.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             
-            <input
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              type="date"
-              required
-              className="form-input"
-            />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Date *
+              </label>
+              <input
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                type="date"
+                required
+                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              />
+            </div>
             
-            <input
-              value={formData.hours}
-              onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
-              type="number"
-              step="0.5"
-              placeholder="Hours (default: 8)"
-              required
-              className="form-input"
-            />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Hours *
+              </label>
+              <input
+                value={formData.hours}
+                onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
+                type="number"
+                step="0.5"
+                placeholder="8"
+                required
+                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              />
+            </div>
             
-            <input
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Notes"
-              className="form-input"
-            />
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Notes (Optional)
+              </label>
+              <input
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Add any notes..."
+                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              />
+            </div>
 
             <div className="col-span-2 flex gap-2">
               <button type="submit" className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
@@ -337,51 +439,73 @@ export default function Time() {
         </div>
       )}
 
-      {/* Week Navigation */}
-      <div className="flex justify-between items-center mb-4 p-3 bg-slate-100 dark:bg-slate-800 rounded">
-        <button onClick={previousWeek} className="px-3 py-1 bg-slate-300 dark:bg-slate-600 rounded hover:bg-slate-400">
+      {/* Week/Month Navigation */}
+      <div className="flex justify-between items-center mb-4 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
+        <button 
+          onClick={viewMode === 'week' ? previousWeek : previousMonth} 
+          className="px-4 py-2 bg-slate-300 dark:bg-slate-600 text-slate-900 dark:text-white rounded hover:bg-slate-400 dark:hover:bg-slate-500 font-medium"
+        >
           ← Previous
         </button>
         <div className="flex gap-2 items-center">
-          <span className="font-semibold">
-            {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
+          <span className="font-semibold text-slate-900 dark:text-white">
+            {viewMode === 'week' 
+              ? `${formatDate(weekDays[0])} - ${formatDate(weekDays[6])}`
+              : formatMonth(currentWeek)
+            }
           </span>
-          <button onClick={thisWeek} className="btn-ghost text-sm">
-            This Week
+          <button 
+            onClick={viewMode === 'week' ? thisWeek : thisMonth} 
+            className="btn-ghost text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            {viewMode === 'week' ? 'This Week' : 'This Month'}
           </button>
         </div>
-        <button onClick={nextWeek} className="px-3 py-1 bg-slate-300 dark:bg-slate-600 rounded hover:bg-slate-400">
+        <button 
+          onClick={viewMode === 'week' ? nextWeek : nextMonth} 
+          className="px-4 py-2 bg-slate-300 dark:bg-slate-600 text-slate-900 dark:text-white rounded hover:bg-slate-400 dark:hover:bg-slate-500 font-medium"
+        >
           Next →
         </button>
       </div>
 
       {/* Filters */}
-      <div className="mb-4 flex gap-4">
-        <select
-          value={selectedEmployee}
-          onChange={(e) => setSelectedEmployee(e.target.value)}
-          className="form-input"
-        >
-          <option value="">All Employees</option>
-          {employees.map(emp => (
-            <option key={emp.id} value={emp.id}>
-              {emp.firstName} {emp.lastName}
-            </option>
-          ))}
-        </select>
+      <div className="mb-4 grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Filter by Employee
+          </label>
+          <select
+            value={selectedEmployee}
+            onChange={(e) => setSelectedEmployee(e.target.value)}
+            className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+          >
+            <option value="">All Employees</option>
+            {employees.map(emp => (
+              <option key={emp.id} value={emp.id}>
+                {emp.firstName} {emp.lastName}
+              </option>
+            ))}
+          </select>
+        </div>
         
-        <select
-          value={selectedProject}
-          onChange={(e) => setSelectedProject(e.target.value)}
-          className="form-input"
-        >
-          <option value="">All Projects</option>
-          {projects.map(proj => (
-            <option key={proj.id} value={proj.id}>
-              {proj.code} - {proj.name}
-            </option>
-          ))}
-        </select>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Filter by Project
+          </label>
+          <select
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+          >
+            <option value="">All Projects</option>
+            {projects.map(proj => (
+              <option key={proj.id} value={proj.id}>
+                {proj.code} - {proj.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Weekly Timesheet Grid */}
@@ -458,8 +582,90 @@ export default function Time() {
         </table>
       </div>
 
+      {/* Monthly View */}
+      {viewMode === 'month' && (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="bg-slate-200 dark:bg-slate-700">
+                <th className="border border-slate-300 dark:border-slate-600 p-2 text-left text-slate-900 dark:text-white">Employee</th>
+                {getMonthDays(currentWeek).map((day, i) => (
+                  <th key={i} className="border border-slate-300 dark:border-slate-600 p-1 text-center min-w-[80px] text-slate-900 dark:text-white">
+                    <div className="text-xs">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                    <div className="font-bold">{day.getDate()}</div>
+                  </th>
+                ))}
+                <th className="border border-slate-300 dark:border-slate-600 p-2 text-center text-slate-900 dark:text-white">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEmployees.map(emp => {
+                const monthDays = getMonthDays(currentWeek)
+                const monthHours = getTotalHoursForMonth(emp.id)
+                
+                return (
+                  <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
+                    <td className="border border-slate-300 dark:border-slate-600 p-2 font-medium text-slate-900 dark:text-white sticky left-0 bg-white dark:bg-slate-900">
+                      {emp.firstName} {emp.lastName}
+                    </td>
+                    {monthDays.map((day, i) => {
+                      const timesheets = getTimesheetsForDate(emp.id, day)
+                      const totalHours = getTotalHoursForDate(emp.id, day)
+                      const isWeekend = day.getDay() === 0 || day.getDay() === 6
+                      
+                      return (
+                        <td 
+                          key={i} 
+                          className={`border border-slate-300 dark:border-slate-600 p-1 text-center cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900 ${isWeekend ? 'bg-slate-100 dark:bg-slate-800' : ''}`}
+                          onClick={() => handleQuickAdd(emp.id, day)}
+                        >
+                          {timesheets.length > 0 ? (
+                            <div className="space-y-1">
+                              {timesheets.map((ts) => (
+                                <div key={ts.id} className="group relative bg-slate-50 dark:bg-slate-700 rounded p-1">
+                                  <div className="font-semibold text-green-600 dark:text-green-400 text-xs">{ts.hours}h</div>
+                                  {ts.project && <div className="text-xs text-blue-600 dark:text-blue-400">{ts.project.code}</div>}
+                                  <div className="absolute hidden group-hover:flex gap-1 top-0 right-0 p-1 bg-white dark:bg-slate-800 rounded shadow z-10">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleEdit(ts); }}
+                                      className="px-1 py-0.5 bg-blue-500 text-white text-xs rounded"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDelete(ts.id); }}
+                                      className="px-1 py-0.5 bg-red-500 text-white text-xs rounded"
+                                    >
+                                      Del
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                              {timesheets.length > 1 && (
+                                <div className="text-xs font-bold text-slate-600 dark:text-slate-400 border-t pt-1">
+                                  {totalHours}h
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-slate-300 dark:text-slate-600 text-xs">+</div>
+                          )}
+                        </td>
+                      )
+                    })}
+                    <td className="border border-slate-300 dark:border-slate-600 p-2 text-center font-bold text-green-600 dark:text-green-400 sticky right-0 bg-white dark:bg-slate-900">
+                      {monthHours}h
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {filteredEmployees.length === 0 && (
-        <div className="text-center text-slate-500 p-8">
+        <div className="text-center text-slate-500 dark:text-slate-400 p-8">
           No employees found. Add employees first.
         </div>
       )}

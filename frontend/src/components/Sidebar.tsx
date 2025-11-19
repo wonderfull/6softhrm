@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { HiHome, HiUsers, HiDocumentText, HiClock, HiOutlineSquares2X2, HiUserGroup, HiCalendar, HiFolder } from 'react-icons/hi2'
+import { HiHome, HiUsers, HiDocumentText, HiClock, HiOutlineSquares2X2, HiUserGroup, HiCalendar, HiFolder, HiClipboardDocumentList, HiArrowDownTray, HiShieldCheck, HiBell } from 'react-icons/hi2'
 
 const adminMenu = [
   { to: '/dashboard', label: 'Dashboard', icon: <HiHome size={18} /> },
@@ -11,6 +11,9 @@ const adminMenu = [
   { to: '/projects', label: 'Projects', icon: <HiOutlineSquares2X2 size={18} /> },
   { to: '/leave', label: 'Leave', icon: <HiCalendar size={18} /> },
   { to: '/documents', label: 'Documents', icon: <HiFolder size={18} /> },
+  { to: '/notifications', label: 'Notifications', icon: <HiBell size={18} /> },
+  { to: '/audit-logs', label: 'Audit Logs', icon: <HiClipboardDocumentList size={18} /> },
+  { to: '/data-export', label: 'Data Export', icon: <HiArrowDownTray size={18} /> },
 ]
 
 const userMenu = [
@@ -19,6 +22,7 @@ const userMenu = [
   { to: '/time', label: 'Timesheet', icon: <HiClock size={18} /> },
   { to: '/leave', label: 'Leave Requests', icon: <HiCalendar size={18} /> },
   { to: '/documents', label: 'My Documents', icon: <HiFolder size={18} /> },
+  { to: '/consent', label: 'My Consent', icon: <HiShieldCheck size={18} /> },
 ]
 
 export default function Sidebar() {

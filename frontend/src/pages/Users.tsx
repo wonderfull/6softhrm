@@ -88,6 +88,7 @@ export default function Users() {
         <h2 className="text-2xl font-semibold">User Management</h2>
         <button
           onClick={() => {
+            setNewUserCredentials(null); // Clear any success message
             if (showForm && !editingId) {
               setShowForm(false);
             } else {
@@ -188,9 +189,9 @@ export default function Users() {
           <Card key={user.id} className="p-4">
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <div className="font-bold">{user.name || user.email}</div>
-                  <span className={`px-2 py-1 text-xs rounded ${
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="font-bold text-slate-900 dark:text-white">{user.name || user.email}</div>
+                  <span className={`px-2 py-1 text-xs rounded font-semibold ${
                     user.role === 'ADMIN' ? 'bg-red-500 text-white' :
                     user.role === 'MANAGER' ? 'bg-blue-500 text-white' :
                     'bg-gray-500 text-white'
@@ -198,10 +199,30 @@ export default function Users() {
                     {user.role}
                   </span>
                 </div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">{user.email}</div>
-                <div className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-                  Login: Use email as username
-                </div>
+                <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">{user.email}</div>
+                
+                {user.employee ? (
+                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400 mb-1">
+                      <span>✓</span>
+                      <span className="font-semibold">Linked to Employee:</span>
+                    </div>
+                    <div className="text-sm text-slate-700 dark:text-slate-300">
+                      {user.employee.firstName} {user.employee.lastName}
+                    </div>
+                    {user.employee.jobTitle && (
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {user.employee.jobTitle}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <div className="text-xs text-orange-600 dark:text-orange-400">
+                      ⚠ Not linked to employee record
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button

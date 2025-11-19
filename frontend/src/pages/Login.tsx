@@ -1,6 +1,6 @@
 import React from 'react'
 import { apiPost } from '../lib/api'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { LockClosedIcon, UserIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 
 export default function Login() {
@@ -24,8 +24,8 @@ export default function Login() {
       } else {
         setError(data.error || 'Invalid credentials')
       }
-    } catch (err) {
-      setError('Connection error. Please try again.')
+    } catch (err: any) {
+      setError(err.message || 'Connection error. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -111,6 +111,13 @@ export default function Login() {
               )}
             </button>
           </form>
+
+          {/* Forgot Password Link */}
+          <div className="mt-4 text-center">
+            <Link to="/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline">
+              Forgot your password?
+            </Link>
+          </div>
 
           {/* Demo Credentials */}
           <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">

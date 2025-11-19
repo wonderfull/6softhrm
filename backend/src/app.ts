@@ -9,8 +9,19 @@ import timesheetRoutes from './routes/timesheets'
 import projectRoutes from './routes/projects'
 import documentRoutes from './routes/documents'
 import calendarRoutes from './routes/calendar'
+import adminRoutes from './routes/admin'
+import gdprRoutes from './routes/gdpr'
+import notificationsRoutes from './routes/notifications'
+import { verifyEmailConfig } from './lib/emailService'
+import { initializeCronJobs } from './lib/cronJobs'
 
 dotenv.config()
+
+// Verify email configuration on startup
+verifyEmailConfig()
+
+// Initialize scheduled tasks (daily expiry checks)
+initializeCronJobs()
 
 const app = express()
 
@@ -18,6 +29,7 @@ const app = express()
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://localhost:5175',
   'http://localhost:3000',
   // Add your Hostinger subdomain here when deploying
   // 'https://hrm.yourdomain.com'
@@ -63,6 +75,9 @@ app.use('/api/timesheets', timesheetRoutes)
 app.use('/api/projects', projectRoutes)
 app.use('/api/documents', documentRoutes)
 app.use('/api/calendar', calendarRoutes)
+app.use('/api/admin', adminRoutes)
+app.use('/api/gdpr', gdprRoutes)
+app.use('/api/notifications', notificationsRoutes)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
