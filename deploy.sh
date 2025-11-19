@@ -12,8 +12,8 @@ echo "🚀 Starting 6soft HRM Deployment..."
 DOMAIN="hrm.yourdomain.com"          # UPDATE: Your subdomain
 SERVER_IP="YOUR_SERVER_IP"           # UPDATE: Your VPS IP address
 DB_NAME="u104553007_sixsoft_hrm"
-DB_USER="u104553007_hrmadmin"
-DB_PASSWORD="Netsc@pe99"
+DB_USER="YOUR_DB_USER"
+DB_PASSWORD="YOUR_DB_PASSWORD"
 
 ## SECURITY: JWT secret is auto-generated - DO NOT hardcode here
 JWT_SECRET=$(openssl rand -base64 32)

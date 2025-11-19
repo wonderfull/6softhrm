@@ -99,7 +99,7 @@ Copy the output and paste it as JWT_SECRET value.
 
 **DATABASE_URL**
 ```
-mysql://u5zqbjwcw6ccmt0v:ldgBNesOks6fBs6aWBPw@bea6vkgx2o9qqkhtuvww-mysql.services.clever-cloud.com:3306/bea6vkgx2o9qqkhtuvww
+mysql://YOUR_DB_USER:YOUR_DB_PASSWORD@YOUR_DB_HOST:3306/YOUR_DATABASE_NAME
 ```
 
 **FRONTEND_URL** (add after you know your Hostinger subdomain)

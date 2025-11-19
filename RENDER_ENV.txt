@@ -8,8 +8,9 @@ NODE_ENV=production
 # IMPORTANT: Generate your own unique secret!
 JWT_SECRET=REPLACE_WITH_YOUR_GENERATED_SECRET
 
-# Clever Cloud MySQL Database
-DATABASE_URL=mysql://u5zqbjwcw6ccmt0v:ldgBNesOks6fBs6aWBPw@bea6vkgx2o9qqkhtuvww-mysql.services.clever-cloud.com:3306/bea6vkgx2o9qqkhtuvww
+# Database URL - Replace with your actual database credentials
+# Format: mysql://USERNAME:PASSWORD@HOST:PORT/DATABASE
+DATABASE_URL=mysql://YOUR_DB_USER:YOUR_DB_PASSWORD@YOUR_DB_HOST:3306/YOUR_DATABASE_NAME
 
 # Frontend URL (update after deploying frontend to Hostinger)
-FRONTEND_URL=https://hrm.6soft.co.uk
+FRONTEND_URL=https://your-frontend-domain.com
