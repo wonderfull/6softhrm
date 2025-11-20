@@ -70,13 +70,17 @@ export default function Leave() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">Leave Requests</h2>
-        {canRequestLeave && (
+        {canRequestLeave ? (
           <button
             onClick={() => setShowForm(!showForm)}
             className="btn-primary"
           >
             <HiPlus /> {showForm ? 'Cancel' : 'Request Leave'}
           </button>
+        ) : (
+          <div className="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-200 text-sm">
+            ⚠️ Your account is not linked to an employee record. Please contact HR.
+          </div>
         )}
       </div>
 
@@ -100,7 +104,7 @@ export default function Leave() {
                 <option value="UNPAID">Unpaid Leave</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Start Date *
@@ -171,27 +175,26 @@ export default function Leave() {
                     </div>
                   )}
                   <div className="mt-2">
-                    <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
-                      l.status === 'APPROVED' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                      l.status === 'REJECTED' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                    }`}>
+                    <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${l.status === 'APPROVED' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                        l.status === 'REJECTED' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      }`}>
                       {l.status}
                     </span>
                   </div>
                 </div>
                 {canApprove && l.status === 'PENDING' && (
                   <div className="flex gap-2 ml-4">
-                    <button 
-                      disabled={loadingIds.includes(l.id)} 
-                      onClick={() => handleApprove(l.id)} 
+                    <button
+                      disabled={loadingIds.includes(l.id)}
+                      onClick={() => handleApprove(l.id)}
                       className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
                     >
                       {loadingIds.includes(l.id) ? '...' : 'Approve'}
                     </button>
-                    <button 
-                      disabled={loadingIds.includes(l.id)} 
-                      onClick={() => handleReject(l.id)} 
+                    <button
+                      disabled={loadingIds.includes(l.id)}
+                      onClick={() => handleReject(l.id)}
                       className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
                     >
                       {loadingIds.includes(l.id) ? '...' : 'Reject'}

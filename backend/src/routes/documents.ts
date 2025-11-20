@@ -22,8 +22,8 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]
 
-const upload = multer({ 
-  storage, 
+const upload = multer({
+  storage,
   limits: { fileSize: MAX_SIZE },
   fileFilter: (req, file, cb) => {
     cb(null, ALLOWED_TYPES.includes(file.mimetype))
@@ -32,16 +32,20 @@ const upload = multer({
 
 router.get('/', requireAuth, async (req: any, res) => {
   const user = req.user
-  
+
   // If user is an employee (USER role), only show their own documents
-  if (user.role === 'USER' && user.employeeId) {
-    const docs = await prisma.document.findMany({ 
+  // If user is an employee (USER role), only show their own documents
+  if (user.role === 'USER') {
+    if (!user.employeeId) {
+      return res.json([]) // Unlinked users see no documents
+    }
+    const docs = await prisma.document.findMany({
       where: { employeeId: user.employeeId },
-      include: { employee: true } 
+      include: { employee: true }
     })
     return res.json(docs)
   }
-  
+
   // Admins and managers see all documents
   const docs = await prisma.document.findMany({ include: { employee: true } })
   res.json(docs)
@@ -57,14 +61,14 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
   if (!emp) return res.status(400).json({ error: 'employee not found' })
   try {
     const pathToSave = `/uploads/${file.filename}`
-    const data: any = { 
-      employeeId: Number(employeeId), 
-      name, 
-      path: pathToSave 
+    const data: any = {
+      employeeId: Number(employeeId),
+      name,
+      path: pathToSave
     }
     if (type) data.type = type
     if (expiryDate) data.expiryDate = new Date(expiryDate)
-    
+
     const d = await prisma.document.create({ data })
     res.json(d)
   } catch (e: any) {
@@ -77,13 +81,21 @@ router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({ where: { id: parseInt(id) } })
     if (!doc) return res.status(404).json({ error: 'Document not found' })
-    
+
+    // Ownership check
+    const user = (req as any).user
+    if (user.role === 'USER') {
+      if (!user.employeeId || doc.employeeId !== user.employeeId) {
+        return res.status(403).json({ error: 'Unauthorized' })
+      }
+    }
+
     // Delete the physical file
     const filePath = path.join(process.cwd(), doc.path.replace(/^\//, ''))
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath)
     }
-    
+
     // Delete the database record
     await prisma.document.delete({ where: { id: parseInt(id) } })
     res.json({ success: true })
@@ -96,29 +108,37 @@ router.delete('/:id', requireAuth, async (req, res) => {
 // Download all documents for an employee as ZIP
 router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
   const { employeeId } = req.params
-  
+
   try {
-    const employee = await prisma.employee.findUnique({ 
+    // Ownership check
+    const user = (req as any).user
+    if (user.role === 'USER') {
+      if (!user.employeeId || parseInt(employeeId) !== user.employeeId) {
+        return res.status(403).json({ error: 'Unauthorized' })
+      }
+    }
+
+    const employee = await prisma.employee.findUnique({
       where: { id: parseInt(employeeId) },
       include: { documents: true }
     })
-    
+
     if (!employee) return res.status(404).json({ error: 'Employee not found' })
     if (employee.documents.length === 0) {
       return res.status(404).json({ error: 'No documents found for this employee' })
     }
-    
+
     // Set response headers
     const filename = `${employee.firstName}_${employee.lastName}_Documents.zip`
     res.setHeader('Content-Type', 'application/zip')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
-    
+
     // Create archive
     const archive = archiver('zip', { zlib: { level: 9 } })
-    
+
     // Pipe archive to response
     archive.pipe(res)
-    
+
     // Add all documents to archive
     for (const doc of employee.documents) {
       const filePath = path.join(process.cwd(), doc.path.replace(/^\//, ''))
@@ -126,7 +146,7 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
         archive.file(filePath, { name: doc.name })
       }
     }
-    
+
     // Finalize the archive
     await archive.finalize()
   } catch (e: any) {
@@ -142,7 +162,7 @@ router.get('/expiring', requireAuth, async (req: any, res) => {
     const now = new Date()
     const thirtyDaysFromNow = new Date()
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
-    
+
     const whereClause: any = {
       expiryDate: {
         not: null,
@@ -150,18 +170,18 @@ router.get('/expiring', requireAuth, async (req: any, res) => {
         lte: thirtyDaysFromNow
       }
     }
-    
+
     // If user is an employee, only show their own expiring documents
     if (user.role === 'USER' && user.employeeId) {
       whereClause.employeeId = user.employeeId
     }
-    
+
     const expiringDocs = await prisma.document.findMany({
       where: whereClause,
       include: { employee: true },
       orderBy: { expiryDate: 'asc' }
     })
-    
+
     res.json(expiringDocs)
   } catch (e: any) {
     res.status(400).json({ error: e.message })

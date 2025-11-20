@@ -17,9 +17,39 @@ router.post('/register', async (req, res) => {
   try {
     const userData: any = { email, password: hashed, name }
     if (role) userData.role = role
-    
+
+    // Auto-link to employee if email matches
+    const employee = await prisma.employee.findUnique({ where: { email } })
+    if (employee) {
+      userData.employeeId = employee.id
+    }
+
     const user = await prisma.user.create({ data: userData })
     res.json({ id: user.id, email: user.email, name: user.name, role: user.role })
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+// Manual link endpoint (to fix existing users)
+router.post('/link-employee', async (req: any, res) => {
+  const { email } = req.body
+  if (!email) return res.status(400).json({ error: 'email required' })
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } })
+    const employee = await prisma.employee.findUnique({ where: { email } })
+
+    if (!user || !employee) {
+      return res.status(404).json({ error: 'User or Employee not found' })
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { employeeId: employee.id }
+    })
+
+    res.json({ success: true, user: updated })
   } catch (e: any) {
     res.status(400).json({ error: e.message })
   }
@@ -29,7 +59,7 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body
   if (!email || !password) return res.status(400).json({ error: 'email and password required' })
 
-  const user = await prisma.user.findUnique({ 
+  const user = await prisma.user.findUnique({
     where: { email },
     include: { employee: true }
   })
@@ -45,36 +75,36 @@ router.post('/login', async (req, res) => {
   }
 
   const secret = process.env.JWT_SECRET || 'change_me'
-  const token = jwt.sign({ 
-    id: user.id, 
-    email: user.email, 
+  const token = jwt.sign({
+    id: user.id,
+    email: user.email,
     role: user.role,
-    employeeId: user.employeeId 
+    employeeId: user.employeeId
   }, secret, { expiresIn: '8h' })
-  
+
   await createAuditLog(user.id, email, 'LOGIN_SUCCESS', 'User', user.id, null, req)
-  
-  res.json({ 
-    token, 
-    user: { 
-      id: user.id, 
-      email: user.email, 
-      name: user.name, 
+
+  res.json({
+    token,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
       role: user.role,
       employeeId: user.employeeId,
       employee: user.employee
-    } 
+    }
   })
 })
 
 // Get all users (admin only)
 router.get('/users', async (req, res) => {
-  const users = await prisma.user.findMany({ 
-    select: { 
-      id: true, 
-      email: true, 
-      name: true, 
-      role: true, 
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
       employeeId: true,
       employee: {
         select: {
@@ -85,8 +115,8 @@ router.get('/users', async (req, res) => {
           jobTitle: true
         }
       },
-      createdAt: true 
-    } 
+      createdAt: true
+    }
   })
   res.json(users)
 })
@@ -131,11 +161,11 @@ router.post('/forgot-password', async (req, res) => {
     // Generate reset token (valid for 1 hour)
     const secret = process.env.JWT_SECRET || 'change_me'
     const resetToken = jwt.sign({ id: user.id, email: user.email, type: 'password-reset' }, secret, { expiresIn: '1h' })
-    
+
     // In production, you would send this via email
     // For now, we'll return it in the response (for demo purposes)
-    res.json({ 
-      message: 'Password reset token generated', 
+    res.json({
+      message: 'Password reset token generated',
       resetToken,
       resetLink: `${process.env.FRONTEND_URL || 'http://localhost:5174'}/reset-password?token=${resetToken}`
     })
@@ -152,7 +182,7 @@ router.post('/reset-password', async (req, res) => {
   try {
     const secret = process.env.JWT_SECRET || 'change_me'
     const decoded: any = jwt.verify(token, secret)
-    
+
     // Verify it's a password reset token
     if (decoded.type !== 'password-reset') {
       return res.status(400).json({ error: 'Invalid reset token' })

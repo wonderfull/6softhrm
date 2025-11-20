@@ -9,17 +9,17 @@ const router = Router()
 router.get('/', requireAuth, async (req: any, res) => {
   const userRole = req.user?.role || 'USER'
   const userEmail = req.user?.email
-  
+
   // If user is not ADMIN/MANAGER, show only their own employee record
   if (userRole !== 'ADMIN' && userRole !== 'MANAGER' && userEmail) {
-    const employee = await prisma.employee.findUnique({ 
+    const employee = await prisma.employee.findUnique({
       where: { email: userEmail },
-      include: { sponsorships: true, documents: true } 
+      include: { sponsorships: true, documents: true }
     })
     await auditLog(req, 'READ', 'Employee', employee?.id, { selfAccess: true })
     return res.json(employee ? [employee] : [])
   }
-  
+
   // Admin/Manager users see all employees
   const employees = await prisma.employee.findMany({ include: { sponsorships: true, documents: true } })
   await auditLog(req, 'READ', 'Employee', undefined, { count: employees.length })
@@ -35,7 +35,7 @@ router.post('/', requireAuth, async (req: any, res) => {
     } else {
       data.startDate = undefined
     }
-    
+
     // Convert endDate to DateTime if provided
     if (data.endDate && data.endDate !== '') {
       data.endDate = new Date(data.endDate)
@@ -44,11 +44,20 @@ router.post('/', requireAuth, async (req: any, res) => {
     }
 
     const emp = await prisma.employee.create({ data })
-    await auditLog(req, 'CREATE', 'Employee', emp.id, { 
-      firstName: emp.firstName, 
-      lastName: emp.lastName, 
-      email: emp.email 
+    await auditLog(req, 'CREATE', 'Employee', emp.id, {
+      firstName: emp.firstName,
+      lastName: emp.lastName,
+      email: emp.email
     })
+    // Auto-link to user if email matches
+    const user = await prisma.user.findUnique({ where: { email: emp.email } })
+    if (user && !user.employeeId) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { employeeId: emp.id }
+      })
+    }
+
     res.json(emp)
   } catch (e: any) {
     console.error('Error creating employee:', e)
@@ -66,7 +75,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
     } else if (data.startDate === '') {
       data.startDate = null
     }
-    
+
     if (data.endDate && data.endDate !== '') {
       data.endDate = new Date(data.endDate)
     } else if (data.endDate === '') {
@@ -77,7 +86,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
       where: { id: parseInt(id) },
       data
     })
-    await auditLog(req, 'UPDATE', 'Employee', emp.id, { 
+    await auditLog(req, 'UPDATE', 'Employee', emp.id, {
       updatedFields: Object.keys(data).filter(k => data[k] !== undefined)
     })
     res.json(emp)
@@ -94,7 +103,7 @@ router.delete('/:id', requireAuth, async (req: any, res) => {
     await prisma.employee.delete({
       where: { id: parseInt(id) }
     })
-    await auditLog(req, 'DELETE', 'Employee', parseInt(id), { 
+    await auditLog(req, 'DELETE', 'Employee', parseInt(id), {
       deletedEmployee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'
     })
     res.json({ success: true })
@@ -109,7 +118,7 @@ router.get('/export/excel', requireAuth, async (req: any, res) => {
   try {
     const userRole = req.user?.role || 'USER'
     const userEmail = req.user?.email
-    
+
     let employees
     // If user is not ADMIN/MANAGER, show only their own employee record
     if (userRole !== 'ADMIN' && userRole !== 'MANAGER' && userEmail) {
@@ -118,7 +127,7 @@ router.get('/export/excel', requireAuth, async (req: any, res) => {
     } else {
       employees = await prisma.employee.findMany()
     }
-    
+
     // Format data for Excel
     const excelData = employees.map(emp => ({
       'ID': emp.id,
@@ -139,11 +148,11 @@ router.get('/export/excel', requireAuth, async (req: any, res) => {
       'Emergency Contact Relation': emp.emergencyContactRelation || '',
       'Emergency Contact Address': emp.emergencyContactAddress || ''
     }))
-    
+
     // Create workbook and worksheet
     const wb = XLSX.utils.book_new()
     const ws = XLSX.utils.json_to_sheet(excelData)
-    
+
     // Set column widths
     ws['!cols'] = [
       { wch: 5 },  // ID
@@ -164,12 +173,12 @@ router.get('/export/excel', requireAuth, async (req: any, res) => {
       { wch: 15 }, // Emergency Contact Relation
       { wch: 30 }  // Emergency Contact Address
     ]
-    
+
     XLSX.utils.book_append_sheet(wb, ws, 'Employees')
-    
+
     // Generate buffer
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
-    
+
     // Set headers and send file
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     res.setHeader('Content-Disposition', `attachment; filename=employees-${new Date().toISOString().split('T')[0]}.xlsx`)

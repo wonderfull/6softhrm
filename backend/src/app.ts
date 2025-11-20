@@ -54,8 +54,11 @@ app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow requests with no origin (mobile apps, Postman, etc)
     if (!origin) return callback(null, true)
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+
+    // Allow all subdomains of 6soft.co.uk
+    const isAllowedDomain = origin.endsWith('.6soft.co.uk') || origin === 'https://6soft.co.uk' || origin === 'http://6soft.co.uk'
+
+    if (allowedOrigins.indexOf(origin) !== -1 || isAllowedDomain || process.env.NODE_ENV === 'development') {
       callback(null, true)
     } else {
       // Reject with false instead of Error to avoid 500 errors

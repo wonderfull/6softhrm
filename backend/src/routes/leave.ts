@@ -8,16 +8,19 @@ const router = Router()
 
 router.get('/', requireAuth, async (req: any, res) => {
   const user = req.user
-  
+
   // If user is an employee (USER role), only show their own leave requests
-  if (user.role === 'USER' && user.employeeId) {
-    const leaves = await prisma.leaveRequest.findMany({ 
+  if (user.role === 'USER') {
+    if (!user.employeeId) {
+      return res.json([]) // Unlinked users see no leave requests
+    }
+    const leaves = await prisma.leaveRequest.findMany({
       where: { employeeId: user.employeeId },
       include: { employee: true }
     })
     return res.json(leaves)
   }
-  
+
   // Admins and managers see all leave requests
   const leaves = await prisma.leaveRequest.findMany({ include: { employee: true } })
   res.json(leaves)
@@ -26,7 +29,7 @@ router.get('/', requireAuth, async (req: any, res) => {
 router.post('/', requireAuth, async (req: any, res) => {
   const user = req.user
   let { employeeId, type, startDate, endDate, reason } = req.body
-  
+
   // If user is an employee, they can only create leave for themselves
   if (user.role === 'USER') {
     if (!user.employeeId) {
@@ -34,7 +37,7 @@ router.post('/', requireAuth, async (req: any, res) => {
     }
     employeeId = user.employeeId
   }
-  
+
   if (!employeeId || !type || !startDate || !endDate) return res.status(400).json({ error: 'missing fields' })
   try {
     const lr = await prisma.leaveRequest.create({
@@ -47,7 +50,7 @@ router.post('/', requireAuth, async (req: any, res) => {
       const admins = await prisma.user.findMany({
         where: { role: { in: ['ADMIN', 'MANAGER'] } }
       })
-      
+
       for (const admin of admins) {
         if (admin.email) {
           const template = EmailTemplates.leaveRequestPending(
@@ -78,8 +81,8 @@ router.post('/', requireAuth, async (req: any, res) => {
 router.put('/:id/approve', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
   const id = Number(req.params.id)
   try {
-    const lr = await prisma.leaveRequest.update({ 
-      where: { id }, 
+    const lr = await prisma.leaveRequest.update({
+      where: { id },
       data: { status: 'APPROVED' },
       include: { employee: true }
     })
@@ -112,8 +115,8 @@ router.put('/:id/approve', requireAuth, requireRole('ADMIN', 'MANAGER'), async (
 router.put('/:id/reject', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
   const id = Number(req.params.id)
   try {
-    const lr = await prisma.leaveRequest.update({ 
-      where: { id }, 
+    const lr = await prisma.leaveRequest.update({
+      where: { id },
       data: { status: 'REJECTED' },
       include: { employee: true }
     })
