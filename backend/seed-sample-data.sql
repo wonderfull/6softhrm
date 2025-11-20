@@ -2,13 +2,13 @@
 -- Run with: mysql -u root -pNetscape99 sixsoft_hrm < seed-sample-data.sql
 
 -- Insert Sample Employees
-INSERT INTO Employee (firstName, lastName, email, phoneNumber, niNumber, jobTitle, employeeType, department, startDate, bankName, accountNumber, sortCode, emergencyContactName, emergencyContactPhone, emergencyContactRelation, emergencyContactAddress) VALUES
-('John', 'Smith', 'john.smith@company.com', '+44 7700 900001', 'AB123456C', 'Senior Developer', 'EMPLOYEE', 'Engineering', '2023-01-15 00:00:00', 'Barclays', '12345678', '20-00-00', 'Jane Smith', '+44 7700 900002', 'Spouse', '123 High Street, London, SW1A 1AA'),
-('Sarah', 'Johnson', 'sarah.johnson@company.com', '+44 7700 900003', 'CD234567D', 'Product Manager', 'EMPLOYEE', 'Product', '2023-03-20 00:00:00', 'HSBC', '23456789', '40-00-00', 'Mike Johnson', '+44 7700 900004', 'Spouse', '456 Park Lane, Manchester, M1 1AA'),
-('Michael', 'Brown', 'michael.brown@company.com', '+44 7700 900005', 'EF345678E', 'UX Designer', 'EMPLOYEE', 'Design', '2023-06-10 00:00:00', 'Lloyds', '34567890', '30-00-00', 'Emma Brown', '+44 7700 900006', 'Partner', '789 Queen Street, Birmingham, B1 1AA'),
-('Emily', 'Davis', 'emily.davis@company.com', '+44 7700 900007', 'GH456789F', 'HR Manager', 'EMPLOYEE', 'Human Resources', '2022-09-01 00:00:00', 'NatWest', '45678901', '60-00-00', 'Tom Davis', '+44 7700 900008', 'Brother', '321 King Road, Leeds, LS1 1AA'),
-('David', 'Wilson', 'david.wilson@company.com', '+44 7700 900009', 'IJ567890G', 'Chief Technology Officer', 'DIRECTOR', 'Executive', '2021-04-01 00:00:00', 'Barclays', '56789012', '20-00-00', 'Lisa Wilson', '+44 7700 900010', 'Spouse', '654 Prince Street, Edinburgh, EH1 1AA'),
-('James', 'Taylor', 'james.taylor@company.com', '+44 7700 900011', 'KL678901H', 'Junior Developer', 'EMPLOYEE', 'Engineering', '2024-02-01 00:00:00', 'Santander', '67890123', '09-00-00', 'Mary Taylor', '+44 7700 900012', 'Mother', '987 Duke Avenue, Bristol, BS1 1AA');
+INSERT INTO Employee (firstName, lastName, title, email, phoneNumber, niNumber, jobTitle, employeeType, department, startDate, bankName, accountNumber, sortCode, emergencyContactName, emergencyContactPhone, emergencyContactRelation, emergencyContactAddress) VALUES
+('John', 'Smith', 'Mr', 'john.smith@company.com', '+44 7700 900001', 'AB123456C', 'Senior Developer', 'EMPLOYEE', 'Engineering', '2023-01-15 00:00:00', 'Barclays', '12345678', '20-00-00', 'Jane Smith', '+44 7700 900002', 'Spouse', '123 High Street, London, SW1A 1AA'),
+('Sarah', 'Johnson', 'Ms', 'sarah.johnson@company.com', '+44 7700 900003', 'CD234567D', 'Product Manager', 'EMPLOYEE', 'Product', '2023-03-20 00:00:00', 'HSBC', '23456789', '40-00-00', 'Mike Johnson', '+44 7700 900004', 'Spouse', '456 Park Lane, Manchester, M1 1AA'),
+('Michael', 'Brown', 'Mr', 'michael.brown@company.com', '+44 7700 900005', 'EF345678E', 'UX Designer', 'EMPLOYEE', 'Design', '2023-06-10 00:00:00', 'Lloyds', '34567890', '30-00-00', 'Emma Brown', '+44 7700 900006', 'Partner', '789 Queen Street, Birmingham, B1 1AA'),
+('Emily', 'Davis', 'Ms', 'emily.davis@company.com', '+44 7700 900007', 'GH456789F', 'HR Manager', 'EMPLOYEE', 'Human Resources', '2022-09-01 00:00:00', 'NatWest', '45678901', '60-00-00', 'Tom Davis', '+44 7700 900008', 'Brother', '321 King Road, Leeds, LS1 1AA'),
+('David', 'Wilson', 'Mr', 'david.wilson@company.com', '+44 7700 900009', 'IJ567890G', 'Chief Technology Officer', 'DIRECTOR', 'Executive', '2021-04-01 00:00:00', 'Barclays', '56789012', '20-00-00', 'Lisa Wilson', '+44 7700 900010', 'Spouse', '654 Prince Street, Edinburgh, EH1 1AA'),
+('James', 'Taylor', 'Mr', 'james.taylor@company.com', '+44 7700 900011', 'KL678901H', 'Junior Developer', 'EMPLOYEE', 'Engineering', '2024-02-01 00:00:00', 'Santander', '67890123', '09-00-00', 'Mary Taylor', '+44 7700 900012', 'Mother', '987 Duke Avenue, Bristol, BS1 1AA');
 
 -- Insert Sample Projects
 INSERT INTO Project (code, name, description, active, createdAt) VALUES

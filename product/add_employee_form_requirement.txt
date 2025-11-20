@@ -1,0 +1,330 @@
+**Issue Type:** Story
+**Summary:** Add New Employee Form
+**Priority:** High
+**Assignee:** Frontend Team
+**Reporter:** Product Owner
+**Labels:** frontend, form, employee-management, crud
+**Epic Link:** EMP-MGMT
+**Story Points:** 5
+**Sprint:** Sprint 1
+**Components:** Frontend, UI/UX
+
+**Description:**
+
+As an HR administrator, I need a comprehensive form to add new employees to the system with all their personal details, employment information, bank details, and emergency contacts in a single submission.
+
+**User Story:**
+
+As an admin, I want to click an "Add Employee" button and fill out a form with all employee details so that I can onboard new team members efficiently without making multiple requests.
+
+**Acceptance Criteria:**
+
+**Form Trigger:**
+- [ ] "Add Employee" button visible in page header (only for ADMIN/MANAGER roles)
+- [ ] Button has blue primary styling with HiPlus icon
+- [ ] Button text toggles to "Cancel" when form is open
+- [ ] Clicking button opens form below header
+- [ ] Clicking "Cancel" closes form and clears data
+
+**Form Layout:**
+- [ ] Form appears in expandable section with light gray background
+- [ ] Form title displays "New Employee"
+- [ ] 2-column grid layout on desktop
+- [ ] Stacks to 1 column on mobile (<768px)
+- [ ] Proper spacing between fields (gap-4)
+- [ ] Form has rounded corners and border
+
+**Personal Information Fields:**
+
+- [ ] **First Name** * (required)
+  - Text input
+  - Placeholder: "First Name *"
+  - Validation: Cannot be empty
+
+- [ ] **Last Name** * (required)
+  - Text input
+  - Placeholder: "Last Name *"
+  - Validation: Cannot be empty
+
+- [ ] **Title** (optional)
+  - Text input
+  - Placeholder: "Title (Mr, Mrs, Dr, etc.)"
+  - Validation: None
+
+- [ ] **Email** * (required)
+  - Email input
+  - Placeholder: "Email *"
+  - Validation: Valid email format, cannot be empty
+
+- [ ] **Phone Number** (optional)
+  - Text input
+  - Placeholder: "Phone Number"
+  - Validation: None
+
+- [ ] **Job Title** * (required)
+  - Text input
+  - Placeholder: "Job Title *"
+  - Validation: Cannot be empty
+
+- [ ] **Employee Type** (required)
+  - Dropdown select
+  - Options: "Employee" (EMPLOYEE), "Director" (DIRECTOR)
+  - Default: "Employee"
+
+- [ ] **Department** (optional)
+  - Text input
+  - Placeholder: "Department"
+  - Validation: None
+
+- [ ] **NI Number** (optional)
+  - Text input
+  - Placeholder: "NI Number (UK)"
+  - Validation: None (UK format preferred)
+
+- [ ] **Employment Start Date** (optional)
+  - Date input with label above field
+  - Label: "Employment Start Date"
+  - Date picker interface
+  - Format: YYYY-MM-DD
+
+**Bank Details Section:**
+- [ ] Section header "Bank Details" with horizontal divider
+- [ ] Spans full width (col-span-2)
+- [ ] Divider line below header
+
+- [ ] **Bank Name** (optional)
+  - Text input
+  - Placeholder: "Bank Name"
+
+- [ ] **Account Number** (optional)
+  - Text input
+  - Placeholder: "Account Number"
+
+- [ ] **Sort Code** (optional)
+  - Text input
+  - Placeholder: "Sort Code"
+
+**Emergency Contact Section:**
+- [ ] Section header "Emergency Contact Information" with divider
+- [ ] Spans full width (col-span-2)
+- [ ] Divider line below header
+
+- [ ] **Emergency Contact Name** (optional)
+  - Text input
+  - Placeholder: "Emergency Contact Name"
+
+- [ ] **Emergency Contact Phone** (optional)
+  - Text input
+  - Placeholder: "Emergency Contact Phone"
+
+- [ ] **Relationship** (optional)
+  - Text input
+  - Placeholder: "Relationship"
+
+- [ ] **Emergency Contact Address** (optional)
+  - Text input, full width (col-span-2)
+  - Placeholder: "Emergency Contact Address"
+
+**Form Actions:**
+- [ ] **Add Employee** button
+  - Green background (bg-green-500)
+  - Full width (flex-1)
+  - Text: "Add Employee"
+  - Disabled if required fields empty
+  - Hover effect (bg-green-600)
+
+**Form Behavior:**
+
+**On Submit:**
+- [ ] Validate all required fields are filled
+- [ ] Show validation error if required fields missing
+- [ ] Trim whitespace from all text inputs
+- [ ] POST to /employees endpoint with form data
+- [ ] Show success alert: "Employee added successfully!"
+- [ ] Close form automatically
+- [ ] Clear all form fields
+- [ ] Refresh employee list to show new employee
+- [ ] Show error alert if submission fails with error message
+
+**On Cancel:**
+- [ ] Close form without submission
+- [ ] Clear all form fields
+- [ ] No API call made
+
+**Field State Management:**
+- [ ] All fields controlled by React state (formData object)
+- [ ] onChange handlers update state on every keystroke
+- [ ] State persists while form is open
+- [ ] State clears on successful submission or cancel
+
+**Validation Rules:**
+- [ ] Required fields marked with * in placeholder
+- [ ] Email field uses type="email" for browser validation
+- [ ] Date field uses type="date" for date picker
+- [ ] Form cannot submit if required fields empty (HTML5 required attribute)
+- [ ] Server-side validation errors displayed to user
+
+**Non-Functional Requirements:**
+
+**Performance:**
+- [ ] Form opens instantly (<100ms)
+- [ ] Field inputs respond immediately to typing
+- [ ] Form submission completes in <1 second
+- [ ] No lag when typing in fields
+
+**Usability:**
+- [ ] Logical field order (personal → employment → bank → emergency)
+- [ ] Tab navigation follows field order
+- [ ] Clear visual grouping with section headers
+- [ ] Helpful placeholder text in every field
+- [ ] Submit button clearly visible at bottom
+- [ ] All text inputs have consistent height
+
+**Accessibility:**
+- [ ] All inputs have associated labels or placeholders
+- [ ] Required fields clearly marked with *
+- [ ] Keyboard navigation works smoothly
+- [ ] Focus states visible on all inputs
+- [ ] Screen reader compatible
+
+**Responsive Design:**
+- [ ] 2-column grid on desktop (≥768px)
+- [ ] 1-column stack on mobile (<768px)
+- [ ] Form readable on small screens
+- [ ] Buttons remain accessible on mobile
+- [ ] Touch-friendly input sizes
+
+**Dark Mode:**
+- [ ] Form background: dark:bg-slate-800
+- [ ] Text inputs: dark:bg-slate-700, dark:text-white
+- [ ] Labels: dark:text-slate-300
+- [ ] Dividers: dark:bg-slate-600
+- [ ] All text readable in dark mode
+
+**Technical Implementation:**
+
+**React State:**
+```typescript
+const [formData, setFormData] = useState({
+  firstName: '',
+  lastName: '',
+  title: '',
+  email: '',
+  phoneNumber: '',
+  jobTitle: '',
+  employeeType: 'EMPLOYEE',
+  department: '',
+  niNumber: '',
+  startDate: '',
+  bankName: '',
+  accountNumber: '',
+  sortCode: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  emergencyContactRelation: '',
+  emergencyContactAddress: ''
+})
+
+const [showForm, setShowForm] = useState(false)
+```
+
+**API Call:**
+```typescript
+await apiPost('/employees', formData)
+```
+
+**Success Flow:**
+1. User clicks "Add Employee"
+2. Form opens with all fields empty
+3. User fills required fields (firstName, lastName, email, jobTitle)
+4. User optionally fills other fields
+5. User clicks "Add Employee" button
+6. Form validates required fields
+7. POST request sent to /employees
+8. Success alert shown
+9. Form closes and clears
+10. Employee list refreshes with new employee
+
+**Error Handling:**
+- [ ] Network error: Show "Failed to save employee: [error]"
+- [ ] Validation error: Show specific field errors
+- [ ] Duplicate email: Show "Employee with this email already exists"
+- [ ] Any error displays in alert dialog
+
+**Dependencies:**
+- Employee API (POST /employees endpoint)
+- apiPost helper function
+- HiPlus icon from react-icons
+- form-input CSS class
+- Tailwind CSS utilities
+
+**Testing Scenarios:**
+
+**Happy Path:**
+1. Click "Add Employee" button
+2. Form opens below header
+3. Fill in First Name: "John"
+4. Fill in Last Name: "Doe"
+5. Fill in Email: "john.doe@company.com"
+6. Fill in Job Title: "Developer"
+7. Select Employee Type: "Employee"
+8. Click "Add Employee"
+9. Alert shows "Employee added successfully!"
+10. Form closes
+11. John Doe appears in employee list
+
+**Validation Testing:**
+1. Click "Add Employee"
+2. Leave First Name empty
+3. Click "Add Employee"
+4. Browser shows "Please fill out this field"
+5. Fill required fields
+6. Submit succeeds
+
+**Optional Fields:**
+1. Add employee with only required fields
+2. Submission succeeds
+3. Add employee with all fields filled
+4. Submission succeeds
+5. Bank details and emergency contact saved
+
+**Cancel Flow:**
+1. Click "Add Employee"
+2. Fill some fields
+3. Click "Cancel" (button text changes when form open)
+4. Form closes
+5. Fields are cleared
+6. No API call made
+
+**Mobile Testing:**
+1. Open form on mobile device
+2. Fields stack vertically
+3. Date picker opens properly
+4. Keyboard doesn't obscure submit button
+5. All fields accessible and usable
+
+**Dark Mode:**
+1. Enable dark mode
+2. Open add employee form
+3. All fields visible and readable
+4. Input backgrounds appropriate
+5. Submit button clearly visible
+
+**Definition of Done:**
+- [ ] All acceptance criteria implemented
+- [ ] Form renders correctly on desktop and mobile
+- [ ] All required validation working
+- [ ] API integration successful
+- [ ] Success/error handling implemented
+- [ ] Dark mode support verified
+- [ ] Code reviewed and approved
+- [ ] Manual testing completed
+- [ ] No console errors
+- [ ] Deployed to staging
+
+**Notes:**
+- Form uses Tailwind's form-input class for consistent styling
+- Date picker should use native browser date input
+- Consider adding field hints/tooltips for NI Number format
+- Future: Add photo upload field
+- Future: Add auto-suggest for department field

@@ -73,7 +73,7 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
     // Create sample employees
     const employees = [
       {
-        firstName: 'John', lastName: 'Smith', email: 'john.smith@company.com',
+        firstName: 'John', lastName: 'Smith', title: 'Mr', email: 'john.smith@company.com',
         phoneNumber: '+44 7700 900001', niNumber: 'AB123456C', jobTitle: 'Senior Developer',
         employeeType: 'EMPLOYEE', department: 'Engineering', startDate: new Date('2023-01-15'),
         bankName: 'Barclays', accountNumber: '12345678', sortCode: '20-00-00',
@@ -81,7 +81,7 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
         emergencyContactRelation: 'Spouse', emergencyContactAddress: '123 High Street, London, SW1A 1AA'
       },
       {
-        firstName: 'Sarah', lastName: 'Johnson', email: 'sarah.johnson@company.com',
+        firstName: 'Sarah', lastName: 'Johnson', title: 'Ms', email: 'sarah.johnson@company.com',
         phoneNumber: '+44 7700 900003', niNumber: 'CD234567D', jobTitle: 'Product Manager',
         employeeType: 'EMPLOYEE', department: 'Product', startDate: new Date('2023-03-20'),
         bankName: 'HSBC', accountNumber: '23456789', sortCode: '40-00-00',
@@ -89,7 +89,7 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
         emergencyContactRelation: 'Spouse', emergencyContactAddress: '456 Park Lane, Manchester, M1 1AA'
       },
       {
-        firstName: 'Michael', lastName: 'Brown', email: 'michael.brown@company.com',
+        firstName: 'Michael', lastName: 'Brown', title: 'Mr', email: 'michael.brown@company.com',
         phoneNumber: '+44 7700 900005', niNumber: 'EF345678E', jobTitle: 'UX Designer',
         employeeType: 'EMPLOYEE', department: 'Design', startDate: new Date('2023-06-10'),
         bankName: 'Lloyds', accountNumber: '34567890', sortCode: '30-00-00',
@@ -97,7 +97,7 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
         emergencyContactRelation: 'Partner', emergencyContactAddress: '789 Queen Street, Birmingham, B1 1AA'
       },
       {
-        firstName: 'Emily', lastName: 'Davis', email: 'emily.davis@company.com',
+        firstName: 'Emily', lastName: 'Davis', title: 'Ms', email: 'emily.davis@company.com',
         phoneNumber: '+44 7700 900007', niNumber: 'GH456789F', jobTitle: 'HR Manager',
         employeeType: 'EMPLOYEE', department: 'Human Resources', startDate: new Date('2022-09-01'),
         bankName: 'NatWest', accountNumber: '45678901', sortCode: '60-00-00',

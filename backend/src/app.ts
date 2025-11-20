@@ -35,6 +35,8 @@ const allowedOrigins = [
   'http://6soft.co.uk',
   'https://www.6soft.co.uk',
   'http://www.6soft.co.uk',
+  'https://hrm.6soft.co.uk',
+  'http://hrm.6soft.co.uk',
 ]
 
 // If FRONTEND_URL is set in environment, use it

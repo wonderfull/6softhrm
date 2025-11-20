@@ -23,6 +23,7 @@ model Employee {
   id           Int       @id @default(autoincrement())
   firstName    String
   lastName     String
+  title        String? // Mr, Mrs, Dr, etc.
   email        String    @unique
   phoneNumber  String?
   niNumber     String? // National Insurance placeholder

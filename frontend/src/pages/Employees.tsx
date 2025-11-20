@@ -12,6 +12,7 @@ export default function Employees() {
   const [formData, setFormData] = React.useState({
     firstName: '',
     lastName: '',
+    title: '',
     email: '',
     phoneNumber: '',
     jobTitle: '',
@@ -66,6 +67,7 @@ export default function Employees() {
       setFormData({
         firstName: '',
         lastName: '',
+        title: '',
         email: '',
         phoneNumber: '',
         jobTitle: '',
@@ -93,6 +95,7 @@ export default function Employees() {
     setFormData({
       firstName: employee.firstName,
       lastName: employee.lastName,
+      title: employee.title || '',
       email: employee.email,
       phoneNumber: employee.phoneNumber || '',
       jobTitle: employee.jobTitle || '',
@@ -130,6 +133,7 @@ export default function Employees() {
     setFormData({
       firstName: '',
       lastName: '',
+      title: '',
       email: '',
       phoneNumber: '',
       jobTitle: '',
@@ -207,6 +211,7 @@ export default function Employees() {
                   setFormData({
                     firstName: '',
                     lastName: '',
+                    title: '',
                     email: '',
                     phoneNumber: '',
                     jobTitle: '',
@@ -249,6 +254,12 @@ export default function Employees() {
               onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
               placeholder="Last Name *"
               required
+              className="form-input"
+            />
+            <input
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="Title (Mr, Mrs, Dr, etc.)"
               className="form-input"
             />
             <input
@@ -379,7 +390,7 @@ export default function Employees() {
             <div key={e.id}>
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h3 className="text-2xl font-bold">{e.firstName} {e.lastName}</h3>
+                  <h3 className="text-2xl font-bold">{e.title ? `${e.title} ` : ''}{e.firstName} {e.lastName}</h3>
                   <p className="text-slate-600 dark:text-slate-400">{e.jobTitle}</p>
                 </div>
                 <button
@@ -438,7 +449,7 @@ export default function Employees() {
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <div className="font-bold">{e.firstName} {e.lastName}</div>
+                    <div className="font-bold">{e.title ? `${e.title} ` : ''}{e.firstName} {e.lastName}</div>
                     {e.employeeType === 'DIRECTOR' && (
                       <span className="px-2 py-1 text-xs bg-purple-500 text-white rounded">Director</span>
                     )}
