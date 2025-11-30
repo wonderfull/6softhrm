@@ -3,6 +3,32 @@ import { apiGet, apiPost, apiPut, apiDelete, API_BASE_URL } from '../lib/api'
 import Card from '../components/Card'
 import { HiPlus } from 'react-icons/hi'
 
+// Consent Badge Component
+const ConsentBadge: React.FC<{ count: number }> = ({ count }) => {
+  if (count === 0) {
+    return (
+      <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded flex items-center gap-1" title="No consents given">
+        ⚠️ No Consents
+      </span>
+    )
+  }
+  
+  if (count < 3) {
+    return (
+      <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded flex items-center gap-1" title={`${count} of 7 consents given`}>
+        ⚡ {count}/7
+      </span>
+    )
+  }
+  
+  return (
+    <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded flex items-center gap-1" title={`${count} of 7 consents given`}>
+      ✓ {count}/7
+    </span>
+  )
+}
+
+
 export default function Employees() {
   const [items, setItems] = React.useState<any[]>([])
   const [showForm, setShowForm] = React.useState(false)
@@ -448,8 +474,11 @@ export default function Employees() {
             <Card key={e.id} className="p-4">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <div className="font-bold">{e.title ? `${e.title} ` : ''}{e.firstName} {e.lastName}</div>
+                    {e.consentCount !== undefined && (
+                      <ConsentBadge count={e.consentCount} />
+                    )}
                     {e.employeeType === 'DIRECTOR' && (
                       <span className="px-2 py-1 text-xs bg-purple-500 text-white rounded">Director</span>
                     )}

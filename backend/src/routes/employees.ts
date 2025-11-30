@@ -22,8 +22,47 @@ router.get('/', requireAuth, async (req: any, res) => {
 
   // Admin/Manager users see all employees
   const employees = await prisma.employee.findMany({ include: { sponsorships: true, documents: true } })
+  
+  // Fetch all consents for all employees
+  const allConsents = await prisma.dataConsent.findMany({
+    where: {
+      employeeId: { in: employees.map(e => e.id) }
+    },
+    orderBy: { createdAt: 'desc' }
+  })
+
+  // Define consent types
+  const consentTypes = ['data_processing', 'emergency_contact', 'photo_usage', 
+                        'marketing_emails', 'third_party_payroll', 'background_checks', 'references']
+  
+  // Attach consent summary to each employee
+  const employeesWithConsents = employees.map(emp => {
+    const empConsents = allConsents.filter(c => c.employeeId === emp.id)
+    
+    // Get latest consent for each type
+    const consentSummary = consentTypes.map(type => {
+      const typeConsents = empConsents.filter(c => c.consentType === type)
+      if (typeConsents.length === 0) return { type, status: 'not_given' }
+      
+   const latest = typeConsents.reduce((l, c) => 
+        new Date(c.createdAt) > new Date(l.createdAt) ? c : l
+      )
+      return {
+        type,
+        status: latest.consentGiven ? 'granted' : 'withdrawn',
+        date: latest.consentDate || latest.withdrawnDate
+      }
+    })
+    
+    return {
+      ...emp,
+      consents: consentSummary,
+      consentCount: consentSummary.filter(c => c.status === 'granted').length
+    }
+  })
+
   await auditLog(req, 'READ', 'Employee', undefined, { count: employees.length })
-  res.json(employees)
+  res.json(employeesWithConsents)
 })
 
 router.post('/', requireAuth, async (req: any, res) => {
