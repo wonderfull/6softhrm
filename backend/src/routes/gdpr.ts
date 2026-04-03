@@ -3,6 +3,7 @@ import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
 import { auditLog } from '../middleware/audit'
 import * as XLSX from 'xlsx'
+import type { Document, LeaveRequest, Timesheet } from '@prisma/client'
 
 const router = Router()
 
@@ -99,7 +100,7 @@ router.get('/subject-access-request/:employeeId', requireAuth, async (req: any, 
       employee: {
         ...employee,
         sponsorships: employee.sponsorships,
-        documents: employee.documents.map(d => ({
+        documents: employee.documents.map((d: Document) => ({
           id: d.id,
           name: d.name,
           uploadedAt: d.uploadedAt,
@@ -177,7 +178,7 @@ router.get('/export-employee-data/:employeeId', requireAuth, async (req: any, re
 
     // Timesheets sheet
     if (employee.timesheets.length > 0) {
-      const timesheetData = employee.timesheets.map(ts => ({
+      const timesheetData = employee.timesheets.map((ts: Timesheet & { project: { name: string } | null }) => ({
         'Date': new Date(ts.date).toLocaleDateString(),
         'Project': ts.project?.name || 'No Project',
         'Hours': ts.hours,
@@ -189,7 +190,7 @@ router.get('/export-employee-data/:employeeId', requireAuth, async (req: any, re
 
     // Leave Requests sheet
     if (employee.leaveRequests.length > 0) {
-      const leaveData = employee.leaveRequests.map(lr => ({
+      const leaveData = employee.leaveRequests.map((lr: LeaveRequest) => ({
         'Type': lr.type,
         'Start Date': new Date(lr.startDate).toLocaleDateString(),
         'End Date': new Date(lr.endDate).toLocaleDateString(),
@@ -202,7 +203,7 @@ router.get('/export-employee-data/:employeeId', requireAuth, async (req: any, re
 
     // Documents sheet
     if (employee.documents.length > 0) {
-      const docData = employee.documents.map(d => ({
+      const docData = employee.documents.map((d: Document) => ({
         'Document Name': d.name,
         'Upload Date': new Date(d.uploadedAt).toLocaleDateString(),
         'File Path': d.path

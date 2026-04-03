@@ -4,7 +4,7 @@
 
 ```bash
 # You need to authenticate and push
-git push origin change_to_mysql
+git push origin main
 ```
 
 ## 2. Prepare Production Database
@@ -215,7 +215,7 @@ mysql -u user -p database < backup_YYYYMMDD_HHMMSS.sql
 
 # 2. Revert to previous commit
 git revert HEAD
-git push origin change_to_mysql
+git push origin main
 
 # 3. Redeploy previous version
 ```

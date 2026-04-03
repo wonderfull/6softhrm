@@ -5,6 +5,7 @@ This directory contains configuration files for deploying 6soft HRM to Hostinger
 ## Files
 
 - **DEPLOYMENT.md** - Complete step-by-step deployment guide
+- **HOSTINGER_VPS_RUNBOOK.md** - Actual VPS deployment runbook for `6soft.co.uk` + `hrm.6soft.co.uk`
 - **deploy.sh** - Automated deployment script (edit variables first)
 - **ecosystem.config.js** - PM2 process manager configuration
 - **nginx.conf** - Nginx server configuration template
@@ -67,7 +68,7 @@ ssh root@YOUR_SERVER_IP
 
 # Pull latest changes
 cd /var/www/6softhrm
-git pull origin change_to_mysql
+git pull origin main
 
 # Update backend
 cd backend

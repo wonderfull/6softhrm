@@ -53,11 +53,11 @@ echo "📥 Step 4: Cloning repository..."
 if [ -d "$APP_DIR" ]; then
     echo "   Directory exists, pulling latest changes..."
     cd $APP_DIR
-    git pull origin change_to_mysql
+    git pull origin main
 else
     git clone https://github.com/wonderfull/6softhrm.git $APP_DIR
     cd $APP_DIR
-    git checkout change_to_mysql
+    git checkout main
 fi
 
 echo "🔧 Step 5: Setting up backend..."

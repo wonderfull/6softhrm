@@ -173,7 +173,7 @@ mysql -u u123456789_hrm -p u123456789_hrm
 
 # Update application
 cd /var/www/6softhrm
-git pull origin change_to_mysql
+git pull origin main
 cd backend && npm install && npm run build && pm2 restart 6soft-hrm-backend
 cd ../frontend && npm install && npm run build && cp -r dist/* /var/www/hrm.yourdomain.com/
 ```

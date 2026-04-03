@@ -52,7 +52,7 @@ Oregon (US West)
 **Branch:**
 
 ```
-change_to_mysql
+main
 ```
 
 **Root Directory:**
@@ -457,7 +457,7 @@ Render auto-deploys on git push:
 ```bash
 git add .
 git commit -m "Update backend"
-git push origin change_to_mysql
+git push origin main
 ```
 
 Render detects changes and redeploys automatically.

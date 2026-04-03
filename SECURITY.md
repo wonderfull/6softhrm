@@ -235,7 +235,7 @@ npm run build
 
 ```bash
 # Pull latest code
-git pull origin change_to_mysql
+git pull origin main
 
 # .env is NOT overwritten (it's gitignored)
 # Your secrets remain safe

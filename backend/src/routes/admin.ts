@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth'
 import fs from 'fs/promises'
 import path from 'path'
 import bcrypt from 'bcryptjs'
+import type { Employee, Project } from '@prisma/client'
 
 const router = Router()
 
@@ -175,22 +176,22 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
     // Delete existing sample data first (timesheets, leave, sponsorships for these employees)
     console.log('[SEED] Clearing old timesheets, leave, sponsorships...')
     await prisma.timesheet.deleteMany({
-      where: { employeeId: { in: empRecords.map(e => e.id) } }
+      where: { employeeId: { in: empRecords.map((e: Employee) => e.id) } }
     })
     await prisma.leaveRequest.deleteMany({
-      where: { employeeId: { in: empRecords.map(e => e.id) } }
+      where: { employeeId: { in: empRecords.map((e: Employee) => e.id) } }
     })
     await prisma.sponsorship.deleteMany({
-      where: { employeeId: { in: empRecords.map(e => e.id) } }
+      where: { employeeId: { in: empRecords.map((e: Employee) => e.id) } }
     })
 
     // Create sample timesheets
     console.log('[SEED] Creating timesheets...')
     const timesheets = [
-      { employeeId: empRecords[0].id, projectId: projRecords[0].id, date: new Date('2025-11-18'), hours: 8, notes: 'Working on employee module' },
-      { employeeId: empRecords[0].id, projectId: projRecords[0].id, date: new Date('2025-11-19'), hours: 7.5, notes: 'Bug fixes and testing' },
-      { employeeId: empRecords[1].id, projectId: projRecords[1].id, date: new Date('2025-11-18'), hours: 8, notes: 'Sprint planning' },
-      { employeeId: empRecords[1].id, projectId: projRecords[1].id, date: new Date('2025-11-19'), hours: 7, notes: 'Stakeholder meetings' }
+      { employeeId: (empRecords[0] as Employee).id, projectId: (projRecords[0] as Project).id, date: new Date('2025-11-18'), hours: 8, notes: 'Working on employee module' },
+      { employeeId: (empRecords[0] as Employee).id, projectId: (projRecords[0] as Project).id, date: new Date('2025-11-19'), hours: 7.5, notes: 'Bug fixes and testing' },
+      { employeeId: (empRecords[1] as Employee).id, projectId: (projRecords[1] as Project).id, date: new Date('2025-11-18'), hours: 8, notes: 'Sprint planning' },
+      { employeeId: (empRecords[1] as Employee).id, projectId: (projRecords[1] as Project).id, date: new Date('2025-11-19'), hours: 7, notes: 'Stakeholder meetings' }
     ]
 
     for (const ts of timesheets) {
@@ -202,8 +203,8 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
     // Create sample leave requests
     console.log('[SEED] Creating leave requests...')
     const leaveRequests = [
-      { employeeId: empRecords[0].id, type: 'Annual Leave', startDate: new Date('2025-12-23'), endDate: new Date('2025-12-27'), status: 'PENDING', reason: 'Christmas holiday' },
-      { employeeId: empRecords[1].id, type: 'Sick Leave', startDate: new Date('2025-11-10'), endDate: new Date('2025-11-11'), status: 'APPROVED', reason: 'Flu' }
+      { employeeId: (empRecords[0] as Employee).id, type: 'Annual Leave', startDate: new Date('2025-12-23'), endDate: new Date('2025-12-27'), status: 'PENDING', reason: 'Christmas holiday' },
+      { employeeId: (empRecords[1] as Employee).id, type: 'Sick Leave', startDate: new Date('2025-11-10'), endDate: new Date('2025-11-11'), status: 'APPROVED', reason: 'Flu' }
     ]
 
     for (const lr of leaveRequests) {

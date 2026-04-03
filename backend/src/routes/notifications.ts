@@ -3,6 +3,7 @@ import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
 import { requireRole } from '../middleware/roles'
 import { sendEmail, EmailTemplates } from '../lib/emailService'
+import type { Employee, Sponsorship, User } from '@prisma/client'
 
 const router = Router()
 
@@ -55,7 +56,7 @@ router.post('/check-expiries', requireAuth, requireRole('ADMIN', 'MANAGER'), asy
         })
 
         const sent = await sendEmail({
-          to: admins.map(a => a.email),
+          to: admins.map((a: Pick<User, 'email'>) => a.email),
           subject: template.subject,
           html: template.html,
         })
@@ -95,7 +96,7 @@ router.post('/check-expiries', requireAuth, requireRole('ADMIN', 'MANAGER'), asy
         })
 
         const sent = await sendEmail({
-          to: admins.map(a => a.email),
+          to: admins.map((a: Pick<User, 'email'>) => a.email),
           subject: template.subject,
           html: template.html,
         })
@@ -169,7 +170,7 @@ router.get('/upcoming-expiries', requireAuth, async (req, res) => {
     })
 
     res.json({
-      visaExpiries: visaExpiries.map(v => ({
+      visaExpiries: visaExpiries.map((v: Sponsorship & { employee: Pick<Employee, 'id' | 'firstName' | 'lastName' | 'email'> }) => ({
         id: v.id,
         employeeId: v.employee.id,
         employeeName: `${v.employee.firstName} ${v.employee.lastName}`,
@@ -178,7 +179,7 @@ router.get('/upcoming-expiries', requireAuth, async (req, res) => {
         expiryDate: v.endDate,
         daysRemaining: Math.ceil((v.endDate!.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
       })),
-      contractExpiries: contractExpiries.map(e => ({
+      contractExpiries: contractExpiries.map((e: Pick<Employee, 'id' | 'firstName' | 'lastName' | 'email' | 'jobTitle' | 'endDate'>) => ({
         id: e.id,
         employeeName: `${e.firstName} ${e.lastName}`,
         email: e.email,
@@ -228,7 +229,7 @@ router.post('/notify-leave-request', requireAuth, async (req, res) => {
     })
 
     const sent = await sendEmail({
-      to: admins.map(a => a.email),
+      to: admins.map((a: Pick<User, 'email'>) => a.email),
       subject: template.subject,
       html: template.html,
     })

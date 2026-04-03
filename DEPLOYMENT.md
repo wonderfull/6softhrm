@@ -102,8 +102,8 @@ cd /var/www
 git clone https://github.com/wonderfull/6softhrm.git
 cd 6softhrm
 
-# Checkout the MySQL branch
-git checkout change_to_mysql
+# Checkout the production branch
+git checkout main
 
 # Verify files
 ls -la
@@ -515,7 +515,7 @@ ssh root@YOUR_SERVER_IP
 cd /var/www/6softhrm
 
 # Pull latest changes
-git pull origin change_to_mysql
+git pull origin main
 
 # Update backend
 cd backend

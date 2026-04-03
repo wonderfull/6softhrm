@@ -3,6 +3,7 @@ import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
 import { auditLog } from '../middleware/audit'
 import * as XLSX from 'xlsx'
+import type { DataConsent, Employee } from '@prisma/client'
 
 const router = Router()
 
@@ -26,7 +27,7 @@ router.get('/', requireAuth, async (req: any, res) => {
   // Fetch all consents for all employees
   const allConsents = await prisma.dataConsent.findMany({
     where: {
-      employeeId: { in: employees.map(e => e.id) }
+      employeeId: { in: employees.map((e: Employee) => e.id) }
     },
     orderBy: { createdAt: 'desc' }
   })
@@ -36,15 +37,15 @@ router.get('/', requireAuth, async (req: any, res) => {
                         'marketing_emails', 'third_party_payroll', 'background_checks', 'references']
   
   // Attach consent summary to each employee
-  const employeesWithConsents = employees.map(emp => {
-    const empConsents = allConsents.filter(c => c.employeeId === emp.id)
+  const employeesWithConsents = employees.map((emp: Employee) => {
+    const empConsents = allConsents.filter((c: DataConsent) => c.employeeId === emp.id)
     
     // Get latest consent for each type
     const consentSummary = consentTypes.map(type => {
-      const typeConsents = empConsents.filter(c => c.consentType === type)
+      const typeConsents = empConsents.filter((c: DataConsent) => c.consentType === type)
       if (typeConsents.length === 0) return { type, status: 'not_given' }
       
-   const latest = typeConsents.reduce((l, c) => 
+      const latest = typeConsents.reduce((l: DataConsent, c: DataConsent) => 
         new Date(c.createdAt) > new Date(l.createdAt) ? c : l
       )
       return {
@@ -57,7 +58,7 @@ router.get('/', requireAuth, async (req: any, res) => {
     return {
       ...emp,
       consents: consentSummary,
-      consentCount: consentSummary.filter(c => c.status === 'granted').length
+      consentCount: consentSummary.filter((c) => c.status === 'granted').length
     }
   })
 
@@ -168,7 +169,7 @@ router.get('/export/excel', requireAuth, async (req: any, res) => {
     }
 
     // Format data for Excel
-    const excelData = employees.map(emp => ({
+    const excelData = employees.map((emp: Employee) => ({
       'ID': emp.id,
       'First Name': emp.firstName,
       'Last Name': emp.lastName,
