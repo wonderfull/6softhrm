@@ -21,3 +21,11 @@ frontend/dist/
 RENDER_ENV.txt
 *.zip
 .htaccess
+codexplans/
+
+# Claude Code — personal settings (contains machine-specific absolute paths)
+.claude/settings.local.json
+# Claude Code — personal instructions (not shared with team)
+CLAUDE.local.md
+# Hook debug output (temporary debugging tool)
+hooks/hook-debug.json

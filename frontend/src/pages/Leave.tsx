@@ -94,10 +94,11 @@ export default function Leave() {
           <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-white">New Leave Request</h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label htmlFor="leave-type" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Leave Type *
               </label>
               <select
+                id="leave-type"
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                 className="form-input"
@@ -111,10 +112,11 @@ export default function Leave() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label htmlFor="leave-start-date" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Start Date *
               </label>
               <input
+                id="leave-start-date"
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
@@ -124,10 +126,11 @@ export default function Leave() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label htmlFor="leave-end-date" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 End Date *
               </label>
               <input
+                id="leave-end-date"
                 type="date"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
@@ -137,10 +140,11 @@ export default function Leave() {
             </div>
 
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label htmlFor="leave-reason" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Reason
               </label>
               <textarea
+                id="leave-reason"
                 value={formData.reason}
                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 className="form-input"
