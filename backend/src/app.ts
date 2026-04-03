@@ -17,8 +17,10 @@ import { initializeCronJobs } from './lib/cronJobs'
 
 dotenv.config()
 
-// Verify email configuration on startup
-verifyEmailConfig()
+// Avoid noisy external SMTP verification in local dev/test unless explicitly enabled.
+if (process.env.VERIFY_SMTP_ON_BOOT === 'true') {
+  verifyEmailConfig()
+}
 
 // Initialize scheduled tasks (daily expiry checks)
 initializeCronJobs()

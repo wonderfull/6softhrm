@@ -124,7 +124,8 @@ export default function Login() {
             <p className="text-sm text-slate-600 dark:text-slate-400 text-center mb-2">Demo Credentials:</p>
             <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 space-y-1 text-xs font-mono">
               <p className="text-slate-700 dark:text-slate-300">Admin: admin@example.com / password123</p>
-              <p className="text-slate-700 dark:text-slate-300">User: user@example.com / password123</p>
+              <p className="text-slate-700 dark:text-slate-300">Manager: manager@example.com / password123</p>
+              <p className="text-slate-700 dark:text-slate-300">Employee: john.smith@company.com / password123</p>
             </div>
           </div>
         </div>

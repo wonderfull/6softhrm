@@ -248,6 +248,24 @@ export default function Time() {
     return employees
   }, [employees, selectedEmployee])
 
+  const monthSummary = React.useMemo(() => {
+    if (viewMode !== 'month') return null
+
+    const monthDays = getMonthDays(currentWeek)
+    let totalHours = 0
+    let daysWorked = 0
+
+    for (const emp of filteredEmployees) {
+      for (const day of monthDays) {
+        const hours = getTotalHoursForDate(emp.id, day)
+        totalHours += hours
+        if (hours > 0) daysWorked += 1
+      }
+    }
+
+    return { totalHours, daysWorked }
+  }, [currentWeek, filteredEmployees, items, selectedProject, viewMode])
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -282,10 +300,11 @@ export default function Time() {
             <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">Add Time Entry</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="quick-add-project" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Project (Optional)
                 </label>
                 <select
+                  id="quick-add-project"
                   value={formData.projectId}
                   onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
                   className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
@@ -300,10 +319,11 @@ export default function Time() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="quick-add-hours" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Hours *
                 </label>
                 <input
+                  id="quick-add-hours"
                   value={formData.hours}
                   onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
                   type="number"
@@ -314,10 +334,11 @@ export default function Time() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="quick-add-notes" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Notes (Optional)
                 </label>
                 <input
+                  id="quick-add-notes"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="Add any notes..."
@@ -349,10 +370,11 @@ export default function Time() {
           <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">{editingId ? 'Edit Entry' : 'New Entry'}</h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="timesheet-employee" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Employee *
               </label>
               <select
+                id="timesheet-employee"
                 value={formData.employeeId}
                 onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
                 required
@@ -368,10 +390,11 @@ export default function Time() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="timesheet-project" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Project (Optional)
               </label>
               <select
+                id="timesheet-project"
                 value={formData.projectId}
                 onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
                 className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
@@ -386,10 +409,11 @@ export default function Time() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="timesheet-date" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Date *
               </label>
               <input
+                id="timesheet-date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 type="date"
@@ -399,10 +423,11 @@ export default function Time() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="timesheet-hours" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Hours *
               </label>
               <input
+                id="timesheet-hours"
                 value={formData.hours}
                 onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
                 type="number"
@@ -414,10 +439,11 @@ export default function Time() {
             </div>
             
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="timesheet-notes" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Notes (Optional)
               </label>
               <input
+                id="timesheet-notes"
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 placeholder="Add any notes..."
@@ -472,10 +498,11 @@ export default function Time() {
       {/* Filters */}
       <div className="mb-4 grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+          <label htmlFor="timesheet-filter-employee" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
             Filter by Employee
           </label>
           <select
+            id="timesheet-filter-employee"
             value={selectedEmployee}
             onChange={(e) => setSelectedEmployee(e.target.value)}
             className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
@@ -490,10 +517,11 @@ export default function Time() {
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+          <label htmlFor="timesheet-filter-project" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
             Filter by Project
           </label>
           <select
+            id="timesheet-filter-project"
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
             className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
@@ -508,7 +536,7 @@ export default function Time() {
         </div>
       </div>
 
-      {/* Weekly Timesheet Grid */}
+      {viewMode === 'week' && (
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
@@ -581,9 +609,21 @@ export default function Time() {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Monthly View */}
       {viewMode === 'month' && (
+        <>
+        <div className="mb-4 grid grid-cols-2 gap-4">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-sm text-slate-500 dark:text-slate-400">Total Hours</div>
+            <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">{monthSummary?.totalHours ?? 0}h</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-sm text-slate-500 dark:text-slate-400">Days Worked</div>
+            <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">{monthSummary?.daysWorked ?? 0}</div>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -662,6 +702,7 @@ export default function Time() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {filteredEmployees.length === 0 && (

@@ -69,16 +69,16 @@ function App() {
                   <Routes>
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/employees" element={<Employees />} />
-                    <Route path="/sponsorships" element={<Sponsorships />} />
+                    <Route path="/sponsorships" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><Sponsorships /></ProtectedRoute>} />
                     <Route path="/time" element={<Time />} />
-                    <Route path="/projects" element={<Projects />} />
+                    <Route path="/projects" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><Projects /></ProtectedRoute>} />
                     <Route path="/leave" element={<Leave />} />
                     <Route path="/documents" element={<Documents />} />
                     <Route path="/settings" element={<Settings />} />
-                    <Route path="/users" element={<Users />} />
-                    <Route path="/notifications" element={<Notifications />} />
-                    <Route path="/audit-logs" element={<AuditLogs />} />
-                    <Route path="/data-export" element={<DataExport />} />
+                    <Route path="/users" element={<ProtectedRoute allowedRoles={['ADMIN']}><Users /></ProtectedRoute>} />
+                    <Route path="/notifications" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><Notifications /></ProtectedRoute>} />
+                    <Route path="/audit-logs" element={<ProtectedRoute allowedRoles={['ADMIN']}><AuditLogs /></ProtectedRoute>} />
+                    <Route path="/data-export" element={<ProtectedRoute allowedRoles={['ADMIN']}><DataExport /></ProtectedRoute>} />
                     <Route path="/consent" element={<Consent />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   </Routes>

@@ -47,18 +47,25 @@ export async function apiUpload(path: string, formData: FormData) {
   return res.json()
 }
 
+export function parseJwtPayload(token: string) {
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  const payload = parts[1]
+  return JSON.parse(decodeURIComponent(atob(payload.replace(/-/g, '+').replace(/_/g, '/')).split('').map(function(c) {
+    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+  }).join('')))
+}
+
 export function getCurrentUser() {
   try {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     if (!token) return null
-    const parts = token.split('.')
-    if (parts.length !== 3) return null
-    const payload = parts[1]
-    const json = JSON.parse(decodeURIComponent(atob(payload.replace(/-/g, '+').replace(/_/g, '/')).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-    }).join('')))
-    return json
-  } catch (e) {
+    return parseJwtPayload(token)
+  } catch {
     return null
   }
+}
+
+export function hasRole(user: any, ...roles: string[]) {
+  return !!user && roles.includes(user.role)
 }

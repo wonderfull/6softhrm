@@ -1,8 +1,10 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
+import { getCurrentUser } from '../lib/api'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
+  allowedRoles?: string[]
 }
 
 function isTokenExpired(token: string): boolean {
@@ -18,13 +20,20 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const token = localStorage.getItem('token')
   
   // Check if token exists and is not expired
   if (!token || isTokenExpired(token)) {
     localStorage.removeItem('token')
     return <Navigate to="/login" replace />
+  }
+
+  if (allowedRoles && allowedRoles.length > 0) {
+    const user = getCurrentUser()
+    if (!user || !allowedRoles.includes(user.role)) {
+      return <Navigate to="/dashboard" replace />
+    }
   }
   
   return <>{children}</>

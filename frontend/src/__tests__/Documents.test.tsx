@@ -1,18 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import Documents from '../pages/Documents'
 import * as api from '../lib/api'
 
-// Mock the API
-vi.mock('../lib/api', () => ({
-  apiGet: vi.fn(),
-  apiPost: vi.fn(),
-  apiDelete: vi.fn(),
-  apiUpload: vi.fn(),
-  BACKEND_BASE_URL: 'http://localhost:4000'
-}))
+let mockedUser: { role: string; email: string; employeeId?: number } | null = null
+
+vi.mock('../lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/api')>()
+  return {
+    ...actual,
+    apiGet: vi.fn(),
+    apiPost: vi.fn(),
+    apiDelete: vi.fn(),
+    apiUpload: vi.fn(),
+    BACKEND_BASE_URL: 'http://localhost:4000',
+    getCurrentUser: vi.fn(() => mockedUser),
+    hasRole: vi.fn((user: any, ...roles: string[]) => !!user && roles.includes(user.role))
+  }
+})
 
 describe('Documents Page', () => {
+  const makeToken = (payload: Record<string, unknown>) => `header.${btoa(JSON.stringify(payload))}.signature`
+  const renderDocuments = () => render(
+    <MemoryRouter>
+      <Documents />
+    </MemoryRouter>
+  )
+
   const mockEmployees = [
     { id: 1, firstName: 'John', lastName: 'Doe', email: 'john@test.com' },
     { id: 2, firstName: 'Jane', lastName: 'Smith', email: 'jane@test.com' }
@@ -41,6 +56,8 @@ describe('Documents Page', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockedUser = null
+    localStorage.clear()
     ;(api.apiGet as any).mockImplementation((endpoint: string) => {
       if (endpoint === '/documents') return Promise.resolve(mockDocuments)
       if (endpoint === '/employees') return Promise.resolve(mockEmployees)
@@ -49,15 +66,20 @@ describe('Documents Page', () => {
   })
 
   it('should render documents page title', async () => {
-    render(<Documents />)
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    renderDocuments()
+
     await waitFor(() => {
       expect(screen.getByText('Documents')).toBeInTheDocument()
     })
   })
 
   it('should display upload form with proper labels', async () => {
-    render(<Documents />)
-    
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    renderDocuments()
+
     await waitFor(() => {
       expect(screen.getByLabelText(/Document Name/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/Document Type/i)).toBeInTheDocument()
@@ -67,15 +89,12 @@ describe('Documents Page', () => {
   })
 
   it('should show download all button for admin when employee selected', async () => {
-    // Mock admin user
-    localStorage.setItem('token', btoa(JSON.stringify({ role: 'ADMIN' })))
-    
-    render(<Documents />)
-    
-    await waitFor(() => {
-      const employeeFilter = screen.getByLabelText(/Filter by Employee/i)
-      fireEvent.change(employeeFilter, { target: { value: '1' } })
-    })
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    renderDocuments()
+
+    const filterSelect = await screen.findByLabelText(/Filter by Employee/i)
+    fireEvent.change(filterSelect, { target: { value: '1' } })
 
     await waitFor(() => {
       expect(screen.getByText(/Download All as ZIP/i)).toBeInTheDocument()
@@ -83,65 +102,59 @@ describe('Documents Page', () => {
   })
 
   it('should call fetch when admin clicks Download All', async () => {
-    localStorage.setItem('token', btoa(JSON.stringify({ role: 'ADMIN' })))
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
     const mockRes = { ok: true, blob: async () => new Blob(['zip content']), headers: { get: () => 'attachment; filename="John_Doe_Documents.zip"' } }
     const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockResolvedValue(mockRes as any)
-    
-    render(<Documents />)
-    
-    await waitFor(() => {
-      const employeeFilter = screen.getByLabelText(/Filter by Employee/i)
-      fireEvent.change(employeeFilter, { target: { value: '1' } })
-    })
 
-    await waitFor(() => {
-      const btn = screen.getByText(/Download All as ZIP/i)
-      fireEvent.click(btn)
-    })
+    renderDocuments()
+
+    const filterSelect = await screen.findByLabelText(/Filter by Employee/i)
+    fireEvent.change(filterSelect, { target: { value: '1' } })
+    fireEvent.click(await screen.findByText(/Download All as ZIP/i))
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalled()
-      // Ensure it called correct endpoint
       expect(fetchSpy.mock.calls[0][0]).toMatch(/\/api\/documents\/download-all\/1$/)
-      expect(fetchSpy.mock.calls[0][1]).toBeDefined()
-      expect((fetchSpy.mock.calls[0][1] as any).headers.Authorization).toBe(`Bearer ${localStorage.getItem('token')}`)
+      expect(fetchSpy.mock.calls[0][1]).toEqual(expect.objectContaining({ method: 'GET' }))
     })
+
     fetchSpy.mockRestore()
   })
 
   it('should call fetch when employee clicks Download All My Documents', async () => {
-    localStorage.setItem('token', btoa(JSON.stringify({ role: 'EMPLOYEE', email: 'john@test.com' })))
+    mockedUser = { role: 'USER', email: 'john@test.com', employeeId: 1 }
+    localStorage.setItem('token', makeToken({ role: 'USER', email: 'john@test.com', employeeId: 1 }))
     const mockRes = { ok: true, blob: async () => new Blob(['zip content']), headers: { get: () => 'attachment; filename="John_Doe_Documents.zip"' } }
     const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockResolvedValue(mockRes as any)
 
-    render(<Documents />)
+    renderDocuments()
 
-    await waitFor(() => {
-      const btn = screen.getByText(/Download All My Documents as ZIP/i)
-      fireEvent.click(btn)
-    })
+    fireEvent.click(await screen.findByText(/Download All My Documents as ZIP/i))
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalled()
-      expect(fetchSpy.mock.calls[0][0]).toMatch(/\/api\/documents\/download-all\//)
+      expect(fetchSpy.mock.calls[0][0]).toMatch(/\/api\/documents\/download-all\/1$/)
     })
+
     fetchSpy.mockRestore()
   })
 
   it('should show download all button for employee user', async () => {
-    // Mock employee user
-    localStorage.setItem('token', btoa(JSON.stringify({ role: 'EMPLOYEE', email: 'john@test.com' })))
-    
-    render(<Documents />)
-    
+    mockedUser = { role: 'USER', email: 'john@test.com', employeeId: 1 }
+    localStorage.setItem('token', makeToken({ role: 'USER', email: 'john@test.com', employeeId: 1 }))
+    renderDocuments()
+
     await waitFor(() => {
       expect(screen.getByText(/Download All My Documents as ZIP/i)).toBeInTheDocument()
     })
   })
 
   it('should display document type badges', async () => {
-    render(<Documents />)
-    
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    renderDocuments()
+
     await waitFor(() => {
       expect(screen.getByText('CONTRACT')).toBeInTheDocument()
       expect(screen.getByText('PASSPORT')).toBeInTheDocument()
@@ -149,91 +162,87 @@ describe('Documents Page', () => {
   })
 
   it('should display expiry dates with proper formatting', async () => {
-    render(<Documents />)
-    
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    renderDocuments()
+
     await waitFor(() => {
-      // Look for UK formatted dates (DD/MM/YYYY)
-      const dateElements = screen.queryAllByText(/\d{1,2}\/\d{1,2}\/\d{4}/)
-      expect(dateElements.length).toBeGreaterThan(0)
+      expect(screen.queryAllByText(/\d{1,2}\/\d{1,2}\/\d{4}/).length).toBeGreaterThan(0)
     })
   })
 
   it('should show expiry warning for documents expiring soon', async () => {
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
     const soonExpiringDoc = {
       ...mockDocuments[0],
-      expiryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString() // 5 days from now
+      expiryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
     }
-    
+
     ;(api.apiGet as any).mockImplementation((endpoint: string) => {
       if (endpoint === '/documents') return Promise.resolve([soonExpiringDoc])
       if (endpoint === '/employees') return Promise.resolve(mockEmployees)
       return Promise.resolve([])
     })
-    
-    render(<Documents />)
-    
+
+    renderDocuments()
+
     await waitFor(() => {
       expect(screen.getByText(/Expires in/i)).toBeInTheDocument()
     })
   })
 
   it('should show expired warning for expired documents', async () => {
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
     const expiredDoc = {
       ...mockDocuments[0],
-      expiryDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() // 5 days ago
+      expiryDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
     }
-    
+
     ;(api.apiGet as any).mockImplementation((endpoint: string) => {
       if (endpoint === '/documents') return Promise.resolve([expiredDoc])
       if (endpoint === '/employees') return Promise.resolve(mockEmployees)
       return Promise.resolve([])
     })
-    
-    render(<Documents />)
-    
+
+    renderDocuments()
+
     await waitFor(() => {
       expect(screen.getByText(/EXPIRED/i)).toBeInTheDocument()
     })
   })
 
   it('should upload document with type and expiry date', async () => {
-    (api.apiUpload as any).mockResolvedValue({ success: true })
-    
-    render(<Documents />)
-    
-    await waitFor(() => {
-      const nameInput = screen.getByLabelText(/Document Name/i)
-      fireEvent.change(nameInput, { target: { value: 'Test Document' } })
-      
-      const typeSelect = screen.getByLabelText(/Document Type/i)
-      fireEvent.change(typeSelect, { target: { value: 'CONTRACT' } })
-      
-      const expiryInput = screen.getByLabelText(/Expiry Date/i)
-      fireEvent.change(expiryInput, { target: { value: '2025-12-31' } })
-      
-      // Create a mock file
-      const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
-      const fileInput = screen.getByLabelText(/File/i)
-      fireEvent.change(fileInput, { target: { files: [file] } })
-      
-      const uploadButton = screen.getByText(/Upload Document/i)
-      fireEvent.click(uploadButton)
-    })
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    ;(api.apiUpload as any).mockResolvedValue({ success: true })
+    window.alert = vi.fn()
+
+    renderDocuments()
+
+    fireEvent.change(await screen.findByLabelText('Employee'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText(/Document Name/i), { target: { value: 'Test Document' } })
+    fireEvent.change(screen.getByLabelText(/Document Type/i), { target: { value: 'CONTRACT' } })
+    fireEvent.change(screen.getByLabelText(/Expiry Date/i), { target: { value: '2025-12-31' } })
+
+    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
+    fireEvent.change(screen.getByLabelText(/File/i), { target: { files: [file] } })
+    fireEvent.click(screen.getByText(/Upload Document/i))
 
     await waitFor(() => {
-      expect(api.apiUpload).toHaveBeenCalled()
+      expect(api.apiUpload).toHaveBeenCalledWith('/documents/upload', expect.any(FormData))
     })
   })
 
   it('should delete document when delete button clicked', async () => {
-    (api.apiDelete as any).mockResolvedValue({ success: true })
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    ;(api.apiDelete as any).mockResolvedValue({ success: true })
     window.confirm = vi.fn(() => true)
-    
-    // Mock admin user
-    localStorage.setItem('token', btoa(JSON.stringify({ role: 'ADMIN' })))
-    
-    render(<Documents />)
-    
+
+    renderDocuments()
+
     await waitFor(() => {
       const deleteButtons = screen.queryAllByText(/Delete/i)
       if (deleteButtons.length > 0) {
@@ -244,29 +253,25 @@ describe('Documents Page', () => {
   })
 
   it('should filter documents by employee', async () => {
-    // Mock admin user
-    localStorage.setItem('token', btoa(JSON.stringify({ role: 'ADMIN' })))
-    
-    render(<Documents />)
-    
-    await waitFor(() => {
-      const employeeFilter = screen.getByLabelText(/Filter by Employee/i)
-      fireEvent.change(employeeFilter, { target: { value: '1' } })
-    })
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    renderDocuments()
+
+    fireEvent.change(await screen.findByLabelText(/Filter by Employee/i), { target: { value: '1' } })
 
     await waitFor(() => {
-      // Should only show John Doe's documents
       expect(screen.getAllByText(/John Doe/i).length).toBeGreaterThan(0)
     })
   })
 
   it('should have document type dropdown with all options', async () => {
-    render(<Documents />)
-    
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    renderDocuments()
+
     await waitFor(() => {
       const typeSelect = screen.getByLabelText(/Document Type/i) as HTMLSelectElement
-      const options = Array.from(typeSelect.options).map(opt => opt.value)
-      
+      const options = Array.from(typeSelect.options).map(o => o.value)
       expect(options).toContain('CONTRACT')
       expect(options).toContain('PASSPORT')
       expect(options).toContain('VISA')

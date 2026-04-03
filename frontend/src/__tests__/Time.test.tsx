@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { within } from '@testing-library/react'
 import Time from '../pages/Time'
 import * as api from '../lib/api'
 
-// Mock the API
 vi.mock('../lib/api', () => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
@@ -18,8 +18,8 @@ describe('Time/Timesheets Page', () => {
   ]
 
   const mockProjects = [
-    { id: 1, name: 'Project A', active: true },
-    { id: 2, name: 'Project B', active: true }
+    { id: 1, code: 'PROJ-A', name: 'Project A', active: true },
+    { id: 2, code: 'PROJ-B', name: 'Project B', active: true }
   ]
 
   const mockTimesheets = [
@@ -29,7 +29,8 @@ describe('Time/Timesheets Page', () => {
       projectId: 1,
       date: new Date().toISOString(),
       hours: 8,
-      notes: 'Regular work'
+      notes: 'Regular work',
+      project: { id: 1, code: 'PROJ-A', name: 'Project A' }
     },
     {
       id: 2,
@@ -37,7 +38,8 @@ describe('Time/Timesheets Page', () => {
       projectId: 2,
       date: new Date().toISOString(),
       hours: 6,
-      notes: 'Half day'
+      notes: 'Half day',
+      project: { id: 2, code: 'PROJ-B', name: 'Project B' }
     }
   ]
 
@@ -61,108 +63,89 @@ describe('Time/Timesheets Page', () => {
   it('should display weekly view by default', async () => {
     render(<Time />)
     await waitFor(() => {
-      const weeklyButton = screen.getByText('Weekly')
-      expect(weeklyButton).toHaveClass('bg-blue-500')
+      expect(screen.getByText('Weekly')).toHaveClass('bg-blue-500')
     })
   })
 
   it('should switch to monthly view when clicked', async () => {
     render(<Time />)
     await waitFor(() => {
-      const monthlyButton = screen.getByText('Monthly')
-      fireEvent.click(monthlyButton)
-      expect(monthlyButton).toHaveClass('bg-blue-500')
+      fireEvent.click(screen.getByText('Monthly'))
+      expect(screen.getByText('Monthly')).toHaveClass('bg-blue-500')
     })
   })
 
   it('should display employee filter with label', async () => {
     render(<Time />)
     await waitFor(() => {
-      expect(screen.getByText('Filter by Employee')).toBeInTheDocument()
+      expect(screen.getByLabelText(/Filter by Employee/i)).toBeInTheDocument()
     })
   })
 
   it('should display project filter with label', async () => {
     render(<Time />)
     await waitFor(() => {
-      expect(screen.getByText('Filter by Project')).toBeInTheDocument()
+      expect(screen.getByLabelText(/Filter by Project/i)).toBeInTheDocument()
     })
   })
 
   it('should show form fields with proper labels', async () => {
     render(<Time />)
-    
-    // Open form by clicking Add Timesheet
-    const addButton = screen.getByText('Add Timesheet')
-    fireEvent.click(addButton)
+    fireEvent.click(screen.getByText('+ Add Entry'))
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/Employee/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/Date/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/Hours/i)).toBeInTheDocument()
+      expect(screen.getByLabelText('Employee *')).toBeInTheDocument()
+      expect(screen.getByLabelText('Date *')).toBeInTheDocument()
+      expect(screen.getByLabelText('Hours *')).toBeInTheDocument()
     })
   })
 
   it('should filter timesheets by employee', async () => {
     render(<Time />)
-    
-    await waitFor(() => {
-      const employeeFilter = screen.getByLabelText('Filter by Employee')
-      fireEvent.change(employeeFilter, { target: { value: '1' } })
-    })
 
-    // Verify filtering works (check if only John Doe's timesheets are shown)
+    fireEvent.change(await screen.findByLabelText(/Filter by Employee/i), { target: { value: '1' } })
+
     await waitFor(() => {
-      expect(screen.getByText('John Doe')).toBeInTheDocument()
+      const rows = screen.getAllByRole('row')
+      expect(within(rows[1]).getByText(/John Doe/i)).toBeInTheDocument()
+      expect(screen.queryByText('Jane Smith', { selector: 'td' })).not.toBeInTheDocument()
     })
   })
 
   it('should navigate between weeks', async () => {
     render(<Time />)
-    
+    const initialRange = screen.getByText(/ - /).textContent
+
+    fireEvent.click(screen.getByText('Next →'))
+
     await waitFor(() => {
-      const nextButton = screen.getByText('Next')
-      fireEvent.click(nextButton)
-      expect(api.apiGet).toHaveBeenCalled()
+      expect(screen.getByText(/ - /).textContent).not.toBe(initialRange)
     })
   })
 
   it('should navigate between months in monthly view', async () => {
     render(<Time />)
-    
+    fireEvent.click(screen.getByText('Monthly'))
+    const initialMonth = screen.getByText(/\w+ \d{4}/).textContent
+
+    fireEvent.click(screen.getByText('Next →'))
+
     await waitFor(() => {
-      // Switch to monthly view
-      const monthlyButton = screen.getByText('Monthly')
-      fireEvent.click(monthlyButton)
-      
-      // Click next
-      const nextButton = screen.getByText('Next')
-      fireEvent.click(nextButton)
-      expect(api.apiGet).toHaveBeenCalled()
+      expect(screen.getByText(/\w+ \d{4}/).textContent).not.toBe(initialMonth)
     })
   })
 
   it('should submit new timesheet', async () => {
-    (api.apiPost as any).mockResolvedValue({ success: true })
-    
-    render(<Time />)
-    
-    const addButton = screen.getByText('Add Timesheet')
-    fireEvent.click(addButton)
+    ;(api.apiPost as any).mockResolvedValue({ success: true })
+    window.alert = vi.fn()
 
-    await waitFor(() => {
-      const employeeSelect = screen.getByLabelText(/Employee/i)
-      fireEvent.change(employeeSelect, { target: { value: '1' } })
-      
-      const dateInput = screen.getByLabelText(/Date/i)
-      fireEvent.change(dateInput, { target: { value: '2025-11-19' } })
-      
-      const hoursInput = screen.getByLabelText(/Hours/i)
-      fireEvent.change(hoursInput, { target: { value: '8' } })
-      
-      const submitButton = screen.getByText('Submit')
-      fireEvent.click(submitButton)
-    })
+    render(<Time />)
+    fireEvent.click(screen.getByText('+ Add Entry'))
+
+    fireEvent.change(await screen.findByLabelText('Employee *'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Date *'), { target: { value: '2025-11-19' } })
+    fireEvent.change(screen.getByLabelText('Hours *'), { target: { value: '8' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add Entry' }))
 
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith('/timesheets', expect.any(Object))
@@ -171,22 +154,16 @@ describe('Time/Timesheets Page', () => {
 
   it('should calculate total hours for week', async () => {
     render(<Time />)
-    
+
     await waitFor(() => {
-      // In weekly view, should show total hours
-      const totalElements = screen.queryAllByText(/Total:/i)
-      expect(totalElements.length).toBeGreaterThan(0)
+      expect(screen.getAllByText('8h').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('6h').length).toBeGreaterThan(0)
     })
   })
 
   it('should show monthly summary with total hours and days worked', async () => {
     render(<Time />)
-    
-    await waitFor(() => {
-      // Switch to monthly view
-      const monthlyButton = screen.getByText('Monthly')
-      fireEvent.click(monthlyButton)
-    })
+    fireEvent.click(screen.getByText('Monthly'))
 
     await waitFor(() => {
       expect(screen.getByText('Total Hours')).toBeInTheDocument()
@@ -195,13 +172,13 @@ describe('Time/Timesheets Page', () => {
   })
 
   it('should delete timesheet when delete button clicked', async () => {
-    (api.apiDelete as any).mockResolvedValue({ success: true })
+    ;(api.apiDelete as any).mockResolvedValue({ success: true })
     global.confirm = vi.fn(() => true)
-    
+
     render(<Time />)
-    
+
     await waitFor(() => {
-      const deleteButtons = screen.queryAllByText('Delete')
+      const deleteButtons = screen.queryAllByText('Del')
       if (deleteButtons.length > 0) {
         fireEvent.click(deleteButtons[0])
         expect(api.apiDelete).toHaveBeenCalled()

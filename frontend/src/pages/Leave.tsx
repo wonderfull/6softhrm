@@ -27,6 +27,7 @@ export default function Leave() {
   const user = getCurrentUser()
   const canApprove = user && (user.role === 'ADMIN' || user.role === 'MANAGER')
   const canRequestLeave = user && user.employeeId
+  const showLinkWarning = user?.role === 'USER' && !user.employeeId
 
   async function handleApprove(id: number) {
     try {
@@ -77,11 +78,15 @@ export default function Leave() {
           >
             <HiPlus /> {showForm ? 'Cancel' : 'Request Leave'}
           </button>
-        ) : (
+        ) : showLinkWarning ? (
           <div className="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-200 text-sm">
             ⚠️ Your account is not linked to an employee record. Please contact HR.
           </div>
-        )}
+        ) : canApprove ? (
+          <div className="text-slate-600 bg-slate-100 px-4 py-2 rounded-lg border border-slate-200 text-sm">
+            Review and approve employee leave requests.
+          </div>
+        ) : null}
       </div>
 
       {showForm && canRequestLeave && (

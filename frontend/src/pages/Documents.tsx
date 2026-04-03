@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { apiGet, API_BASE_URL, apiUpload, apiDelete, BACKEND_BASE_URL } from '../lib/api'
+import { apiGet, API_BASE_URL, BACKEND_BASE_URL, apiUpload, apiDelete, getCurrentUser, hasRole } from '../lib/api'
 
 export default function Documents() {
   const [items, setItems] = React.useState<any[]>([])
@@ -15,9 +15,8 @@ export default function Documents() {
   const [currentEmployee, setCurrentEmployee] = React.useState<any>(null)
 
   // Check if user is admin
-  const token = localStorage.getItem('token')
-  const user = token ? JSON.parse(atob(token.split('.')[1])) : null
-  const isAdmin = user?.role === 'ADMIN'
+  const user = getCurrentUser()
+  const isElevated = hasRole(user, 'ADMIN', 'MANAGER')
 
   React.useEffect(() => {
     apiGet('/documents')
@@ -27,7 +26,7 @@ export default function Documents() {
       .then((emps) => {
         setEmployees(emps)
         // If not admin, auto-select the current employee
-        if (!isAdmin && user?.email) {
+        if (!isElevated && user?.email) {
           const myEmployee = emps.find((e: any) => e.email === user.email)
           if (myEmployee) {
             setCurrentEmployee(myEmployee)
@@ -36,7 +35,7 @@ export default function Documents() {
         }
       })
       .catch(() => setEmployees([]))
-  }, [])
+  }, [isElevated, user?.email])
 
   const filteredDocuments = viewFilterEmployeeId
     ? items.filter(d => d.employeeId === Number(viewFilterEmployeeId))
@@ -83,32 +82,19 @@ export default function Documents() {
     if (docType) fd.append('type', docType)
     if (expiryDate) fd.append('expiryDate', expiryDate)
 
-    const token = localStorage.getItem('token')
     try {
-      try {
-        const d = await apiUpload('/documents/upload', fd)
-        setFile(null)
-        setName('')
-        setDocType('')
-        setExpiryDate('')
-        setEmployeeId('')
-        const updatedDocs = await apiGet('/documents')
-        setItems(updatedDocs)
-        alert('Document uploaded successfully!')
-      } catch (e: any) {
-        return alert(`Upload failed: ${e.message || 'Unknown error'}`)
-      }
+      await apiUpload('/documents/upload', fd)
       setFile(null)
       setName('')
       setDocType('')
       setExpiryDate('')
-      setEmployeeId('')
+      setEmployeeId(currentEmployee ? String(currentEmployee.id) : '')
       // Refresh the documents list
       const updatedDocs = await apiGet('/documents')
       setItems(updatedDocs)
       alert('Document uploaded successfully!')
     } catch (err: any) {
-      alert(`Upload error: ${err.message}`)
+      alert(`Upload failed: ${err.message || 'Unknown error'}`)
     }
   }
 
@@ -130,19 +116,20 @@ export default function Documents() {
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-4">{isAdmin ? 'Documents' : 'My Documents'}</h2>
+      <h2 className="text-2xl font-semibold mb-4">{isElevated ? 'Documents' : 'My Documents'}</h2>
 
       <form onSubmit={upload} className="mb-6 space-y-2">
-        {isAdmin && employees.length === 0 && (
+        {isElevated && employees.length === 0 && (
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-yellow-700">No employees found — please create employees first on the <Link to="/employees" className="underline">Employees</Link> page.</div>
         )}
         
-        {isAdmin && (
+        {isElevated && (
           <>
             <div className="flex gap-2 items-center">
-              <input placeholder="Search employees..." value={filter} onChange={(e) => setFilter(e.target.value)} className="form-input" />
+              <input id="employee-search" placeholder="Search employees..." value={filter} onChange={(e) => setFilter(e.target.value)} className="form-input" />
             </div>
-            <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="form-input" disabled={employees.length === 0}>
+            <label htmlFor="document-employee" className="sr-only">Employee</label>
+            <select id="document-employee" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="form-input" disabled={employees.length === 0}>
               <option value="">Select Employee *</option>
               {employees.filter(emp => `${emp.firstName} ${emp.lastName} ${emp.email} ${emp.id}`.toLowerCase().includes(filter.toLowerCase())).map(emp => (
                 <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName} ({emp.id})</option>
@@ -153,10 +140,11 @@ export default function Documents() {
         
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <label htmlFor="document-name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Document Name *
             </label>
             <input 
+              id="document-name"
               value={name} 
               onChange={(e) => setName(e.target.value)} 
               placeholder="e.g., Employment Contract" 
@@ -165,10 +153,11 @@ export default function Documents() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <label htmlFor="document-type" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Document Type (Optional)
             </label>
             <select 
+              id="document-type"
               value={docType} 
               onChange={(e) => setDocType(e.target.value)} 
               className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
@@ -184,10 +173,11 @@ export default function Documents() {
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+          <label htmlFor="document-expiry-date" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
             Expiry Date (Optional)
           </label>
           <input 
+            id="document-expiry-date"
             type="date" 
             value={expiryDate} 
             onChange={(e) => setExpiryDate(e.target.value)} 
@@ -195,25 +185,27 @@ export default function Documents() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+          <label htmlFor="document-file" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
             File *
           </label>
           <input 
+            id="document-file"
             type="file" 
             className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white" 
             onChange={handleFileChange} 
-            disabled={!isAdmin && !currentEmployee} 
+            disabled={!isElevated && !currentEmployee} 
           />
           <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">Allowed types: PDF, PNG, JPG, DOC, DOCX • Max size: 5MB</div>
         </div>
-        <button className="btn-primary" disabled={!file || !employeeId || !name || (!isAdmin && !currentEmployee)}>Upload Document</button>
+        <button className="btn-primary" disabled={!file || !employeeId || !name || (!isElevated && !currentEmployee)}>Upload Document</button>
       </form>
 
-      {isAdmin && (
+      {isElevated && (
         <div className="mb-4 flex items-end gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-medium mb-2">Filter by Employee:</label>
+            <label htmlFor="document-filter-employee" className="block text-sm font-medium mb-2">Filter by Employee:</label>
             <select
+              id="document-filter-employee"
               value={viewFilterEmployeeId}
               onChange={(e) => setViewFilterEmployeeId(e.target.value)}
               className="form-input"
@@ -239,7 +231,7 @@ export default function Documents() {
         </div>
       )}
 
-      {!isAdmin && currentEmployee && (
+      {!isElevated && currentEmployee && (
         <div className="mb-4">
           <button
             onClick={() => handleDownloadAll(String(currentEmployee.id))}
@@ -339,7 +331,7 @@ export default function Documents() {
                   >
                     Open
                   </a>
-                  {isAdmin && (
+                  {isElevated && (
                     <button
                       onClick={async () => {
                         if (!confirm('Are you sure you want to delete this document?')) return

@@ -4,19 +4,40 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
 import { createAuditLog } from '../middleware/audit'
+import { requireAuth, AuthRequest } from '../middleware/auth'
+import { requireRole } from '../middleware/roles'
 
 dotenv.config()
 
 const router = Router()
 
-router.post('/register', async (req, res) => {
+function getOptionalUser(req: AuthRequest) {
+  const header = req.headers.authorization
+  if (!header) return null
+
+  try {
+    const token = header.replace('Bearer ', '')
+    const secret = process.env.JWT_SECRET || 'change_me'
+    return jwt.verify(token, secret) as any
+  } catch {
+    return null
+  }
+}
+
+router.post('/register', async (req: AuthRequest, res) => {
   const { email, password, name, role } = req.body
   if (!email || !password) return res.status(400).json({ error: 'email and password required' })
 
   const hashed = await bcrypt.hash(password, 10)
   try {
-    const userData: any = { email, password: hashed, name }
-    if (role) userData.role = role
+    const requester = getOptionalUser(req)
+    const canAssignRole = requester?.role === 'ADMIN'
+    const userData: any = {
+      email,
+      password: hashed,
+      name,
+      role: canAssignRole && role ? role : 'USER',
+    }
 
     // Auto-link to employee if email matches
     const employee = await prisma.employee.findUnique({ where: { email } })
@@ -32,7 +53,7 @@ router.post('/register', async (req, res) => {
 })
 
 // Manual link endpoint (to fix existing users)
-router.post('/link-employee', async (req: any, res) => {
+router.post('/link-employee', requireAuth, requireRole('ADMIN'), async (req: any, res) => {
   const { email } = req.body
   if (!email) return res.status(400).json({ error: 'email required' })
 
@@ -98,7 +119,7 @@ router.post('/login', async (req, res) => {
 })
 
 // Get all users (admin only)
-router.get('/users', async (req, res) => {
+router.get('/users', requireAuth, requireRole('ADMIN'), async (req, res) => {
   const users = await prisma.user.findMany({
     select: {
       id: true,
@@ -122,11 +143,14 @@ router.get('/users', async (req, res) => {
 })
 
 // Update user (admin only)
-router.put('/users/:id', async (req, res) => {
-  const { email, name, role, password } = req.body
+router.put('/users/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  const { email, name, role, password, employeeId } = req.body
   const data: any = { email, name, role }
   if (password) {
     data.password = await bcrypt.hash(password, 10)
+  }
+  if (employeeId !== undefined) {
+    data.employeeId = employeeId || null
   }
   try {
     const user = await prisma.user.update({ where: { id: Number(req.params.id) }, data })
@@ -137,7 +161,7 @@ router.put('/users/:id', async (req, res) => {
 })
 
 // Delete user (admin only)
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
     await prisma.user.delete({ where: { id: Number(req.params.id) } })
     res.json({ ok: true })

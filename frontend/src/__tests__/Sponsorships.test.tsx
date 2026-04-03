@@ -4,7 +4,6 @@ import Sponsorships from '../pages/Sponsorships'
 import * as api from '../lib/api'
 import * as XLSX from 'xlsx'
 
-// Mock the API
 vi.mock('../lib/api', () => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
@@ -12,7 +11,6 @@ vi.mock('../lib/api', () => ({
   apiDelete: vi.fn()
 }))
 
-// Mock XLSX
 vi.mock('xlsx', () => ({
   utils: {
     json_to_sheet: vi.fn(),
@@ -74,9 +72,7 @@ describe('Sponsorships Page', () => {
 
   it('should have labeled form fields for start and end dates', async () => {
     render(<Sponsorships />)
-    
-    const addButton = screen.getByText(/Add Sponsorship/i)
-    fireEvent.click(addButton)
+    fireEvent.click(screen.getByText(/Add Sponsorship/i))
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Start Date/i)).toBeInTheDocument()
@@ -86,11 +82,8 @@ describe('Sponsorships Page', () => {
 
   it('should export sponsorships to Excel when export clicked', async () => {
     render(<Sponsorships />)
-    
-    await waitFor(() => {
-      const exportButton = screen.getByText(/Export to Excel/i)
-      fireEvent.click(exportButton)
-    })
+    await screen.findByText(/Skilled Worker/i)
+    fireEvent.click(screen.getByText(/Export to Excel/i))
 
     await waitFor(() => {
       expect(XLSX.utils.json_to_sheet).toHaveBeenCalled()
@@ -99,26 +92,16 @@ describe('Sponsorships Page', () => {
   })
 
   it('should submit new sponsorship with all required fields', async () => {
-    (api.apiPost as any).mockResolvedValue({ success: true })
-    
-    render(<Sponsorships />)
-    
-    const addButton = screen.getByText(/Add Sponsorship/i)
-    fireEvent.click(addButton)
+    ;(api.apiPost as any).mockResolvedValue({ success: true })
+    window.alert = vi.fn()
 
-    await waitFor(() => {
-      const employeeSelect = screen.getByLabelText(/Employee/i)
-      fireEvent.change(employeeSelect, { target: { value: '1' } })
-      
-      const visaType = screen.getByLabelText(/Visa Type/i)
-      fireEvent.change(visaType, { target: { value: 'Skilled Worker' } })
-      
-      const startDate = screen.getByLabelText(/Start Date/i)
-      fireEvent.change(startDate, { target: { value: '2025-01-01' } })
-      
-      const submitButton = screen.getByText(/Submit/i)
-      fireEvent.click(submitButton)
-    })
+    render(<Sponsorships />)
+    fireEvent.click(screen.getByText(/Add Sponsorship/i))
+
+    fireEvent.change(await screen.findByLabelText(/Employee/i), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText(/Visa Type/i), { target: { value: 'Skilled Worker' } })
+    fireEvent.change(screen.getByLabelText(/Start Date/i), { target: { value: '2025-01-01' } })
+    fireEvent.click(screen.getByRole('button', { name: /^Add Sponsorship$/i }))
 
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith('/sponsorships', expect.any(Object))
@@ -127,36 +110,28 @@ describe('Sponsorships Page', () => {
 
   it('should clear form when cancel or add new sponsorship clicked', async () => {
     render(<Sponsorships />)
-    
-    const addButton = screen.getByText(/Add Sponsorship/i)
-    fireEvent.click(addButton)
+    fireEvent.click(screen.getByText(/Add Sponsorship/i))
 
     await waitFor(() => {
       const employeeSelect = screen.getByLabelText(/Employee/i) as HTMLSelectElement
       fireEvent.change(employeeSelect, { target: { value: '1' } })
       expect(employeeSelect.value).toBe('1')
-      
-      // Click cancel
-      const cancelButton = screen.getByText(/Cancel/i)
-      fireEvent.click(cancelButton)
     })
 
-    // Form should be hidden
+    fireEvent.click(screen.getByText(/Cancel/i))
+
     await waitFor(() => {
       expect(screen.queryByLabelText(/Employee/i)).not.toBeInTheDocument()
     })
   })
 
   it('should edit existing sponsorship', async () => {
-    (api.apiPut as any).mockResolvedValue({ success: true })
-    
+    ;(api.apiPut as any).mockResolvedValue({ success: true })
+
     render(<Sponsorships />)
-    
+
     await waitFor(() => {
-      const editButtons = screen.queryAllByText(/Edit/i)
-      if (editButtons.length > 0) {
-        fireEvent.click(editButtons[0])
-      }
+      fireEvent.click(screen.getByText(/Edit/i))
     })
 
     await waitFor(() => {
@@ -165,25 +140,20 @@ describe('Sponsorships Page', () => {
   })
 
   it('should delete sponsorship when delete clicked', async () => {
-    (api.apiDelete as any).mockResolvedValue({ success: true })
+    ;(api.apiDelete as any).mockResolvedValue({ success: true })
     window.confirm = vi.fn(() => true)
-    
+
     render(<Sponsorships />)
-    
+
     await waitFor(() => {
-      const deleteButtons = screen.queryAllByText(/Delete/i)
-      if (deleteButtons.length > 0) {
-        fireEvent.click(deleteButtons[0])
-        expect(api.apiDelete).toHaveBeenCalled()
-      }
+      fireEvent.click(screen.getByText(/Delete/i))
+      expect(api.apiDelete).toHaveBeenCalled()
     })
   })
 
   it('should display visa type field with label', async () => {
     render(<Sponsorships />)
-    
-    const addButton = screen.getByText(/Add Sponsorship/i)
-    fireEvent.click(addButton)
+    fireEvent.click(screen.getByText(/Add Sponsorship/i))
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Visa Type/i)).toBeInTheDocument()
@@ -192,11 +162,8 @@ describe('Sponsorships Page', () => {
 
   it('should format dates in UK format in export', async () => {
     render(<Sponsorships />)
-    
-    await waitFor(() => {
-      const exportButton = screen.getByText(/Export to Excel/i)
-      fireEvent.click(exportButton)
-    })
+    await screen.findByText(/Skilled Worker/i)
+    fireEvent.click(screen.getByText(/Export to Excel/i))
 
     await waitFor(() => {
       expect(XLSX.utils.json_to_sheet).toHaveBeenCalledWith(

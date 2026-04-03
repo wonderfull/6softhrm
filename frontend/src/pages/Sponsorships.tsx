@@ -187,10 +187,11 @@ export default function Sponsorships() {
           <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">{editingId ? 'Edit Sponsorship' : 'New Sponsorship'}</h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="sponsorship-employee" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Employee *
               </label>
               <select
+                id="sponsorship-employee"
                 value={formData.employeeId}
                 onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
                 required
@@ -206,10 +207,11 @@ export default function Sponsorships() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="sponsorship-visa-type" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Visa Type *
               </label>
               <input
+                id="sponsorship-visa-type"
                 value={formData.visaType}
                 onChange={(e) => setFormData({ ...formData, visaType: e.target.value })}
                 placeholder="e.g., Skilled Worker"
@@ -219,10 +221,11 @@ export default function Sponsorships() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="sponsorship-cas-number" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 CAS Number
               </label>
               <input
+                id="sponsorship-cas-number"
                 value={formData.casNumber}
                 onChange={(e) => setFormData({ ...formData, casNumber: e.target.value })}
                 placeholder="Certificate of Sponsorship Number"
@@ -231,10 +234,11 @@ export default function Sponsorships() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="sponsorship-license-number" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Sponsor License Number
               </label>
               <input
+                id="sponsorship-license-number"
                 value={formData.sponsorLicenseNumber}
                 onChange={(e) => setFormData({ ...formData, sponsorLicenseNumber: e.target.value })}
                 placeholder="Company Sponsor License"
@@ -243,10 +247,11 @@ export default function Sponsorships() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="sponsorship-start-date" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Start Date *
               </label>
               <input
+                id="sponsorship-start-date"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                 type="date"
@@ -256,10 +261,11 @@ export default function Sponsorships() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="sponsorship-end-date" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 End Date (Visa Expiry)
               </label>
               <input
+                id="sponsorship-end-date"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                 type="date"
@@ -268,10 +274,11 @@ export default function Sponsorships() {
             </div>
             
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="sponsorship-compliance-notes" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Compliance Notes
               </label>
               <textarea
+                id="sponsorship-compliance-notes"
                 value={formData.complianceNotes}
                 onChange={(e) => setFormData({ ...formData, complianceNotes: e.target.value })}
                 placeholder="Any compliance-related notes..."
