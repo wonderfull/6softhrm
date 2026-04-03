@@ -1,6 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Dashboard from './pages/Dashboard'
 import Sponsorships from './pages/Sponsorships'
 import Employees from './pages/Employees'
 import Leave from './pages/Leave'
@@ -11,8 +12,15 @@ import Settings from './pages/Settings'
 import Users from './pages/Users'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
+import AuditLogs from './pages/AuditLogs'
+import DataExport from './pages/DataExport'
+import Consent from './pages/Consent'
+import Notifications from './pages/Notifications'
 import NavBar from './components/NavBar'
 import Sidebar from './components/Sidebar'
+import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 import './styles/tailwind.css'
 
@@ -47,38 +55,36 @@ function App() {
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         
         {/* Protected Routes */}
         <Route path="/*" element={
           <ProtectedRoute>
-            <div className="min-h-screen bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-              <NavBar />
-              <div className="flex">
+            <div className="min-h-screen bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col">
+              <NavBar darkMode={dark} onToggleDarkMode={() => setDark((d) => !d)} onLogout={handleLogout} />
+              <div className="flex flex-1">
                 <Sidebar />
                 <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
-                  <div className="mb-6 flex items-center justify-end">
-                    <div className="flex gap-2 items-center">
-                      <button onClick={handleLogout} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium">
-                        Logout
-                      </button>
-                      <button onClick={() => setDark((d) => !d)} className="btn-ghost">
-                        {dark ? '☀️' : '🌙'}
-                      </button>
-                    </div>
-                  </div>
                   <Routes>
+                    <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/employees" element={<Employees />} />
-                    <Route path="/sponsorships" element={<Sponsorships />} />
+                    <Route path="/sponsorships" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><Sponsorships /></ProtectedRoute>} />
                     <Route path="/time" element={<Time />} />
-                    <Route path="/projects" element={<Projects />} />
+                    <Route path="/projects" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><Projects /></ProtectedRoute>} />
                     <Route path="/leave" element={<Leave />} />
                     <Route path="/documents" element={<Documents />} />
                     <Route path="/settings" element={<Settings />} />
-                    <Route path="/users" element={<Users />} />
-                    <Route path="/" element={<Navigate to="/employees" replace />} />
+                    <Route path="/users" element={<ProtectedRoute allowedRoles={['ADMIN']}><Users /></ProtectedRoute>} />
+                    <Route path="/notifications" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><Notifications /></ProtectedRoute>} />
+                    <Route path="/audit-logs" element={<ProtectedRoute allowedRoles={['ADMIN']}><AuditLogs /></ProtectedRoute>} />
+                    <Route path="/data-export" element={<ProtectedRoute allowedRoles={['ADMIN']}><DataExport /></ProtectedRoute>} />
+                    <Route path="/consent" element={<Consent />} />
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   </Routes>
                 </main>
               </div>
+              <Footer />
             </div>
           </ProtectedRoute>
         } />

@@ -6,6 +6,10 @@ dotenv.config()
 
 export interface AuthRequest extends Request {
   user?: any
+  headers: {
+    authorization?: string
+    [key: string]: string | string[] | undefined
+  }
 }
 
 export function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {

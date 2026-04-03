@@ -1,3 +1,10 @@
+// API Configuration
+// In production, VITE_API_URL should be set to your Railway backend URL
+// Example: https://your-app.up.railway.app/api
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+// If API_BASE_URL is a relative '/api' during local dev, use local backend base
+export const BACKEND_BASE_URL = API_BASE_URL === '/api' ? 'http://localhost:4000' : API_BASE_URL.replace(/\/api$/, '')
+
 type ReqInit = RequestInit & { query?: Record<string, any> }
 
 function buildQuery(q?: Record<string, any>) {
@@ -12,7 +19,7 @@ export async function api(path: string, init?: ReqInit) {
   const headers: Record<string, string> = { ...(init?.headers as Record<string, string> || {}) }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const url = `/api${path}${buildQuery(init?.query)}`
+  const url = `${API_BASE_URL}${path}${buildQuery(init?.query)}`
   const res = await fetch(url, { ...(init || {}), headers })
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
@@ -26,18 +33,39 @@ export const apiPost = (p: string, body?: any) => api(p, { method: 'POST', body:
 export const apiPut = (p: string, body?: any) => api(p, { method: 'PUT', body: body ? JSON.stringify(body) : undefined, headers: { 'Content-Type': 'application/json' } })
 export const apiDelete = (p: string) => api(p, { method: 'DELETE' })
 
+// Upload helper for FormData (keeps Content-Type unset so browser sets the boundary)
+export async function apiUpload(path: string, formData: FormData) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const url = `${API_BASE_URL}${path}`
+  const res = await fetch(url, { method: 'POST', body: formData, headers })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.error || `API error ${res.status}`)
+  }
+  return res.json()
+}
+
+export function parseJwtPayload(token: string) {
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  const payload = parts[1]
+  return JSON.parse(decodeURIComponent(atob(payload.replace(/-/g, '+').replace(/_/g, '/')).split('').map(function(c) {
+    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+  }).join('')))
+}
+
 export function getCurrentUser() {
   try {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     if (!token) return null
-    const parts = token.split('.')
-    if (parts.length !== 3) return null
-    const payload = parts[1]
-    const json = JSON.parse(decodeURIComponent(atob(payload.replace(/-/g, '+').replace(/_/g, '/')).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-    }).join('')))
-    return json
-  } catch (e) {
+    return parseJwtPayload(token)
+  } catch {
     return null
   }
+}
+
+export function hasRole(user: any, ...roles: string[]) {
+  return !!user && roles.includes(user.role)
 }

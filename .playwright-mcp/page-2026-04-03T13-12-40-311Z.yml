@@ -1,0 +1,26 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - heading "6soft HRM" [level=1] [ref=e7]
+    - paragraph [ref=e8]: Sign in to your account
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: Email Address
+        - generic [ref=e13]:
+          - img [ref=e14]
+          - textbox "you@example.com" [ref=e16]
+      - generic [ref=e17]:
+        - generic [ref=e18]: Password
+        - generic [ref=e19]:
+          - img [ref=e20]
+          - textbox "••••••••" [ref=e22]
+      - button "Sign In" [ref=e23] [cursor=pointer]
+    - link "Forgot your password?" [ref=e25] [cursor=pointer]:
+      - /url: /forgot-password
+    - generic [ref=e26]:
+      - paragraph [ref=e27]: "Demo Credentials:"
+      - generic [ref=e28]:
+        - paragraph [ref=e29]: "Admin: admin@example.com / password123"
+        - paragraph [ref=e30]: "Manager: manager@example.com / password123"
+        - paragraph [ref=e31]: "Employee: john.smith@company.com / password123"
+  - paragraph [ref=e33]: © 2025 6soft HRM. All rights reserved.

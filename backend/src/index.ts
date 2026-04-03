@@ -6,37 +6,32 @@ import prisma from './prismaClient'
 
 dotenv.config()
 
+// Render dynamically assigns a port — REQUIRED or you get 502
 const PORT = process.env.PORT || 4000
 
-// ensure uploads directory exists for document storage
+// Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), 'uploads')
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
-
-// Ensure DB file exists - restore from backup if missing
-const dbPath = path.join(process.cwd(), 'prisma', 'dev.db')
-const backupPath = path.join(process.cwd(), 'prisma', 'dev.db.backup')
-if (!fs.existsSync(dbPath) && fs.existsSync(backupPath)) {
-  console.log('⚠️  Database file missing - restoring from backup...')
-  fs.copyFileSync(backupPath, dbPath)
-  console.log('✅ Database restored from backup')
-} else if (!fs.existsSync(dbPath)) {
-  console.log('⚠️  No database file found. Run `npm run prisma:migrate` and `npm run seed`')
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true })
+  console.log("📁 Created uploads directory:", uploadsDir)
 }
 
+// Start server correctly (this is what fixes your 502)
 app.listen(PORT, () => {
-  console.log(`Backend running on http://localhost:${PORT}`)
-  console.log(`Uploads directory: ${uploadsDir}`)
+  console.log(`🚀 Backend running on port: ${PORT}`)
+  console.log(`📂 Uploads directory: ${uploadsDir}`)
 })
 
-// At startup, check the DB tables are present (specifically Employee) and warn/exit if not
+// Check DB on startup
 ;(async () => {
   try {
     const count = await prisma.employee.count()
-    console.log(`Employee rows: ${count}`)
-  } catch (e: any) {
-    console.error('Failed to access database or read Employee table. It may be missing.');
-    console.error(`Error: ${e.message || e}`)
-    console.error('If this is a fresh workspace, run `npm --prefix backend run sync-db` or `npm --prefix backend run prisma:migrate` then `npm --prefix backend run seed`.')
-    // Do not exit; let the developer decide; but log prominently so it's noticed.
+    console.log(`👥 Employee rows: ${count}`)
+  } catch (e) {
+    console.error('❌ Failed to access database or Employee table.')
+    console.error(e)
+    console.error(
+      '⚠️ Make sure your DATABASE_URL is correct and run migrations if needed.'
+    )
   }
 })()

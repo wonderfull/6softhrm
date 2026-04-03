@@ -1,5 +1,6 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { apiPost } from '../lib/api'
+import { useNavigate, Link } from 'react-router-dom'
 import { LockClosedIcon, UserIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 
 export default function Login() {
@@ -15,21 +16,16 @@ export default function Login() {
     setLoading(true)
     
     try {
-      const res = await fetch('/api/auth/login', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ email, password }) 
-      })
-      const data = await res.json()
+      const data = await apiPost('/auth/login', { email, password })
       
       if (data.token) {
         localStorage.setItem('token', data.token)
-        window.location.href = '/employees'
+        window.location.href = '/dashboard'
       } else {
         setError(data.error || 'Invalid credentials')
       }
-    } catch (err) {
-      setError('Connection error. Please try again.')
+    } catch (err: any) {
+      setError(err.message || 'Connection error. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -63,8 +59,9 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)} 
                   placeholder="you@example.com" 
                   type="email"
+                  autoComplete="email"
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white transition-all" 
+                  className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all" 
                 />
               </div>
             </div>
@@ -81,8 +78,9 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)} 
                   placeholder="••••••••" 
                   type="password"
+                  autoComplete="current-password"
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white transition-all" 
+                  className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all" 
                 />
               </div>
             </div>
@@ -114,12 +112,20 @@ export default function Login() {
             </button>
           </form>
 
+          {/* Forgot Password Link */}
+          <div className="mt-4 text-center">
+            <Link to="/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline">
+              Forgot your password?
+            </Link>
+          </div>
+
           {/* Demo Credentials */}
           <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
             <p className="text-sm text-slate-600 dark:text-slate-400 text-center mb-2">Demo Credentials:</p>
             <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 space-y-1 text-xs font-mono">
               <p className="text-slate-700 dark:text-slate-300">Admin: admin@example.com / password123</p>
-              <p className="text-slate-700 dark:text-slate-300">User: user@example.com / password123</p>
+              <p className="text-slate-700 dark:text-slate-300">Manager: manager@example.com / password123</p>
+              <p className="text-slate-700 dark:text-slate-300">Employee: john.smith@company.com / password123</p>
             </div>
           </div>
         </div>
