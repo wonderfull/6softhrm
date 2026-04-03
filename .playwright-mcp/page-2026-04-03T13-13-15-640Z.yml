@@ -1,0 +1,114 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "6soft HRM" [ref=e7] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e8]:
+        - button [ref=e9] [cursor=pointer]:
+          - img [ref=e10]
+        - button "john.smith@company.com" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+          - generic [ref=e16]: john.smith@company.com
+          - img [ref=e17]
+  - generic [ref=e19]:
+    - complementary [ref=e20]:
+      - generic [ref=e21]:
+        - navigation [ref=e23]:
+          - generic [ref=e24]:
+            - link "Dashboard" [ref=e25] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e27]
+              - generic [ref=e30]: Dashboard
+            - link "My Profile" [ref=e31] [cursor=pointer]:
+              - /url: /employees
+              - img [ref=e33]
+              - generic [ref=e35]: My Profile
+            - link "Timesheet" [ref=e36] [cursor=pointer]:
+              - /url: /time
+              - img [ref=e38]
+              - generic [ref=e40]: Timesheet
+            - link "Leave Requests" [ref=e41] [cursor=pointer]:
+              - /url: /leave
+              - img [ref=e43]
+              - generic [ref=e45]: Leave Requests
+            - link "My Documents" [ref=e46] [cursor=pointer]:
+              - /url: /documents
+              - img [ref=e48]
+              - generic [ref=e50]: My Documents
+            - link "My Consent" [ref=e51] [cursor=pointer]:
+              - /url: /consent
+              - img [ref=e53]
+              - generic [ref=e55]: My Consent
+        - generic [ref=e56]: © 2025 6soft HRM
+    - main [ref=e57]:
+      - generic [ref=e58]:
+        - generic [ref=e59]:
+          - heading "Leave Requests" [level=2] [ref=e60]
+          - generic [ref=e61]: ⚠️ Your account is not linked to an employee record. Please contact HR.
+        - generic [ref=e63]: No leave requests found.
+  - contentinfo [ref=e64]:
+    - generic [ref=e65]:
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - heading "6soft HRM" [level=3] [ref=e68]
+          - paragraph [ref=e69]: Professional Human Resource Management System for modern businesses.
+          - generic [ref=e70]:
+            - link [ref=e71] [cursor=pointer]:
+              - /url: https://linkedin.com
+              - img [ref=e72]
+            - link [ref=e74] [cursor=pointer]:
+              - /url: https://twitter.com
+              - img [ref=e75]
+        - generic [ref=e77]:
+          - heading "Quick Links" [level=4] [ref=e78]
+          - list [ref=e79]:
+            - listitem [ref=e80]:
+              - link "Dashboard" [ref=e81] [cursor=pointer]:
+                - /url: /dashboard
+            - listitem [ref=e82]:
+              - link "Employees" [ref=e83] [cursor=pointer]:
+                - /url: /employees
+            - listitem [ref=e84]:
+              - link "Timesheets" [ref=e85] [cursor=pointer]:
+                - /url: /time
+            - listitem [ref=e86]:
+              - link "Leave" [ref=e87] [cursor=pointer]:
+                - /url: /leave
+        - generic [ref=e88]:
+          - heading "Resources" [level=4] [ref=e89]
+          - list [ref=e90]:
+            - listitem [ref=e91]:
+              - link "Audit Logs" [ref=e92] [cursor=pointer]:
+                - /url: /audit-logs
+            - listitem [ref=e93]:
+              - link "Data Export" [ref=e94] [cursor=pointer]:
+                - /url: /data-export
+            - listitem [ref=e95]:
+              - link "Data Consent" [ref=e96] [cursor=pointer]:
+                - /url: /consent
+            - listitem [ref=e97]:
+              - link "Documentation" [ref=e98] [cursor=pointer]:
+                - /url: https://github.com
+        - generic [ref=e99]:
+          - heading "Contact" [level=4] [ref=e100]
+          - list [ref=e101]:
+            - listitem [ref=e102]:
+              - img [ref=e103]
+              - link "support@6soft.com" [ref=e105] [cursor=pointer]:
+                - /url: mailto:support@6soft.com
+            - listitem [ref=e106]:
+              - img [ref=e107]
+              - link "+44 123 456 7890" [ref=e109] [cursor=pointer]:
+                - /url: tel:+441234567890
+            - listitem [ref=e110]:
+              - img [ref=e111]
+              - generic [ref=e114]: London, United Kingdom
+      - generic [ref=e116]:
+        - paragraph [ref=e117]: © 2026 6soft HRM. All rights reserved.
+        - generic [ref=e118]:
+          - link "Privacy Policy" [ref=e119] [cursor=pointer]:
+            - /url: /privacy
+          - link "Terms of Service" [ref=e120] [cursor=pointer]:
+            - /url: /terms
+          - link "GDPR Compliance" [ref=e121] [cursor=pointer]:
+            - /url: /gdpr

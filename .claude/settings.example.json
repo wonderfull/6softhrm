@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(mysql.server start:*)",
+      "Bash(brew reinstall:*)",
+      "Bash(mkdir:*)",
+      "mcp__playwright__*"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $PWD/hooks/block-env-read.js"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $PWD/hooks/format-on-edit.js"
+          },
+          {
+            "type": "command",
+            "command": "node $PWD/hooks/typecheck-on-edit.js"
+          }
+        ]
+      }
+    ]
+  }
+}

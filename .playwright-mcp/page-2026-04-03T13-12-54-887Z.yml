@@ -1,0 +1,169 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "6soft HRM" [ref=e7] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e8]:
+        - button [ref=e9] [cursor=pointer]:
+          - img [ref=e10]
+        - button "manager@example.com" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+          - generic [ref=e16]: manager@example.com
+          - img [ref=e17]
+  - generic [ref=e19]:
+    - complementary [ref=e20]:
+      - generic [ref=e21]:
+        - navigation [ref=e23]:
+          - generic [ref=e24]:
+            - link "Dashboard" [ref=e25] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e27]
+              - generic [ref=e30]: Dashboard
+            - link "Employees" [ref=e31] [cursor=pointer]:
+              - /url: /employees
+              - img [ref=e33]
+              - generic [ref=e35]: Employees
+            - link "Sponsorships" [ref=e36] [cursor=pointer]:
+              - /url: /sponsorships
+              - img [ref=e38]
+              - generic [ref=e41]: Sponsorships
+            - link "Time" [ref=e42] [cursor=pointer]:
+              - /url: /time
+              - img [ref=e44]
+              - generic [ref=e46]: Time
+            - link "Projects" [ref=e47] [cursor=pointer]:
+              - /url: /projects
+              - img [ref=e49]
+              - generic [ref=e51]: Projects
+            - link "Leave" [ref=e52] [cursor=pointer]:
+              - /url: /leave
+              - img [ref=e54]
+              - generic [ref=e56]: Leave
+            - link "Documents" [ref=e57] [cursor=pointer]:
+              - /url: /documents
+              - img [ref=e59]
+              - generic [ref=e61]: Documents
+            - link "Notifications" [ref=e62] [cursor=pointer]:
+              - /url: /notifications
+              - img [ref=e64]
+              - generic [ref=e66]: Notifications
+            - link "Settings" [ref=e67] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e69]
+              - generic [ref=e71]: Settings
+        - generic [ref=e72]: © 2025 6soft HRM
+    - main [ref=e73]:
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - heading "Welcome to 6Soft HRM" [level=1] [ref=e76]
+          - paragraph [ref=e77]: Your complete HR management solution
+        - generic [ref=e78]:
+          - generic [ref=e80]:
+            - generic [ref=e81]:
+              - generic [ref=e82]: Total Employees
+              - generic [ref=e83]: "1"
+            - generic [ref=e84]: 👥
+          - generic [ref=e86]:
+            - generic [ref=e87]:
+              - generic [ref=e88]: Active Projects
+              - generic [ref=e89]: "0"
+            - generic [ref=e90]: 📊
+          - generic [ref=e92]:
+            - generic [ref=e93]:
+              - generic [ref=e94]: Documents
+              - generic [ref=e95]: "0"
+            - generic [ref=e96]: 📁
+          - generic [ref=e98]:
+            - generic [ref=e99]:
+              - generic [ref=e100]: Pending Leave
+              - generic [ref=e101]: "0"
+            - generic [ref=e102]: 📅
+        - generic [ref=e103]:
+          - heading "Quick Access" [level=3] [ref=e104]
+          - generic [ref=e105]:
+            - link "👤 My Profile View and update your info" [ref=e106] [cursor=pointer]:
+              - /url: /employees
+              - generic [ref=e107]: 👤
+              - generic [ref=e108]: My Profile
+              - generic [ref=e109]: View and update your info
+            - link "⏰ Timesheet Track your work hours" [ref=e110] [cursor=pointer]:
+              - /url: /timesheets
+              - generic [ref=e111]: ⏰
+              - generic [ref=e112]: Timesheet
+              - generic [ref=e113]: Track your work hours
+            - link "📁 My Documents Access your documents" [ref=e114] [cursor=pointer]:
+              - /url: /documents
+              - generic [ref=e115]: 📁
+              - generic [ref=e116]: My Documents
+              - generic [ref=e117]: Access your documents
+            - link "📅 Leave Requests Request time off" [ref=e118] [cursor=pointer]:
+              - /url: /leave
+              - generic [ref=e119]: 📅
+              - generic [ref=e120]: Leave Requests
+              - generic [ref=e121]: Request time off
+  - contentinfo [ref=e122]:
+    - generic [ref=e123]:
+      - generic [ref=e124]:
+        - generic [ref=e125]:
+          - heading "6soft HRM" [level=3] [ref=e126]
+          - paragraph [ref=e127]: Professional Human Resource Management System for modern businesses.
+          - generic [ref=e128]:
+            - link [ref=e129] [cursor=pointer]:
+              - /url: https://linkedin.com
+              - img [ref=e130]
+            - link [ref=e132] [cursor=pointer]:
+              - /url: https://twitter.com
+              - img [ref=e133]
+        - generic [ref=e135]:
+          - heading "Quick Links" [level=4] [ref=e136]
+          - list [ref=e137]:
+            - listitem [ref=e138]:
+              - link "Dashboard" [ref=e139] [cursor=pointer]:
+                - /url: /dashboard
+            - listitem [ref=e140]:
+              - link "Employees" [ref=e141] [cursor=pointer]:
+                - /url: /employees
+            - listitem [ref=e142]:
+              - link "Timesheets" [ref=e143] [cursor=pointer]:
+                - /url: /time
+            - listitem [ref=e144]:
+              - link "Leave" [ref=e145] [cursor=pointer]:
+                - /url: /leave
+        - generic [ref=e146]:
+          - heading "Resources" [level=4] [ref=e147]
+          - list [ref=e148]:
+            - listitem [ref=e149]:
+              - link "Audit Logs" [ref=e150] [cursor=pointer]:
+                - /url: /audit-logs
+            - listitem [ref=e151]:
+              - link "Data Export" [ref=e152] [cursor=pointer]:
+                - /url: /data-export
+            - listitem [ref=e153]:
+              - link "Data Consent" [ref=e154] [cursor=pointer]:
+                - /url: /consent
+            - listitem [ref=e155]:
+              - link "Documentation" [ref=e156] [cursor=pointer]:
+                - /url: https://github.com
+        - generic [ref=e157]:
+          - heading "Contact" [level=4] [ref=e158]
+          - list [ref=e159]:
+            - listitem [ref=e160]:
+              - img [ref=e161]
+              - link "support@6soft.com" [ref=e163] [cursor=pointer]:
+                - /url: mailto:support@6soft.com
+            - listitem [ref=e164]:
+              - img [ref=e165]
+              - link "+44 123 456 7890" [ref=e167] [cursor=pointer]:
+                - /url: tel:+441234567890
+            - listitem [ref=e168]:
+              - img [ref=e169]
+              - generic [ref=e172]: London, United Kingdom
+      - generic [ref=e174]:
+        - paragraph [ref=e175]: © 2026 6soft HRM. All rights reserved.
+        - generic [ref=e176]:
+          - link "Privacy Policy" [ref=e177] [cursor=pointer]:
+            - /url: /privacy
+          - link "Terms of Service" [ref=e178] [cursor=pointer]:
+            - /url: /terms
+          - link "GDPR Compliance" [ref=e179] [cursor=pointer]:
+            - /url: /gdpr

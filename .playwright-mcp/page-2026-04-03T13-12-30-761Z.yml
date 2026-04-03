@@ -1,0 +1,323 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "6soft HRM" [ref=e7] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e8]:
+        - button [ref=e9] [cursor=pointer]:
+          - img [ref=e10]
+        - button "admin@example.com" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+          - generic [ref=e16]: admin@example.com
+          - img [ref=e17]
+  - generic [ref=e19]:
+    - complementary [ref=e20]:
+      - generic [ref=e21]:
+        - navigation [ref=e23]:
+          - generic [ref=e24]:
+            - link "Dashboard" [ref=e25] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e27]
+              - generic [ref=e30]: Dashboard
+            - link "Employees" [ref=e31] [cursor=pointer]:
+              - /url: /employees
+              - img [ref=e33]
+              - generic [ref=e35]: Employees
+            - link "User Management" [ref=e36] [cursor=pointer]:
+              - /url: /users
+              - img [ref=e38]
+              - generic [ref=e41]: User Management
+            - link "Sponsorships" [ref=e42] [cursor=pointer]:
+              - /url: /sponsorships
+              - img [ref=e44]
+              - generic [ref=e47]: Sponsorships
+            - link "Time" [ref=e48] [cursor=pointer]:
+              - /url: /time
+              - img [ref=e50]
+              - generic [ref=e52]: Time
+            - link "Projects" [ref=e53] [cursor=pointer]:
+              - /url: /projects
+              - img [ref=e55]
+              - generic [ref=e57]: Projects
+            - link "Leave" [ref=e58] [cursor=pointer]:
+              - /url: /leave
+              - img [ref=e60]
+              - generic [ref=e62]: Leave
+            - link "Documents" [ref=e63] [cursor=pointer]:
+              - /url: /documents
+              - img [ref=e65]
+              - generic [ref=e67]: Documents
+            - link "Notifications" [ref=e68] [cursor=pointer]:
+              - /url: /notifications
+              - img [ref=e70]
+              - generic [ref=e72]: Notifications
+            - link "Audit Logs" [ref=e73] [cursor=pointer]:
+              - /url: /audit-logs
+              - img [ref=e75]
+              - generic [ref=e78]: Audit Logs
+            - link "Data Export" [ref=e79] [cursor=pointer]:
+              - /url: /data-export
+              - img [ref=e81]
+              - generic [ref=e83]: Data Export
+            - link "Settings" [ref=e84] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e86]
+              - generic [ref=e88]: Settings
+        - generic [ref=e89]: © 2025 6soft HRM
+    - main [ref=e90]:
+      - generic [ref=e91]:
+        - generic [ref=e92]:
+          - heading "Timesheets" [level=2] [ref=e93]
+          - generic [ref=e94]:
+            - generic [ref=e95]:
+              - button "Weekly" [ref=e96] [cursor=pointer]
+              - button "Monthly" [active] [ref=e97] [cursor=pointer]
+            - button "+ Add Entry" [ref=e98] [cursor=pointer]
+        - generic [ref=e99]:
+          - button "← Previous" [ref=e100] [cursor=pointer]
+          - generic [ref=e101]:
+            - generic [ref=e102]: April 2026
+            - button "This Month" [ref=e216] [cursor=pointer]
+          - button "Next →" [ref=e104] [cursor=pointer]
+        - generic [ref=e105]:
+          - generic [ref=e106]:
+            - generic [ref=e107]: Filter by Employee
+            - combobox "Filter by Employee" [ref=e108]:
+              - option "All Employees" [selected]
+              - option "Test Sponsored"
+          - generic [ref=e109]:
+            - generic [ref=e110]: Filter by Project
+            - combobox "Filter by Project" [ref=e111]:
+              - option "All Projects" [selected]
+        - generic [ref=e217]:
+          - generic [ref=e218]:
+            - generic [ref=e219]: Total Hours
+            - generic [ref=e220]: 0h
+          - generic [ref=e221]:
+            - generic [ref=e222]: Days Worked
+            - generic [ref=e223]: "0"
+        - table [ref=e225]:
+          - rowgroup [ref=e226]:
+            - row "Employee Wed 1 Thu 2 Fri 3 Sat 4 Sun 5 Mon 6 Tue 7 Wed 8 Thu 9 Fri 10 Sat 11 Sun 12 Mon 13 Tue 14 Wed 15 Thu 16 Fri 17 Sat 18 Sun 19 Mon 20 Tue 21 Wed 22 Thu 23 Fri 24 Sat 25 Sun 26 Mon 27 Tue 28 Wed 29 Thu 30 Total" [ref=e227]:
+              - columnheader "Employee" [ref=e228]
+              - columnheader "Wed 1" [ref=e229]:
+                - generic [ref=e230]: Wed
+                - generic [ref=e231]: "1"
+              - columnheader "Thu 2" [ref=e232]:
+                - generic [ref=e233]: Thu
+                - generic [ref=e234]: "2"
+              - columnheader "Fri 3" [ref=e235]:
+                - generic [ref=e236]: Fri
+                - generic [ref=e237]: "3"
+              - columnheader "Sat 4" [ref=e238]:
+                - generic [ref=e239]: Sat
+                - generic [ref=e240]: "4"
+              - columnheader "Sun 5" [ref=e241]:
+                - generic [ref=e242]: Sun
+                - generic [ref=e243]: "5"
+              - columnheader "Mon 6" [ref=e244]:
+                - generic [ref=e245]: Mon
+                - generic [ref=e246]: "6"
+              - columnheader "Tue 7" [ref=e247]:
+                - generic [ref=e248]: Tue
+                - generic [ref=e249]: "7"
+              - columnheader "Wed 8" [ref=e250]:
+                - generic [ref=e251]: Wed
+                - generic [ref=e252]: "8"
+              - columnheader "Thu 9" [ref=e253]:
+                - generic [ref=e254]: Thu
+                - generic [ref=e255]: "9"
+              - columnheader "Fri 10" [ref=e256]:
+                - generic [ref=e257]: Fri
+                - generic [ref=e258]: "10"
+              - columnheader "Sat 11" [ref=e259]:
+                - generic [ref=e260]: Sat
+                - generic [ref=e261]: "11"
+              - columnheader "Sun 12" [ref=e262]:
+                - generic [ref=e263]: Sun
+                - generic [ref=e264]: "12"
+              - columnheader "Mon 13" [ref=e265]:
+                - generic [ref=e266]: Mon
+                - generic [ref=e267]: "13"
+              - columnheader "Tue 14" [ref=e268]:
+                - generic [ref=e269]: Tue
+                - generic [ref=e270]: "14"
+              - columnheader "Wed 15" [ref=e271]:
+                - generic [ref=e272]: Wed
+                - generic [ref=e273]: "15"
+              - columnheader "Thu 16" [ref=e274]:
+                - generic [ref=e275]: Thu
+                - generic [ref=e276]: "16"
+              - columnheader "Fri 17" [ref=e277]:
+                - generic [ref=e278]: Fri
+                - generic [ref=e279]: "17"
+              - columnheader "Sat 18" [ref=e280]:
+                - generic [ref=e281]: Sat
+                - generic [ref=e282]: "18"
+              - columnheader "Sun 19" [ref=e283]:
+                - generic [ref=e284]: Sun
+                - generic [ref=e285]: "19"
+              - columnheader "Mon 20" [ref=e286]:
+                - generic [ref=e287]: Mon
+                - generic [ref=e288]: "20"
+              - columnheader "Tue 21" [ref=e289]:
+                - generic [ref=e290]: Tue
+                - generic [ref=e291]: "21"
+              - columnheader "Wed 22" [ref=e292]:
+                - generic [ref=e293]: Wed
+                - generic [ref=e294]: "22"
+              - columnheader "Thu 23" [ref=e295]:
+                - generic [ref=e296]: Thu
+                - generic [ref=e297]: "23"
+              - columnheader "Fri 24" [ref=e298]:
+                - generic [ref=e299]: Fri
+                - generic [ref=e300]: "24"
+              - columnheader "Sat 25" [ref=e301]:
+                - generic [ref=e302]: Sat
+                - generic [ref=e303]: "25"
+              - columnheader "Sun 26" [ref=e304]:
+                - generic [ref=e305]: Sun
+                - generic [ref=e306]: "26"
+              - columnheader "Mon 27" [ref=e307]:
+                - generic [ref=e308]: Mon
+                - generic [ref=e309]: "27"
+              - columnheader "Tue 28" [ref=e310]:
+                - generic [ref=e311]: Tue
+                - generic [ref=e312]: "28"
+              - columnheader "Wed 29" [ref=e313]:
+                - generic [ref=e314]: Wed
+                - generic [ref=e315]: "29"
+              - columnheader "Thu 30" [ref=e316]:
+                - generic [ref=e317]: Thu
+                - generic [ref=e318]: "30"
+              - columnheader "Total" [ref=e319]
+          - rowgroup [ref=e320]:
+            - row "Test Sponsored + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 0h" [ref=e321]:
+              - cell "Test Sponsored" [ref=e322]
+              - cell "+" [ref=e323] [cursor=pointer]:
+                - generic [ref=e324]: +
+              - cell "+" [ref=e325] [cursor=pointer]:
+                - generic [ref=e326]: +
+              - cell "+" [ref=e327] [cursor=pointer]:
+                - generic [ref=e328]: +
+              - cell "+" [ref=e329] [cursor=pointer]:
+                - generic [ref=e330]: +
+              - cell "+" [ref=e331] [cursor=pointer]:
+                - generic [ref=e332]: +
+              - cell "+" [ref=e333] [cursor=pointer]:
+                - generic [ref=e334]: +
+              - cell "+" [ref=e335] [cursor=pointer]:
+                - generic [ref=e336]: +
+              - cell "+" [ref=e337] [cursor=pointer]:
+                - generic [ref=e338]: +
+              - cell "+" [ref=e339] [cursor=pointer]:
+                - generic [ref=e340]: +
+              - cell "+" [ref=e341] [cursor=pointer]:
+                - generic [ref=e342]: +
+              - cell "+" [ref=e343] [cursor=pointer]:
+                - generic [ref=e344]: +
+              - cell "+" [ref=e345] [cursor=pointer]:
+                - generic [ref=e346]: +
+              - cell "+" [ref=e347] [cursor=pointer]:
+                - generic [ref=e348]: +
+              - cell "+" [ref=e349] [cursor=pointer]:
+                - generic [ref=e350]: +
+              - cell "+" [ref=e351] [cursor=pointer]:
+                - generic [ref=e352]: +
+              - cell "+" [ref=e353] [cursor=pointer]:
+                - generic [ref=e354]: +
+              - cell "+" [ref=e355] [cursor=pointer]:
+                - generic [ref=e356]: +
+              - cell "+" [ref=e357] [cursor=pointer]:
+                - generic [ref=e358]: +
+              - cell "+" [ref=e359] [cursor=pointer]:
+                - generic [ref=e360]: +
+              - cell "+" [ref=e361] [cursor=pointer]:
+                - generic [ref=e362]: +
+              - cell "+" [ref=e363] [cursor=pointer]:
+                - generic [ref=e364]: +
+              - cell "+" [ref=e365] [cursor=pointer]:
+                - generic [ref=e366]: +
+              - cell "+" [ref=e367] [cursor=pointer]:
+                - generic [ref=e368]: +
+              - cell "+" [ref=e369] [cursor=pointer]:
+                - generic [ref=e370]: +
+              - cell "+" [ref=e371] [cursor=pointer]:
+                - generic [ref=e372]: +
+              - cell "+" [ref=e373] [cursor=pointer]:
+                - generic [ref=e374]: +
+              - cell "+" [ref=e375] [cursor=pointer]:
+                - generic [ref=e376]: +
+              - cell "+" [ref=e377] [cursor=pointer]:
+                - generic [ref=e378]: +
+              - cell "+" [ref=e379] [cursor=pointer]:
+                - generic [ref=e380]: +
+              - cell "+" [ref=e381] [cursor=pointer]:
+                - generic [ref=e382]: +
+              - cell "0h" [ref=e383]
+  - contentinfo [ref=e140]:
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - generic [ref=e143]:
+          - heading "6soft HRM" [level=3] [ref=e144]
+          - paragraph [ref=e145]: Professional Human Resource Management System for modern businesses.
+          - generic [ref=e146]:
+            - link [ref=e147] [cursor=pointer]:
+              - /url: https://linkedin.com
+              - img [ref=e148]
+            - link [ref=e150] [cursor=pointer]:
+              - /url: https://twitter.com
+              - img [ref=e151]
+        - generic [ref=e153]:
+          - heading "Quick Links" [level=4] [ref=e154]
+          - list [ref=e155]:
+            - listitem [ref=e156]:
+              - link "Dashboard" [ref=e157] [cursor=pointer]:
+                - /url: /dashboard
+            - listitem [ref=e158]:
+              - link "Employees" [ref=e159] [cursor=pointer]:
+                - /url: /employees
+            - listitem [ref=e160]:
+              - link "Timesheets" [ref=e161] [cursor=pointer]:
+                - /url: /time
+            - listitem [ref=e162]:
+              - link "Leave" [ref=e163] [cursor=pointer]:
+                - /url: /leave
+        - generic [ref=e164]:
+          - heading "Resources" [level=4] [ref=e165]
+          - list [ref=e166]:
+            - listitem [ref=e167]:
+              - link "Audit Logs" [ref=e168] [cursor=pointer]:
+                - /url: /audit-logs
+            - listitem [ref=e169]:
+              - link "Data Export" [ref=e170] [cursor=pointer]:
+                - /url: /data-export
+            - listitem [ref=e171]:
+              - link "Data Consent" [ref=e172] [cursor=pointer]:
+                - /url: /consent
+            - listitem [ref=e173]:
+              - link "Documentation" [ref=e174] [cursor=pointer]:
+                - /url: https://github.com
+        - generic [ref=e175]:
+          - heading "Contact" [level=4] [ref=e176]
+          - list [ref=e177]:
+            - listitem [ref=e178]:
+              - img [ref=e179]
+              - link "support@6soft.com" [ref=e181] [cursor=pointer]:
+                - /url: mailto:support@6soft.com
+            - listitem [ref=e182]:
+              - img [ref=e183]
+              - link "+44 123 456 7890" [ref=e185] [cursor=pointer]:
+                - /url: tel:+441234567890
+            - listitem [ref=e186]:
+              - img [ref=e187]
+              - generic [ref=e190]: London, United Kingdom
+      - generic [ref=e192]:
+        - paragraph [ref=e193]: © 2026 6soft HRM. All rights reserved.
+        - generic [ref=e194]:
+          - link "Privacy Policy" [ref=e195] [cursor=pointer]:
+            - /url: /privacy
+          - link "Terms of Service" [ref=e196] [cursor=pointer]:
+            - /url: /terms
+          - link "GDPR Compliance" [ref=e197] [cursor=pointer]:
+            - /url: /gdpr

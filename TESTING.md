@@ -4,6 +4,19 @@
 
 This document describes the complete test suite for the 6softHRM application, covering all major features and bug fixes.
 
+## Role Coverage Summary
+
+| Area | ADMIN | MANAGER | Employee (USER) |
+|------|-------|---------|-----------------|
+| **Unit/Integration tests** | ✅ | ❌ not tested | ⚠️ partial (Documents only, mocked role) |
+| **E2E (Playwright MCP)** | ✅ live (unlinked account) | ❌ | ❌ no linked user account in seed |
+| **Leave page** | ✅ lists all requests | ❌ | ❌ security warning shown (no employee link) |
+| **Documents page** | ✅ full admin view + ZIP | ❌ | ⚠️ unit test only, not E2E |
+| **Timesheets page** | ✅ all employees' timesheets | ❌ | ❌ not tested |
+| **Sponsorships page** | ✅ full CRUD | ❌ | ❌ not tested (admin-only feature) |
+
+**Root cause of employee E2E gap:** The seed (`backend/prisma/seed.ts`) creates admin/manager users with no `employeeId`, and creates employees (Alice, Bob, Charlie) with no linked user account. There is no seed user that can log in *and* has an employee record — so employee self-service flows (submit leave, log time, view own documents) cannot be tested live without creating a linked account.
+
 ## Test Coverage
 
 ### Frontend Tests (Vitest + React Testing Library)
@@ -256,12 +269,67 @@ Tests use isolated test data:
 - Database transactions rolled back
 - No pollution of production data
 
+## E2E Testing with Playwright MCP
+
+Playwright MCP is installed and available in Claude Code for live browser-based testing against the running dev servers (`localhost:4000` + `localhost:5173`). Use it to verify UI flows that unit/integration tests cannot cover.
+
+**How to invoke:** Ask Claude Code to use Playwright MCP in your prompt, e.g.:
+```
+Use Playwright to log in as admin and check the Leave Requests page renders correctly.
+```
+
+**Verified live behaviours (confirmed via Playwright MCP):**
+
+| Page | Observed behaviour | Notes |
+|------|--------------------|-------|
+| `/login` | Login form renders; demo credentials shown | ✅ |
+| `/dashboard` | Stats cards (Employees: 7, Projects: 4), Quick Access links | ✅ |
+| `/leave` | Unlinked admin sees security warning; existing requests listed | ✅ Security fix working |
+
+**Scenarios suited for Playwright MCP (not covered by Jest/Vitest):**
+
+- Full login → navigate → form-submit → result flows
+- Role-based UI differences (ADMIN vs USER vs MANAGER)
+- Leave request submission and approval workflow
+- File upload UX (document upload form)
+- Sidebar navigation and active-link highlighting
+- Responsive/mobile layout (use `browser_resize`)
+- Visual regressions after UI changes (`browser_take_screenshot`)
+
+**How to run:**
+```
+# In Claude Code, start dev servers first:
+/dev
+
+# Then ask Claude to use Playwright, e.g.:
+Open localhost:5173, log in as user@example.com / password123, submit a leave request, and confirm it appears in the list.
+```
+
+**Known gap — no linked user account in seed:** The seed creates admin/manager users with no employee link, and employees with no user account. To test employee self-service flows (submit leave, log time, view own documents), first create a linked account:
+
+```
+# Option 1: Ask Claude to create one via Playwright
+Log in as admin, go to User Management, create a new user for alice@example.com with role USER, then re-test Leave and Time pages as alice.
+
+# Option 2: Use the seed — add a linked user to backend/prisma/seed.ts
+const aliceUser = await prisma.user.upsert({
+  where: { email: 'alice@example.com' },
+  update: {},
+  create: { email: 'alice@example.com', password, name: 'Alice Smith', role: 'USER', employeeId: alice.id },
+});
+```
+
+---
+
 ## Known Limitations
 
-1. Auth middleware is mocked in tests
+1. Auth middleware is mocked in unit/integration tests
 2. Email sending is not tested (requires mail server mock)
 3. File upload tests use small test files
-4. Some UI tests may need visual regression testing
+4. Visual regression testing requires Playwright MCP (see section above)
+5. **MANAGER role is not tested anywhere** — no unit tests mock a MANAGER token, no E2E tests log in as manager
+6. **Employee self-service context has no E2E coverage** — seed data has no linked user accounts (see E2E section for fix options)
+7. **Leave and Timesheet unit tests have no employee-context tests** — only Documents.test.tsx tests the employee role (via mocked token)
 
 ## Maintenance
 
