@@ -1,4 +1,5 @@
 import { beforeAll, afterAll } from '@jest/globals'
+import { execSync } from 'child_process'
 
 // Setup before all tests
 beforeAll(() => {
@@ -12,6 +13,15 @@ beforeAll(() => {
   } else if (!process.env.DATABASE_URL) {
     throw new Error('Set TEST_DATABASE_URL or DATABASE_URL before running backend tests')
   }
+
+  execSync('npx prisma db push --skip-generate --accept-data-loss', {
+    cwd: process.cwd(),
+    stdio: 'ignore',
+    env: {
+      ...process.env,
+      DATABASE_URL: process.env.TEST_DATABASE_URL || process.env.DATABASE_URL,
+    },
+  })
 })
 
 // Cleanup after all tests

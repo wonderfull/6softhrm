@@ -5,6 +5,7 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import archiver from 'archiver'
+import crypto from 'crypto'
 
 const router = Router()
 
@@ -30,6 +31,40 @@ const upload = multer({
   }
 })
 
+function canAccessDocument(user: any, employeeId: number) {
+  if (!user) return false
+  if (user.role === 'ADMIN' || user.role === 'MANAGER') return true
+  return user.role === 'USER' && user.employeeId === employeeId
+}
+
+function getAbsoluteFilePath(documentPath: string) {
+  return path.join(process.cwd(), documentPath.replace(/^\//, ''))
+}
+
+async function createSharedDocumentRecord(data: {
+  employeeId: number
+  name: string
+  path: string
+  type?: string
+  expiryDate?: string
+  shareOnCreate?: boolean
+}) {
+  const documentData: any = {
+    employeeId: data.employeeId,
+    name: data.name,
+    path: data.path
+  }
+
+  if (data.type) documentData.type = data.type
+  if (data.expiryDate) documentData.expiryDate = new Date(data.expiryDate)
+  if (data.shareOnCreate) {
+    documentData.shareToken = crypto.randomBytes(24).toString('hex')
+    documentData.sharedAt = new Date()
+  }
+
+  return prisma.document.create({ data: documentData })
+}
+
 router.get('/', requireAuth, async (req: any, res) => {
   const user = req.user
 
@@ -51,6 +86,42 @@ router.get('/', requireAuth, async (req: any, res) => {
   res.json(docs)
 })
 
+router.get('/share/:token', async (req, res) => {
+  try {
+    const document = await prisma.document.findUnique({ where: { shareToken: req.params.token } })
+    if (!document) return res.status(404).json({ error: 'Shared document not found' })
+
+    const filePath = getAbsoluteFilePath(document.path)
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' })
+    }
+
+    res.download(filePath, document.name)
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+router.get('/:id/file', requireAuth, async (req: any, res) => {
+  try {
+    const document = await prisma.document.findUnique({ where: { id: Number(req.params.id) } })
+    if (!document) return res.status(404).json({ error: 'Document not found' })
+
+    if (!canAccessDocument(req.user, document.employeeId)) {
+      return res.status(403).json({ error: 'Unauthorized' })
+    }
+
+    const filePath = getAbsoluteFilePath(document.path)
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' })
+    }
+
+    res.download(filePath, document.name)
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
 // upload file and create metadata record (local storage only)
 router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
   const file = req.file as Express.Multer.File | undefined
@@ -61,16 +132,80 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
   if (!emp) return res.status(400).json({ error: 'employee not found' })
   try {
     const pathToSave = `/uploads/${file.filename}`
-    const data: any = {
+    const d = await createSharedDocumentRecord({
       employeeId: Number(employeeId),
       name,
-      path: pathToSave
-    }
-    if (type) data.type = type
-    if (expiryDate) data.expiryDate = new Date(expiryDate)
-
-    const d = await prisma.document.create({ data })
+      path: pathToSave,
+      type,
+      expiryDate,
+      shareOnCreate: req.body.shareOnCreate === 'true'
+    })
     res.json(d)
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+router.post('/upload-payslips', requireAuth, upload.array('files', 20), async (req: any, res) => {
+  const files = (req.files || []) as Express.Multer.File[]
+  const { employeeId } = req.body
+
+  if (!(req.user?.role === 'ADMIN' || req.user?.role === 'MANAGER')) {
+    return res.status(403).json({ error: 'Unauthorized' })
+  }
+
+  if (!employeeId || files.length === 0) {
+    return res.status(400).json({ error: 'employeeId and at least one file are required' })
+  }
+
+  const employee = await prisma.employee.findUnique({ where: { id: Number(employeeId) } })
+  if (!employee) return res.status(400).json({ error: 'employee not found' })
+
+  try {
+    const documents = await Promise.all(files.map((file) => createSharedDocumentRecord({
+      employeeId: employee.id,
+      name: file.originalname.replace(/\.[^.]+$/, ''),
+      path: `/uploads/${file.filename}`,
+      type: 'PAYSLIP',
+      shareOnCreate: true
+    })))
+
+    const shareBaseUrl = `${req.protocol}://${req.get('host')}/api/documents/share`
+    res.json({
+      employeeId: employee.id,
+      uploadedCount: documents.length,
+      documents: documents.map((document) => ({
+        ...document,
+        shareUrl: document.shareToken ? `${shareBaseUrl}/${document.shareToken}` : null
+      }))
+    })
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+router.post('/:id/share-link', requireAuth, async (req: any, res) => {
+  try {
+    const document = await prisma.document.findUnique({ where: { id: Number(req.params.id) } })
+    if (!document) return res.status(404).json({ error: 'Document not found' })
+
+    if (!canAccessDocument(req.user, document.employeeId)) {
+      return res.status(403).json({ error: 'Unauthorized' })
+    }
+
+    const updated = await prisma.document.update({
+      where: { id: document.id },
+      data: {
+        shareToken: document.shareToken || crypto.randomBytes(24).toString('hex'),
+        sharedAt: document.sharedAt || new Date()
+      }
+    })
+
+    res.json({
+      id: updated.id,
+      shareToken: updated.shareToken,
+      shareUrl: `${req.protocol}://${req.get('host')}/api/documents/share/${updated.shareToken}`
+    })
   } catch (e: any) {
     res.status(400).json({ error: e.message })
   }
@@ -91,7 +226,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     }
 
     // Delete the physical file
-    const filePath = path.join(process.cwd(), doc.path.replace(/^\//, ''))
+    const filePath = getAbsoluteFilePath(doc.path)
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath)
     }
@@ -141,7 +276,7 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
 
     // Add all documents to archive
     for (const doc of employee.documents) {
-      const filePath = path.join(process.cwd(), doc.path.replace(/^\//, ''))
+      const filePath = getAbsoluteFilePath(doc.path)
       if (fs.existsSync(filePath)) {
         archive.file(filePath, { name: doc.name })
       }

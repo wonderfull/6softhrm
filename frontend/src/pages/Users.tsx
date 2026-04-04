@@ -10,6 +10,8 @@ export default function Users() {
   const [showEmployeeList, setShowEmployeeList] = React.useState(false)
   const [editingId, setEditingId] = React.useState<number | null>(null)
   const [newUserCredentials, setNewUserCredentials] = React.useState<{email: string, password: string} | null>(null)
+  const [generatedResetLink, setGeneratedResetLink] = React.useState<{ email: string; resetLink: string } | null>(null)
+  const [busyActionUserId, setBusyActionUserId] = React.useState<number | null>(null)
   const [formData, setFormData] = React.useState({
     email: '',
     password: '',
@@ -89,6 +91,41 @@ export default function Users() {
     setShowForm(false)
     setEditingId(null)
     setFormData({ email: '', password: '', name: '', role: 'USER' })
+  }
+
+  const handleGenerateResetLink = async (user: any) => {
+    try {
+      setBusyActionUserId(user.id)
+      const response = await apiPost(`/auth/users/${user.id}/reset-link`)
+      setGeneratedResetLink({ email: user.email, resetLink: response.resetLink })
+      if (navigator.clipboard?.writeText && response.resetLink) {
+        await navigator.clipboard.writeText(response.resetLink)
+        alert(`Reset link generated and copied for ${user.email}`)
+      } else {
+        alert(`Reset link generated for ${user.email}`)
+      }
+    } catch (err: any) {
+      alert('Failed to generate reset link: ' + (err.message || JSON.stringify(err)))
+    } finally {
+      setBusyActionUserId(null)
+    }
+  }
+
+  const handleSetTemporaryPassword = async (user: any) => {
+    const temporaryPassword = prompt(`Set a temporary password for ${user.email}:`, 'password123')
+    if (!temporaryPassword || !temporaryPassword.trim()) return
+
+    try {
+      setBusyActionUserId(user.id)
+      await apiPost(`/auth/users/${user.id}/reset-password`, {
+        newPassword: temporaryPassword.trim()
+      })
+      alert(`Temporary password updated for ${user.email}`)
+    } catch (err: any) {
+      alert('Failed to reset password: ' + (err.message || JSON.stringify(err)))
+    } finally {
+      setBusyActionUserId(null)
+    }
   }
 
   const handleCreateUserForEmployee = async (employee: any) => {
@@ -177,6 +214,26 @@ export default function Users() {
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-3">
             The user can login at <a href="/login" className="underline text-blue-600 dark:text-blue-400">/login</a> with these credentials.
           </p>
+        </div>
+      )}
+
+      {generatedResetLink && (
+        <div className="mb-6 p-6 border-2 border-blue-500 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+          <div className="flex justify-between items-start mb-3">
+            <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300">Password Reset Link Ready</h3>
+            <button
+              onClick={() => setGeneratedResetLink(null)}
+              className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+            Employee self-service reset is available from the login page. This admin action generated a direct reset link for <strong>{generatedResetLink.email}</strong>.
+          </p>
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-sm break-all font-mono">
+            {generatedResetLink.resetLink}
+          </div>
         </div>
       )}
 
@@ -271,12 +328,26 @@ export default function Users() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 justify-end">
                 <button
                   onClick={() => handleEdit(user)}
                   className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
                 >
                   Edit
+                </button>
+                <button
+                  onClick={() => handleGenerateResetLink(user)}
+                  className="px-3 py-1 bg-emerald-600 text-white rounded text-sm hover:bg-emerald-700"
+                  disabled={busyActionUserId === user.id}
+                >
+                  {busyActionUserId === user.id ? 'Working...' : 'Reset Link'}
+                </button>
+                <button
+                  onClick={() => handleSetTemporaryPassword(user)}
+                  className="px-3 py-1 bg-amber-600 text-white rounded text-sm hover:bg-amber-700"
+                  disabled={busyActionUserId === user.id}
+                >
+                  Temp Password
                 </button>
                 <button
                   onClick={() => handleDelete(user.id)}

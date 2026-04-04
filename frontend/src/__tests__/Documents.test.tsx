@@ -51,6 +51,16 @@ describe('Documents Page', () => {
       type: 'PASSPORT',
       expiryDate: '2026-06-30T00:00:00.000Z',
       employee: { id: 1, firstName: 'John', lastName: 'Doe' }
+    },
+    {
+      id: 3,
+      employeeId: 1,
+      name: 'Payslip April.pdf',
+      path: '/uploads/payslip-april.pdf',
+      type: 'PAYSLIP',
+      shareToken: 'share-token-123',
+      expiryDate: null,
+      employee: { id: 1, firstName: 'John', lastName: 'Doe' }
     }
   ]
 
@@ -84,7 +94,7 @@ describe('Documents Page', () => {
       expect(screen.getByLabelText(/Document Name/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/Document Type/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/Expiry Date/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/File/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/^File \*$/i)).toBeInTheDocument()
     })
   })
 
@@ -158,6 +168,18 @@ describe('Documents Page', () => {
     await waitFor(() => {
       expect(screen.getByText('CONTRACT')).toBeInTheDocument()
       expect(screen.getByText('PASSPORT')).toBeInTheDocument()
+      expect(screen.getByText('PAYSLIP')).toBeInTheDocument()
+    })
+  })
+
+  it('should render the payslip drop zone for admins', async () => {
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    renderDocuments()
+
+    await waitFor(() => {
+      expect(screen.getByText(/Payslip Drop Zone/i)).toBeInTheDocument()
+      expect(screen.getByText(/Drag and drop payslips here/i)).toBeInTheDocument()
     })
   })
 
@@ -227,7 +249,7 @@ describe('Documents Page', () => {
     fireEvent.change(screen.getByLabelText(/Expiry Date/i), { target: { value: '2025-12-31' } })
 
     const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
-    fireEvent.change(screen.getByLabelText(/File/i), { target: { files: [file] } })
+    fireEvent.change(screen.getByLabelText(/^File \*$/i), { target: { files: [file] } })
     fireEvent.click(screen.getByText(/Upload Document/i))
 
     await waitFor(() => {
@@ -249,6 +271,43 @@ describe('Documents Page', () => {
         fireEvent.click(deleteButtons[0])
         expect(api.apiDelete).toHaveBeenCalled()
       }
+    })
+  })
+
+  it('should request a share link when share button is clicked', async () => {
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    ;(api.apiPost as any).mockResolvedValue({ shareUrl: 'http://localhost:4000/api/documents/share/generated-token' })
+    window.alert = vi.fn()
+
+    renderDocuments()
+
+    fireEvent.click(await screen.findByText(/Copy Share Link/i))
+
+    await waitFor(() => {
+      expect(api.apiPost).not.toHaveBeenCalled()
+    })
+  })
+
+  it('should create a share link for an unshared document', async () => {
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    ;(api.apiGet as any).mockImplementation((endpoint: string) => {
+      if (endpoint === '/documents') {
+        return Promise.resolve([{ ...mockDocuments[0], shareToken: null }])
+      }
+      if (endpoint === '/employees') return Promise.resolve(mockEmployees)
+      return Promise.resolve([])
+    })
+    ;(api.apiPost as any).mockResolvedValue({ shareUrl: 'http://localhost:4000/api/documents/share/generated-token' })
+    window.alert = vi.fn()
+
+    renderDocuments()
+
+    fireEvent.click(await screen.findByText(/Create Share Link/i))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith('/documents/1/share-link')
     })
   })
 

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect } from '@jest/globals'
 import request from 'supertest'
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'
-import { cleanupFixturePrefix, createUser, uniquePrefix } from './helpers/fixtures'
+import { authHeader, cleanupFixturePrefix, createUser, uniquePrefix } from './helpers/fixtures'
 
 const feature = loadFeature(path.join(__dirname, '../features/auth.feature'))
 
@@ -137,6 +137,68 @@ describe('BDD: auth', () => {
         loginResponse = await request(app).post('/api/auth/login').send({
           email,
           password: 'new-password123',
+        })
+
+        expect(loginResponse.status).toBe(200)
+        expect(loginResponse.body.user.email).toBe(email)
+      })
+    })
+
+    test('Admin can generate a reset link for an employee', ({ given, when, then }) => {
+      let response: request.Response
+      let userId = 0
+
+      given('an existing registered user with a known password', async () => {
+        const user = await createUser(prefix, {
+          email: `${prefix}.adminreset@example.com`,
+          password: 'password123',
+          name: `${prefix} Admin Reset User`,
+        })
+        userId = user.id
+      })
+
+      when('an admin generates a password reset link for that user', async () => {
+        response = await request(app)
+          .post(`/api/auth/users/${userId}/reset-link`)
+          .set('Authorization', authHeader({ id: 60, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+      })
+
+      then('the response contains a reset link for that user', () => {
+        expect(response.status).toBe(200)
+        expect(response.body.resetLink).toEqual(expect.any(String))
+        expect(response.body.resetToken).toEqual(expect.any(String))
+      })
+    })
+
+    test('Admin can set a temporary password for an employee', ({ given, when, then }) => {
+      let response: request.Response
+      let loginResponse: request.Response
+      let email = ''
+      let userId = 0
+
+      given('an existing registered user with a known password', async () => {
+        email = `${prefix}.temppassword@example.com`
+        const user = await createUser(prefix, {
+          email,
+          password: 'password123',
+          name: `${prefix} Temp Password User`,
+        })
+        userId = user.id
+      })
+
+      when('an admin directly resets that user\'s password', async () => {
+        response = await request(app)
+          .post(`/api/auth/users/${userId}/reset-password`)
+          .set('Authorization', authHeader({ id: 61, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+          .send({ newPassword: 'temporary-password123' })
+      })
+
+      then('the user can log in with the temporary password', async () => {
+        expect(response.status).toBe(200)
+
+        loginResponse = await request(app).post('/api/auth/login').send({
+          email,
+          password: 'temporary-password123',
         })
 
         expect(loginResponse.status).toBe(200)

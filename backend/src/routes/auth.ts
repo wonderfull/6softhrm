@@ -24,6 +24,16 @@ function getOptionalUser(req: AuthRequest) {
   }
 }
 
+function createPasswordResetPayload(user: { id: number; email: string }) {
+  const secret = process.env.JWT_SECRET || 'change_me'
+  const resetToken = jwt.sign({ id: user.id, email: user.email, type: 'password-reset' }, secret, { expiresIn: '1h' })
+
+  return {
+    resetToken,
+    resetLink: `${process.env.FRONTEND_URL || 'http://localhost:5174'}/reset-password?token=${resetToken}`
+  }
+}
+
 router.post('/register', async (req: AuthRequest, res) => {
   const { email, password, name, role } = req.body
   if (!email || !password) return res.status(400).json({ error: 'email and password required' })
@@ -160,6 +170,45 @@ router.put('/users/:id', requireAuth, requireRole('ADMIN'), async (req, res) => 
   }
 })
 
+router.post('/users/:id/reset-link', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: Number(req.params.id) } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const payload = createPasswordResetPayload(user)
+    await createAuditLog(req.user?.id, req.user?.email, 'PASSWORD_RESET_LINK_GENERATED', 'User', user.id, null, req)
+
+    res.json({
+      message: 'Password reset link generated',
+      ...payload
+    })
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+router.post('/users/:id/reset-password', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  const { newPassword } = req.body
+  if (!newPassword) return res.status(400).json({ error: 'newPassword required' })
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: Number(req.params.id) } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword }
+    })
+
+    await createAuditLog(req.user?.id, req.user?.email, 'PASSWORD_RESET_BY_ADMIN', 'User', user.id, null, req)
+
+    res.json({ message: 'Password reset successful' })
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
 // Delete user (admin only)
 router.delete('/users/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
@@ -182,16 +231,11 @@ router.post('/forgot-password', async (req, res) => {
       return res.json({ message: 'If the email exists, a reset link has been generated.' })
     }
 
-    // Generate reset token (valid for 1 hour)
-    const secret = process.env.JWT_SECRET || 'change_me'
-    const resetToken = jwt.sign({ id: user.id, email: user.email, type: 'password-reset' }, secret, { expiresIn: '1h' })
+    const payload = createPasswordResetPayload(user)
 
-    // In production, you would send this via email
-    // For now, we'll return it in the response (for demo purposes)
     res.json({
       message: 'Password reset token generated',
-      resetToken,
-      resetLink: `${process.env.FRONTEND_URL || 'http://localhost:5174'}/reset-password?token=${resetToken}`
+      ...payload
     })
   } catch (e: any) {
     res.status(500).json({ error: 'Failed to process request' })

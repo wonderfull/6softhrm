@@ -103,6 +103,8 @@ model Document {
   name       String
   path       String
   type       String? // Document type (e.g., CONTRACT, PASSPORT, etc.)
+  shareToken String?   @unique
+  sharedAt   DateTime?
   expiryDate DateTime? // Optional expiry date for documents
   uploadedAt DateTime  @default(now())
 }

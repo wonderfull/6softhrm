@@ -71,9 +71,6 @@ app.use(cors({
   credentials: true
 }))
 
-// serve uploaded files
-app.use('/uploads', express.static('uploads'))
-
 app.use(express.json())
 
 app.use('/api/auth', authRoutes)

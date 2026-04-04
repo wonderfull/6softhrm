@@ -245,6 +245,83 @@ describe('Documents API', () => {
     })
   })
 
+  describe('GET /documents/:id/file', () => {
+    it('should allow an authenticated admin to fetch a document file', async () => {
+      const uploadsDir = path.join(process.cwd(), 'uploads')
+      const testFilePath = path.join(uploadsDir, 'test-open.pdf')
+      fs.writeFileSync(testFilePath, 'Open content')
+
+      const doc = await prisma.document.create({
+        data: {
+          employeeId: testEmployeeId,
+          name: 'Open Test.pdf',
+          path: '/uploads/test-open.pdf',
+          type: 'OTHER'
+        }
+      })
+
+      const response = await request(app)
+        .get(`/api/documents/${doc.id}/file`)
+        .set('Authorization', authToken)
+
+      expect(response.status).toBe(200)
+      expect(response.headers['content-disposition']).toContain('Open Test.pdf')
+
+      await prisma.document.delete({ where: { id: doc.id } })
+      fs.unlinkSync(testFilePath)
+    })
+  })
+
+  describe('POST /documents/:id/share-link and GET /documents/share/:token', () => {
+    it('should create a share link and allow public download through the token', async () => {
+      const uploadsDir = path.join(process.cwd(), 'uploads')
+      const testFilePath = path.join(uploadsDir, 'test-share.pdf')
+      fs.writeFileSync(testFilePath, 'Share content')
+
+      const doc = await prisma.document.create({
+        data: {
+          employeeId: testEmployeeId,
+          name: 'Share Test.pdf',
+          path: '/uploads/test-share.pdf',
+          type: 'PAYSLIP'
+        }
+      })
+
+      const shareResponse = await request(app)
+        .post(`/api/documents/${doc.id}/share-link`)
+        .set('Authorization', authToken)
+
+      expect(shareResponse.status).toBe(200)
+      expect(shareResponse.body.shareToken).toBeTruthy()
+      expect(shareResponse.body.shareUrl).toContain('/api/documents/share/')
+
+      const publicResponse = await request(app)
+        .get(`/api/documents/share/${shareResponse.body.shareToken}`)
+
+      expect(publicResponse.status).toBe(200)
+      expect(publicResponse.headers['content-disposition']).toContain('Share Test.pdf')
+
+      await prisma.document.delete({ where: { id: doc.id } })
+      fs.unlinkSync(testFilePath)
+    })
+  })
+
+  describe('POST /documents/upload-payslips', () => {
+    it('should bulk upload payslips and create share links', async () => {
+      const response = await request(app)
+        .post('/api/documents/upload-payslips')
+        .set('Authorization', authToken)
+        .field('employeeId', testEmployeeId.toString())
+        .attach('files', Buffer.from('payslip one'), 'payslip-april.pdf')
+        .attach('files', Buffer.from('payslip two'), 'payslip-may.pdf')
+
+      expect(response.status).toBe(200)
+      expect(response.body.uploadedCount).toBe(2)
+      expect(response.body.documents.every((doc: any) => doc.type === 'PAYSLIP')).toBe(true)
+      expect(response.body.documents.every((doc: any) => doc.shareUrl)).toBe(true)
+    })
+  })
+
   describe('DELETE /documents/:id', () => {
     it('should delete document and file', async () => {
       // Create test file

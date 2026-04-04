@@ -165,5 +165,67 @@ describe('BDD: documents', () => {
         expect(response.headers['content-disposition']).toContain('.zip')
       })
     })
+
+    test('Admin can generate a share link for a stored document', ({ given, when, then }) => {
+      let response: request.Response
+      let publicResponse: request.Response
+      let documentId = 0
+
+      given('an employee with a stored document file', async () => {
+        const employee = await createEmployee(prefix, { email: `${prefix}.share@example.com`, firstName: 'Share', lastName: 'User' })
+        const upload = ensureUploadFile(prefix, `${prefix}-share.pdf`)
+        const document = await createDocument(employee.id, `${prefix}-share`, {
+          name: `${prefix}-share.pdf`,
+          path: upload.publicPath,
+        })
+        documentId = document.id
+      })
+
+      when('an admin generates a share link for that document', async () => {
+        response = await request(app)
+          .post(`/api/documents/${documentId}/share-link`)
+          .set('Authorization', authHeader({ id: 35, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+
+        publicResponse = await request(app)
+          .get(`/api/documents/share/${response.body.shareToken}`)
+      })
+
+      then('the share link can be used without authentication', () => {
+        expect(response.status).toBe(200)
+        expect(response.body.shareUrl).toContain('/api/documents/share/')
+        expect(publicResponse.status).toBe(200)
+        expect(publicResponse.headers['content-disposition']).toContain('.pdf')
+      })
+    })
+
+    test('Admin can bulk upload payslips for an employee', ({ given, when, then }) => {
+      let response: request.Response
+      let employeeId = 0
+      let uploadPathOne = ''
+      let uploadPathTwo = ''
+
+      given('an existing employee record for document upload', async () => {
+        const employee = await createEmployee(prefix, { email: `${prefix}.payslip@example.com` })
+        employeeId = employee.id
+        uploadPathOne = ensureUploadFile(prefix, `${prefix}-payslip-one.pdf`).absolutePath
+        uploadPathTwo = ensureUploadFile(prefix, `${prefix}-payslip-two.pdf`).absolutePath
+      })
+
+      when('an admin bulk uploads payslips for that employee', async () => {
+        response = await request(app)
+          .post('/api/documents/upload-payslips')
+          .set('Authorization', authHeader({ id: 36, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+          .field('employeeId', String(employeeId))
+          .attach('files', uploadPathOne)
+          .attach('files', uploadPathTwo)
+      })
+
+      then('the uploaded payslips are stored as shared documents', () => {
+        expect(response.status).toBe(200)
+        expect(response.body.uploadedCount).toBe(2)
+        expect(response.body.documents.every((doc: any) => doc.type === 'PAYSLIP')).toBe(true)
+        expect(response.body.documents.every((doc: any) => doc.shareUrl)).toBe(true)
+      })
+    })
   })
 })

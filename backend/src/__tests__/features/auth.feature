@@ -29,6 +29,16 @@ Feature: Authentication and password recovery
     And the user resets the password with the generated token
     Then the user can log in with the new password
 
+  Scenario: Admin can generate a reset link for an employee
+    Given an existing registered user with a known password
+    When an admin generates a password reset link for that user
+    Then the response contains a reset link for that user
+
+  Scenario: Admin can set a temporary password for an employee
+    Given an existing registered user with a known password
+    When an admin directly resets that user's password
+    Then the user can log in with the temporary password
+
   Scenario: Invalid reset token is rejected
     When a password reset is attempted with an invalid token
     Then the request is rejected with a 400 response
