@@ -9,32 +9,43 @@ import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
+async function upsertBootstrapUser(role: 'ADMIN' | 'MANAGER', email?: string, password?: string, name?: string) {
+  if (!email || !password) {
+    return null
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10)
+
+  return prisma.user.upsert({
+    where: { email },
+    update: {
+      password: passwordHash,
+      name: name || undefined,
+      role,
+    },
+    create: {
+      email,
+      password: passwordHash,
+      name: name || `${role} User`,
+      role,
+    },
+  })
+}
+
 async function main() {
   console.log('🌱 Seeding database with sample data...')
-  const password = await bcrypt.hash('password123', 10)
-
-  // Create Users
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
-    update: {},
-    create: {
-      email: 'admin@example.com',
-      password,
-      name: 'Admin User',
-      role: 'ADMIN',
-    },
-  })
-
-  const manager = await prisma.user.upsert({
-    where: { email: 'manager@example.com' },
-    update: {},
-    create: {
-      email: 'manager@example.com',
-      password,
-      name: 'Manager User',
-      role: 'MANAGER',
-    },
-  })
+  const admin = await upsertBootstrapUser(
+    'ADMIN',
+    process.env.BOOTSTRAP_ADMIN_EMAIL,
+    process.env.BOOTSTRAP_ADMIN_PASSWORD,
+    process.env.BOOTSTRAP_ADMIN_NAME
+  )
+  const manager = await upsertBootstrapUser(
+    'MANAGER',
+    process.env.BOOTSTRAP_MANAGER_EMAIL,
+    process.env.BOOTSTRAP_MANAGER_PASSWORD,
+    process.env.BOOTSTRAP_MANAGER_NAME
+  )
 
   // Create Employees
   const alice = await prisma.employee.upsert({
@@ -297,7 +308,11 @@ async function main() {
   })
 
   console.log('✅ Seed completed successfully!')
-  console.log(`   - Users: ${admin.id}, ${manager.id}`)
+  if (admin || manager) {
+    console.log(`   - Bootstrap Users: ${[admin?.email, manager?.email].filter(Boolean).join(', ')}`)
+  } else {
+    console.log('   - Bootstrap Users: none created (set BOOTSTRAP_ADMIN_EMAIL/BOOTSTRAP_ADMIN_PASSWORD to create a real admin)')
+  }
   console.log(`   - Employees: ${alice.id}, ${bob.id}, ${charlie.id}`)
   console.log(`   - Projects: ${proj1.id}, ${proj2.id}, ${proj3.id}`)
   console.log(`   - Timesheets: 90 entries created`)

@@ -116,33 +116,8 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
       })
       results.employees++
       console.log(`[SEED] Employee ${created.id}: ${emp.email}`)
-      
-      // Create user account for first two employees
-      if (results.employees <= 2) {
-        try {
-          const password = await bcrypt.hash('password123', 10)
-          const user = await prisma.user.upsert({
-            where: { email: emp.email },
-            update: {
-              name: `${emp.firstName} ${emp.lastName}`,
-              employeeId: created.id
-            },
-            create: {
-              email: emp.email,
-              password,
-              role: 'USER',
-              name: `${emp.firstName} ${emp.lastName}`,
-              employeeId: created.id
-            }
-          })
-          results.users++
-          console.log(`[SEED] User ${user.id}: ${emp.email}`)
-        } catch (e: any) {
-          console.log('[SEED] User upsert error:', emp.email, e.message)
-        }
-      }
     }
-    console.log(`[SEED] Employees created/updated: ${results.employees}, Users: ${results.users}`)
+    console.log(`[SEED] Employees created/updated: ${results.employees}`)
 
     // Create sample projects
     const projects = [
@@ -248,7 +223,7 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
     res.json({ 
       message: 'Sample data seeded successfully', 
       results,
-      note: 'User accounts created: john.smith@company.com and sarah.johnson@company.com with password: password123'
+      note: 'Sample business records created. Create real employee accounts from the Users page when needed.'
     })
   } catch (error: any) {
     console.error('Seed error:', error)

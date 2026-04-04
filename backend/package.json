@@ -13,6 +13,7 @@
     "db:reset": "prisma migrate reset --force",
     "db:push": "prisma db push",
     "seed": "ts-node prisma/seed.ts",
+    "bootstrap:users": "ts-node scripts/bootstrap-users.ts",
     "studio": "prisma studio",
     "test": "jest",
     "test:watch": "jest --watch",

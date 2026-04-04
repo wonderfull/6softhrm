@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test'
 import { loginAs } from './helpers/auth'
+import { E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD } from './helpers/accounts'
 
 test('monthly timesheet view shows monthly summary state', async ({ page }) => {
-  await loginAs(page, 'admin@example.com', 'password123')
+  await loginAs(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD)
   await page.goto('/time')
   await page.getByRole('button', { name: 'Monthly' }).click()
 
@@ -14,7 +15,7 @@ test('monthly timesheet view shows monthly summary state', async ({ page }) => {
 
 test('admin can upload a near-expiry document and see the expiry warning', async ({ page }) => {
   const documentName = `BDD Near Expiry Document ${Date.now()}`
-  await loginAs(page, 'admin@example.com', 'password123')
+  await loginAs(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD)
   await page.goto('/documents')
 
   await expect.poll(async () => page.locator('#document-employee option').count()).toBeGreaterThan(1)

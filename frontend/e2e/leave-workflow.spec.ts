@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test'
 import { loginAs, logout } from './helpers/auth'
+import { E2E_EMPLOYEE_EMAIL, E2E_EMPLOYEE_PASSWORD, E2E_MANAGER_EMAIL, E2E_MANAGER_PASSWORD } from './helpers/accounts'
 
 test('employee can submit leave and manager can approve it', async ({ browser }) => {
   const reason = `BDD leave workflow request ${Date.now()}`
   const employeeContext = await browser.newContext()
   const employeePage = await employeeContext.newPage()
 
-  await loginAs(employeePage, 'john.smith@company.com', 'password123')
+  await loginAs(employeePage, E2E_EMPLOYEE_EMAIL, E2E_EMPLOYEE_PASSWORD)
   await employeePage.goto('/leave')
   await employeePage.getByRole('button', { name: /Request Leave/i }).click()
   await employeePage.getByLabel('Leave Type *').selectOption('ANNUAL')
@@ -23,7 +24,7 @@ test('employee can submit leave and manager can approve it', async ({ browser })
   const managerContext = await browser.newContext()
   const managerPage = await managerContext.newPage()
 
-  await loginAs(managerPage, 'manager@example.com', 'password123')
+  await loginAs(managerPage, E2E_MANAGER_EMAIL, E2E_MANAGER_PASSWORD)
   await managerPage.goto('/leave')
   await expect(managerPage.getByText('Review and approve employee leave requests.')).toBeVisible()
 

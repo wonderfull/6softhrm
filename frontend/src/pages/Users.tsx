@@ -3,6 +3,10 @@ import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api'
 import Card from '../components/Card'
 import { HiPlus } from 'react-icons/hi'
 
+function generateTemporaryPassword() {
+  return `Temp-${Math.random().toString(36).slice(2, 8)}!${Math.floor(100 + Math.random() * 900)}`
+}
+
 export default function Users() {
   const [items, setItems] = React.useState<any[]>([])
   const [employees, setEmployees] = React.useState<any[]>([])
@@ -112,7 +116,7 @@ export default function Users() {
   }
 
   const handleSetTemporaryPassword = async (user: any) => {
-    const temporaryPassword = prompt(`Set a temporary password for ${user.email}:`, 'password123')
+    const temporaryPassword = prompt(`Set a temporary password for ${user.email}:`, generateTemporaryPassword())
     if (!temporaryPassword || !temporaryPassword.trim()) return
 
     try {
@@ -129,8 +133,9 @@ export default function Users() {
   }
 
   const handleCreateUserForEmployee = async (employee: any) => {
-    const password = prompt(`Create user account for ${employee.firstName} ${employee.lastName}\n\nEnter password (or leave blank for default "password123"):`) 
-    const finalPassword = password?.trim() || 'password123'
+    const suggestedPassword = generateTemporaryPassword()
+    const password = prompt(`Create user account for ${employee.firstName} ${employee.lastName}\n\nEnter a temporary password:`, suggestedPassword)
+    const finalPassword = password?.trim() || suggestedPassword
     
     if (!confirm(`Create user account for:\n\nName: ${employee.firstName} ${employee.lastName}\nEmail: ${employee.email}\nPassword: ${finalPassword}\n\nContinue?`)) {
       return

@@ -108,9 +108,8 @@ export default function Settings() {
         `${counts.leaveRequests || 0} leave requests\n` +
         `${counts.sponsorships || 0} sponsorships\n` +
         `${counts.users || 0} user accounts\n\n` +
-        `Test credentials:\n` +
-        `Email: john.smith@company.com\n` +
-        `Password: password123`
+        `No sample login accounts were created.\n` +
+        `Create real employee access from the Users page when required.`
       )
       setTimeout(() => setDevToolsStatus(''), 3000)
     } catch (error: any) {
@@ -201,7 +200,7 @@ export default function Settings() {
 
               <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                  Create sample data for testing (employees, projects, timesheets, etc.)
+                  Create sample business records for testing (employees, projects, timesheets, etc.). This does not create any demo login accounts.
                 </p>
                 <button 
                   onClick={handleSeedData}

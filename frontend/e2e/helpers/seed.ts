@@ -1,4 +1,5 @@
 import { expect, request as playwrightRequest } from '@playwright/test'
+import { E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD } from './accounts'
 
 const backendBaseUrl = 'http://localhost:4000'
 
@@ -7,8 +8,8 @@ export async function seedDemoData() {
 
   const loginResponse = await api.post('/api/auth/login', {
     data: {
-      email: 'admin@example.com',
-      password: 'password123',
+      email: E2E_ADMIN_EMAIL,
+      password: E2E_ADMIN_PASSWORD,
     },
   })
 
