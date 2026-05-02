@@ -138,5 +138,53 @@ describe('BDD: gdpr', () => {
         expect(historyResponse.body.some((consent: any) => consent.consentType === `${prefix}-photo_usage`)).toBe(true)
       })
     })
+
+    test('Employee cannot record consent for another employee', ({ given, and, when, then }) => {
+      let response: request.Response
+      let requesterId = 0
+      let requesterEmail = ''
+      let targetEmployeeId = 0
+
+      given('another employee exists', async () => {
+        const target = await createEmployee(`${prefix}-other-consent`, {
+          email: `${prefix}.other-consent@example.com`,
+        })
+        targetEmployeeId = target.id
+      })
+
+      and('a linked employee is signed in', async () => {
+        const requester = await createEmployee(`${prefix}-consent-requester`, {
+          email: `${prefix}.consent-requester@example.com`,
+        })
+        requesterId = requester.id
+        requesterEmail = requester.email
+        await createUser(`${prefix}-consent-requester`, {
+          email: requesterEmail,
+          employeeId: requesterId,
+          role: 'USER',
+        })
+      })
+
+      when('the linked employee records consent for the other employee', async () => {
+        response = await request(app)
+          .post('/api/gdpr/consent')
+          .set('Authorization', authHeader({
+            id: 44,
+            email: requesterEmail,
+            role: 'USER',
+            employeeId: requesterId,
+          }))
+          .send({
+            employeeId: targetEmployeeId,
+            consentType: `${prefix}-photo_usage`,
+            consentGiven: true,
+            version: '1.0',
+          })
+      })
+
+      then('the request is forbidden', () => {
+        expect(response.status).toBe(403)
+      })
+    })
   })
 })

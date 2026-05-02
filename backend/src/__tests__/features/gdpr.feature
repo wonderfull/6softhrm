@@ -23,3 +23,9 @@ Feature: GDPR self-service and admin visibility
     When the employee records a consent choice
     And the employee requests their consent history
     Then the consent history contains the recorded consent type
+
+  Scenario: Employee cannot record consent for another employee
+    Given another employee exists
+    And a linked employee is signed in
+    When the linked employee records consent for the other employee
+    Then the request is forbidden

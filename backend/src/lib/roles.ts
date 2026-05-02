@@ -79,6 +79,30 @@ export function canAccessOwnerSettings(role: unknown) {
   return isOwnerRole(role)
 }
 
+export function canViewSponsorships(role: unknown) {
+  return isHrAdminRole(role) || normalizeRole(role) === ROLES.OFFICE_ASSISTANT
+}
+
+export function canManageSponsorships(role: unknown) {
+  return isHrAdminRole(role)
+}
+
+export function canExportSponsorships(role: unknown) {
+  return isHrAdminRole(role)
+}
+
+export function canRecordComplianceEvent(role: unknown) {
+  return isHrAdminRole(role) || normalizeRole(role) === ROLES.OFFICE_ASSISTANT
+}
+
+export function canViewAuditLogs(role: unknown) {
+  return isOwnerRole(role)
+}
+
+export function canExportGdprData(role: unknown) {
+  return isOwnerRole(role)
+}
+
 export function requireAssignableRole(actorRole: unknown, targetRole: unknown) {
   if (!canAssignRole(actorRole, targetRole)) {
     throw new Error('You do not have permission to assign that role')

@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth'
 import { auditLog } from '../middleware/audit'
 import * as XLSX from 'xlsx'
 import type { Document, LeaveRequest, Timesheet } from '@prisma/client'
+import { isHrAdminRole, normalizeRole, ROLES } from '../lib/roles'
 
 const router = Router()
 
@@ -234,11 +235,24 @@ router.post('/consent', requireAuth, async (req: any, res) => {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
+    const targetEmployeeId = parseInt(employeeId)
+    const userRole = normalizeRole(req.user?.role)
+    if (userRole === ROLES.EMPLOYEE) {
+      if (!req.user?.employeeId) {
+        return res.status(403).json({ error: 'User account is not linked to an employee record' })
+      }
+      if (req.user.employeeId !== targetEmployeeId) {
+        return res.status(403).json({ error: 'Unauthorized' })
+      }
+    } else if (!isHrAdminRole(userRole)) {
+      return res.status(403).json({ error: 'Unauthorized' })
+    }
+
     const ipAddress = req.ip || req.connection.remoteAddress || null
 
     const consent = await prisma.dataConsent.create({
       data: {
-        employeeId: parseInt(employeeId),
+        employeeId: targetEmployeeId,
         consentType,
         consentGiven,
         consentDate: consentGiven ? new Date() : null,
@@ -248,7 +262,7 @@ router.post('/consent', requireAuth, async (req: any, res) => {
       }
     })
 
-    await auditLog(req, consentGiven ? 'CONSENT_GIVEN' : 'CONSENT_WITHDRAWN', 'DataConsent', consent.id, { consentType, employeeId })
+    await auditLog(req, consentGiven ? 'CONSENT_GIVEN' : 'CONSENT_WITHDRAWN', 'DataConsent', consent.id, { consentType, employeeId: targetEmployeeId })
 
     res.json(consent)
   } catch (error: any) {
