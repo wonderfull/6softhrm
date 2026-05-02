@@ -22,6 +22,7 @@ RENDER_ENV.txt
 *.zip
 .htaccess
 codexplans/
+.superpowers/
 
 # Claude Code — personal settings (contains machine-specific absolute paths)
 .claude/settings.local.json
