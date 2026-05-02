@@ -68,7 +68,7 @@ function App() {
                   <Routes>
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/employees" element={<Employees />} />
-                    <Route path="/sponsorships" element={<ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}><Sponsorships /></ProtectedRoute>} />
+                    <Route path="/sponsorships" element={<ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT']}><Sponsorships /></ProtectedRoute>} />
                     <Route path="/time" element={<Time />} />
                     <Route path="/projects" element={<ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}><Projects /></ProtectedRoute>} />
                     <Route path="/leave" element={<Leave />} />

@@ -33,6 +33,7 @@ const managerMenu = [
 const assistantMenu = [
   { to: '/dashboard', label: 'Dashboard', icon: <HiHome size={18} /> },
   { to: '/employees', label: 'Employee Records', icon: <HiUsers size={18} /> },
+  { to: '/sponsorships', label: 'Sponsorship Support', icon: <HiDocumentText size={18} /> },
   { to: '/time', label: 'Time Support', icon: <HiClock size={18} /> },
   { to: '/leave', label: 'Leave Support', icon: <HiCalendar size={18} /> },
   { to: '/documents', label: 'Document Support', icon: <HiFolder size={18} /> },
