@@ -311,6 +311,23 @@ describe('Documents Page', () => {
     })
   })
 
+  it('hides share and delete controls from office assistants', async () => {
+    mockedUser = { role: 'OFFICE_ASSISTANT', email: 'assistant@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'OFFICE_ASSISTANT', email: 'assistant@example.com' }))
+
+    renderDocuments()
+
+    await waitFor(() => {
+      expect(screen.getByText('Documents')).toBeInTheDocument()
+      expect(screen.getByText(/Contract.pdf/i)).toBeInTheDocument()
+    })
+
+    expect(screen.getAllByRole('button', { name: /Open/i }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /Create Share Link/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Copy Share Link/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Delete/i })).not.toBeInTheDocument()
+  })
+
   it('should filter documents by employee', async () => {
     mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
     localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))

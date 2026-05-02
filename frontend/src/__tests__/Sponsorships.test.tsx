@@ -4,12 +4,14 @@ import Sponsorships from '../pages/Sponsorships'
 import * as api from '../lib/api'
 import * as XLSX from 'xlsx'
 
+let mockedUser: any = { id: 7, role: 'ADMIN', email: 'admin@test.com' }
+
 vi.mock('../lib/api', () => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
   apiPut: vi.fn(),
   apiDelete: vi.fn(),
-  getCurrentUser: vi.fn(() => ({ id: 7, role: 'ADMIN', email: 'admin@test.com' }))
+  getCurrentUser: vi.fn(() => mockedUser)
 }))
 
 vi.mock('xlsx', () => ({
@@ -43,6 +45,7 @@ describe('Sponsorships Page', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockedUser = { id: 7, role: 'ADMIN', email: 'admin@test.com' }
     ;(api.apiGet as any).mockImplementation((endpoint: string) => {
       if (endpoint === '/sponsorships') return Promise.resolve(mockSponsorships)
       if (endpoint === '/employees') return Promise.resolve(mockEmployees)
@@ -214,5 +217,57 @@ describe('Sponsorships Page', () => {
       expect(screen.getAllByText(/Delayed start/i).length).toBeGreaterThan(0)
       expect(screen.getByText(/Right-to-work check/i)).toBeInTheDocument()
     })
+  })
+
+  it('hides core export and edit actions from office assistants', async () => {
+    mockedUser = { id: 8, role: 'OFFICE_ASSISTANT', email: 'assistant@test.com' }
+
+    render(<Sponsorships />)
+
+    await screen.findAllByText(/John Doe/i)
+
+    expect(screen.queryByRole('button', { name: /Export to Excel/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Add Sponsorship/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Edit/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Delete/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Add reportable event/i })).toBeInTheDocument()
+  })
+
+  it('does not mark synthetic reportable alerts as reported', async () => {
+    ;(api.apiGet as any).mockImplementation((endpoint: string) => {
+      if (endpoint === '/sponsorships') return Promise.resolve(mockSponsorships)
+      if (endpoint === '/employees') return Promise.resolve(mockEmployees)
+      if (endpoint === '/sponsorships/reportable-events/open') return Promise.resolve([
+        {
+          id: null,
+          sponsorshipId: 1,
+          eventType: 'DELAYED_START',
+          eventDate: '2026-04-30T00:00:00.000Z',
+          dueDate: '2026-05-15T00:00:00.000Z',
+          status: 'OPEN',
+          alertSource: 'AUTO',
+          sponsorship: {
+            id: 1,
+            employee: mockEmployees[0]
+          }
+        }
+      ])
+      if (endpoint === '/sponsorships/1/compliance') return Promise.resolve({
+        sponsorship: { id: 1 },
+        employee: mockEmployees[0],
+        missingCount: 4,
+        requiredEvidence: [
+          { key: 'RIGHT_TO_WORK_CHECK', label: 'Right-to-work check', status: 'COMPLETE' }
+        ],
+        existingEvidence: []
+      })
+      return Promise.resolve([])
+    })
+
+    render(<Sponsorships />)
+
+    await screen.findAllByText(/Delayed start/i)
+
+    expect(screen.queryByRole('button', { name: /Mark reported/i })).not.toBeInTheDocument()
   })
 })

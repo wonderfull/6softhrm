@@ -53,6 +53,7 @@ export default function Documents() {
 
   const user = getCurrentUser()
   const isElevated = hasRole(user, 'ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT')
+  const canManageDocumentLinks = hasRole(user, 'ADMIN', 'DIRECTOR')
 
   async function loadDocuments() {
     try {
@@ -589,15 +590,17 @@ export default function Documents() {
                   >
                     {openDocumentId === d.id ? 'Opening...' : 'Open'}
                   </button>
-                  <button
-                    type="button"
-                    className="text-sm px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors"
-                    onClick={() => handleCreateShareLink(d.id, d.shareToken)}
-                    disabled={shareDocumentId === d.id}
-                  >
-                    {shareDocumentId === d.id ? 'Preparing...' : d.shareToken ? 'Copy Share Link' : 'Create Share Link'}
-                  </button>
-                  {isElevated && (
+                  {canManageDocumentLinks && (
+                    <button
+                      type="button"
+                      className="text-sm px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors"
+                      onClick={() => handleCreateShareLink(d.id, d.shareToken)}
+                      disabled={shareDocumentId === d.id}
+                    >
+                      {shareDocumentId === d.id ? 'Preparing...' : d.shareToken ? 'Copy Share Link' : 'Create Share Link'}
+                    </button>
+                  )}
+                  {canManageDocumentLinks && (
                     <button
                       onClick={async () => {
                         if (!confirm('Are you sure you want to delete this document?')) return

@@ -251,13 +251,15 @@ export default function Sponsorships() {
           <p className="text-sm text-slate-500 dark:text-slate-400">Compliance evidence and reportable event tracking</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 font-medium text-white transition-colors hover:bg-emerald-700"
-          >
-            <HiArrowDownTray size={18} />
-            Export to Excel
-          </button>
+          {canManageCore && (
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 font-medium text-white transition-colors hover:bg-emerald-700"
+            >
+              <HiArrowDownTray size={18} />
+              Export to Excel
+            </button>
+          )}
           {canManageCore && (
             <button
               onClick={() => {
@@ -523,11 +525,14 @@ export default function Sponsorships() {
 
             <div className="space-y-3">
               {selectedEvents.map((event) => (
-                <div key={event.id} className="rounded-md border border-slate-200 p-3 dark:border-slate-700">
+                <div
+                  key={event.id ?? `auto-${event.sponsorshipId}-${event.eventType}-${event.dueDate}`}
+                  className="rounded-md border border-slate-200 p-3 dark:border-slate-700"
+                >
                   <div className="font-medium text-slate-900 dark:text-white">{labelEventType(event.eventType)}</div>
                   <div className="text-sm text-slate-500 dark:text-slate-400">Due {formatDate(event.dueDate)}</div>
                   {event.notes && <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">{event.notes}</div>}
-                  {canManageCore && (
+                  {canManageCore && event.id && (
                     <button
                       onClick={() => handleMarkReported(event.id)}
                       className="mt-3 inline-flex items-center gap-2 rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
