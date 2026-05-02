@@ -8,6 +8,12 @@
 
 **Tech Stack:** Express, TypeScript, Prisma, Jest, React 18, Vite, Tailwind CSS, Vitest.
 
+**Execution Requirement:** Treat the current uncommitted security hardening as approved baseline. Preserve the fail-closed JWT secret handling, email-only password reset behavior, and new role restrictions, then adapt them to the normalized role model.
+
+**Testing Requirement:** Use strict TDD/BDD. For every behavior change, write a failing Jest, Vitest, or Jest Cucumber test first, run it to verify the expected failure, implement the minimum code, then re-run the test to verify green.
+
+**Compliance Requirement:** Use an HRM compliance tester agent as a quality gate for sponsorship compliance tasks. The tester evaluates UK sponsorship operational coverage, recommends changes, and reviews the BDD regression suite. Compliance guidance must be sourced from official GOV.UK pages and dated.
+
 ---
 
 ## File Structure
@@ -30,6 +36,34 @@
 - Modify or delete `frontend/src/pages/Users.tsx`: remove from routing; leave deleted if no imports remain.
 - Update frontend tests or add `frontend/src/__tests__/Employees.management.test.tsx`: verify role-aware UI actions.
 - Update backend route tests for auth, employees, documents, and leave.
+- Create `backend/src/__tests__/features/sponsorship-compliance.feature`: domain BDD scenarios for UK sponsor compliance workflows.
+- Create `backend/src/__tests__/bdd/sponsorship-compliance.feature.test.ts`: Jest Cucumber bindings for sponsorship compliance scenarios.
+- Modify `backend/prisma/schema.prisma`: add sponsorship compliance evidence/reporting models if the implementation selects persisted compliance workflows.
+- Modify `backend/src/routes/sponsorships.ts`: add compliance evidence pack, reportable-event, expiry-risk, and role-aware access behavior.
+- Modify `backend/src/routes/gdpr.ts`: prevent employees from recording consent for another employee.
+- Modify `backend/src/middleware/audit.ts` or route-level audit calls: ensure sponsorship and compliance actions are audit logged.
+- Modify `frontend/src/pages/Sponsorships.tsx`: add compliance evidence status, alerts, and reportable-event workflow UI.
+- Create `docs/user-employee-sponsorship-compliance-guide.md`: user/admin guide for implemented roles, unified management, and sponsorship compliance features.
+
+---
+
+## Recommended Execution Order
+
+Implement in this order to keep security and compliance risk controlled:
+
+1. Task 1: Backend Role Model.
+2. Task 2: Backend Account and Employee API Consolidation.
+3. Task 3: Backend Operational Permissions.
+4. Task 8: HRM Compliance Tester Agent Gate.
+5. Task 13: P0 Sponsorship, GDPR, and Audit Hardening.
+6. Task 9: Sponsorship Compliance Domain Model.
+7. Task 10: Sponsorship Compliance API.
+8. Task 11: Reportable Events and Compliance Alerts.
+9. Task 4: Frontend Role Helpers and Navigation Cleanup.
+10. Task 5: Unified Employees Page UI.
+11. Task 6: Remove Deprecated User Management Screen.
+12. Task 12: Feature Guide and Compliance Release Notes.
+13. Task 7: Full Verification.
 
 ---
 
@@ -1053,8 +1087,972 @@ If no fixes were needed, do not create an empty commit.
 
 ---
 
+### Task 8: HRM Compliance Tester Agent Gate
+
+**Files:**
+- Modify: `docs/superpowers/specs/2026-05-02-user-employee-management-design.md`
+- Modify: `docs/superpowers/plans/2026-05-02-user-employee-management.md`
+
+- [ ] **Step 1: Dispatch HRM compliance tester before code changes**
+
+Dispatch a fresh explorer agent with this prompt:
+
+```text
+You are an HRM system tester specializing in UK sponsor licence compliance.
+Inspect /Users/kirankumarmanne/Documents/work/6softHRM.
+Do not edit files.
+Evaluate sponsorship module coverage, GDPR/audit risks, role permissions, and BDD regression needs.
+Treat existing uncommitted security hardening as approved baseline.
+Return findings, recommended features, BDD scenarios, and implementation-plan changes.
+When citing compliance duties, use official GOV.UK guidance URLs and dates.
+```
+
+- [ ] **Step 2: Verify official guidance anchors**
+
+Use official GOV.UK sources only for compliance facts:
+
+```text
+Appendix D record-keeping duties:
+https://www.gov.uk/government/publications/keep-records-for-sponsorship-appendix-d/workers-and-temporary-workers-guidance-for-sponsors-appendix-d-record-keeping-duties-accessible
+
+Sponsor duties and compliance:
+https://www.gov.uk/government/publications/workers-and-temporary-workers-guidance-for-sponsors-part-3-sponsor-duties-and-compliance
+
+Sponsor a worker:
+https://www.gov.uk/government/publications/workers-and-temporary-workers-guidance-for-sponsors-part-2-sponsor-a-worker/workers-and-temporary-workers-guidance-for-sponsors-part-2-sponsor-a-worker-accessible
+
+Sponsor compliance visits:
+https://www.gov.uk/government/publications/points-based-system-sponsor-management/points-based-system-sponsor-compliance-visits-accessible
+```
+
+Document the checked date in the spec and release guide.
+
+- [ ] **Step 3: Fold tester findings into plan**
+
+Update this plan before implementation if the tester finds missing sponsorship compliance coverage.
+
+- [ ] **Step 4: Commit plan/spec updates**
+
+```bash
+git add docs/superpowers/specs/2026-05-02-user-employee-management-design.md docs/superpowers/plans/2026-05-02-user-employee-management.md
+git commit -m "docs: expand plan for sponsorship compliance testing"
+```
+
+---
+
+### Task 9: Sponsorship Compliance Domain Model
+
+**Files:**
+- Modify: `backend/prisma/schema.prisma`
+- Create: `backend/src/__tests__/features/sponsorship-compliance.feature`
+- Create: `backend/src/__tests__/bdd/sponsorship-compliance.feature.test.ts`
+- Modify: `backend/src/__tests__/bdd/helpers/fixtures.ts`
+
+- [ ] **Step 1: Write BDD feature for compliance evidence packs**
+
+Create `backend/src/__tests__/features/sponsorship-compliance.feature`:
+
+```gherkin
+Feature: Sponsorship compliance evidence
+  As a sponsor licence holder
+  I want to track required sponsorship evidence and reportable events
+  So that sponsored worker records are inspection-ready
+
+  Scenario: Sponsored worker evidence pack is incomplete without right to work evidence
+    Given a sponsored worker has an active Skilled Worker sponsorship
+    And no right to work evidence has been uploaded
+    When an admin reviews the sponsorship compliance status
+    Then the evidence pack is marked incomplete
+    And the missing item list includes "Right to work check evidence"
+
+  Scenario: Sponsored worker evidence pack includes employment rights notification evidence
+    Given a sponsored worker has an active Skilled Worker sponsorship
+    And right to work evidence has been uploaded
+    And evidence of UK employment rights notification has been uploaded
+    When a director reviews the sponsorship compliance status
+    Then the evidence pack includes "Employment rights notification"
+
+  Scenario: Office assistant can upload compliance evidence but cannot edit sponsorship core details
+    Given an office assistant is signed in
+    And a sponsored worker has an active sponsorship
+    When the office assistant uploads right to work evidence
+    Then the upload is accepted
+    When the office assistant changes the sponsorship visa type
+    Then the change is rejected
+```
+
+- [ ] **Step 2: Write failing BDD step bindings**
+
+Create `backend/src/__tests__/bdd/sponsorship-compliance.feature.test.ts` using the existing `jest-cucumber` pattern:
+
+```ts
+import path from 'path'
+import { afterEach, beforeEach, describe, expect } from '@jest/globals'
+import request from 'supertest'
+import { defineFeature, loadFeature } from 'jest-cucumber'
+import app from '../../app'
+import {
+  authHeader,
+  cleanupFixturePrefix,
+  createEmployee,
+  createSponsorship,
+  uniquePrefix,
+} from './helpers/fixtures'
+
+const feature = loadFeature(path.join(__dirname, '../features/sponsorship-compliance.feature'))
+
+defineFeature(feature, (test) => {
+  let prefix = ''
+  let employee: any
+  let sponsorship: any
+  let response: request.Response
+
+  beforeEach(() => {
+    prefix = uniquePrefix('sponsorship-compliance')
+  })
+
+  afterEach(async () => {
+    await cleanupFixturePrefix(prefix)
+  })
+
+  test('Sponsored worker evidence pack is incomplete without right to work evidence', ({ given, and, when, then }) => {
+    given('a sponsored worker has an active Skilled Worker sponsorship', async () => {
+      employee = await createEmployee(prefix, { email: `${prefix}.worker@example.com` })
+      sponsorship = await createSponsorship(employee.id, { visaType: 'Skilled Worker' })
+    })
+
+    and('no right to work evidence has been uploaded', () => undefined)
+
+    when('an admin reviews the sponsorship compliance status', async () => {
+      response = await request(app)
+        .get(`/api/sponsorships/${sponsorship.id}/compliance`)
+        .set('Authorization', authHeader({ id: 1, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+    })
+
+    then('the evidence pack is marked incomplete', () => {
+      expect(response.status).toBe(200)
+      expect(response.body.status).toBe('INCOMPLETE')
+    })
+
+    and('the missing item list includes "Right to work check evidence"', () => {
+      expect(response.body.missingItems).toContain('Right to work check evidence')
+    })
+  })
+})
+```
+
+Add the remaining scenarios in the same file as separate `test(...)` blocks before implementing production code.
+
+- [ ] **Step 3: Run BDD test and verify red**
+
+Run:
+
+```bash
+npm --prefix backend run test -- sponsorship-compliance.feature.test.ts
+```
+
+Expected: fail because `/api/sponsorships/:id/compliance` does not exist.
+
+- [ ] **Step 4: Add persistence for sponsorship evidence**
+
+Modify `backend/prisma/schema.prisma`:
+
+```prisma
+model SponsorshipComplianceEvidence {
+  id            Int         @id @default(autoincrement())
+  sponsorship   Sponsorship @relation(fields: [sponsorshipId], references: [id], onDelete: Cascade)
+  sponsorshipId Int
+  document      Document?   @relation(fields: [documentId], references: [id])
+  documentId    Int?
+  evidenceType  String
+  notes         String?     @db.Text
+  verifiedAt    DateTime?
+  verifiedBy    Int?
+  createdAt     DateTime    @default(now())
+}
+```
+
+Also add to `Sponsorship`:
+
+```prisma
+complianceEvidence SponsorshipComplianceEvidence[]
+```
+
+Also add to `Document`:
+
+```prisma
+sponsorshipComplianceEvidence SponsorshipComplianceEvidence[]
+```
+
+- [ ] **Step 5: Run Prisma migration**
+
+Run:
+
+```bash
+npm --prefix backend run prisma:migrate -- --name add_sponsorship_compliance_evidence
+npm --prefix backend run prisma:generate
+```
+
+Expected: migration succeeds and Prisma client regenerates.
+
+- [ ] **Step 6: Commit model and red BDD scaffold**
+
+```bash
+git add backend/prisma/schema.prisma backend/prisma/migrations backend/src/__tests__/features/sponsorship-compliance.feature backend/src/__tests__/bdd/sponsorship-compliance.feature.test.ts backend/src/__tests__/bdd/helpers/fixtures.ts
+git commit -m "test: add sponsorship compliance BDD scaffold"
+```
+
+---
+
+### Task 13: P0 Sponsorship, GDPR, and Audit Hardening
+
+**Files:**
+- Modify: `backend/src/routes/sponsorships.ts`
+- Modify: `backend/src/routes/documents.ts`
+- Modify: `backend/src/routes/gdpr.ts`
+- Modify: `backend/src/lib/roles.ts`
+- Create: `backend/src/__tests__/features/sponsorships.feature`
+- Create: `backend/src/__tests__/bdd/sponsorships.feature.test.ts`
+- Modify: `backend/src/__tests__/features/gdpr.feature`
+- Modify: `backend/src/__tests__/bdd/gdpr.feature.test.ts`
+
+- [ ] **Step 1: Write BDD feature for sponsorship access control**
+
+Create `backend/src/__tests__/features/sponsorships.feature`:
+
+```gherkin
+Feature: Sponsorship access control
+  As an HRM system owner
+  I want sponsorship records protected by backend authorization
+  So that sponsored worker details are not exposed to unauthorised users
+
+  Scenario: Employee cannot list all sponsorships
+    Given another employee has an active sponsorship
+    And a linked employee is signed in
+    When the linked employee lists sponsorships
+    Then no other employee sponsorships are returned
+
+  Scenario: Unlinked employee cannot view expiring sponsorships
+    Given another employee has a sponsorship expiring soon
+    And an unlinked employee user is signed in
+    When the unlinked employee views expiring sponsorships
+    Then no expiring sponsorships are returned
+
+  Scenario: Director can manage sponsorships
+    Given a director is signed in
+    And an employee exists
+    When the director creates a sponsorship for that employee
+    Then the sponsorship is created
+    And an audit log records the sponsorship creation
+
+  Scenario: Office assistant cannot edit sponsorship core details
+    Given an office assistant is signed in
+    And an employee has an active sponsorship
+    When the office assistant updates the sponsorship visa type
+    Then the request is forbidden
+```
+
+- [ ] **Step 2: Write failing sponsorship BDD bindings**
+
+Create `backend/src/__tests__/bdd/sponsorships.feature.test.ts`:
+
+```ts
+import path from 'path'
+import { afterEach, beforeEach, describe, expect } from '@jest/globals'
+import request from 'supertest'
+import { defineFeature, loadFeature } from 'jest-cucumber'
+import app from '../../app'
+import prisma from '../../prismaClient'
+import {
+  authHeader,
+  cleanupFixturePrefix,
+  createEmployee,
+  createSponsorship,
+  uniquePrefix,
+} from './helpers/fixtures'
+
+const feature = loadFeature(path.join(__dirname, '../features/sponsorships.feature'))
+
+defineFeature(feature, (test) => {
+  let prefix = ''
+  let employee: any
+  let otherEmployee: any
+  let sponsorship: any
+  let response: request.Response
+
+  beforeEach(() => {
+    prefix = uniquePrefix('sponsorships')
+  })
+
+  afterEach(async () => {
+    await cleanupFixturePrefix(prefix)
+  })
+
+  test('Employee cannot list all sponsorships', ({ given, and, when, then }) => {
+    given('another employee has an active sponsorship', async () => {
+      otherEmployee = await createEmployee(prefix, { email: `${prefix}.sponsored@example.com` })
+      sponsorship = await createSponsorship(otherEmployee.id)
+    })
+
+    and('a linked employee is signed in', async () => {
+      employee = await createEmployee(prefix, { email: `${prefix}.viewer@example.com` })
+    })
+
+    when('the linked employee lists sponsorships', async () => {
+      response = await request(app)
+        .get('/api/sponsorships')
+        .set('Authorization', authHeader({
+          id: 10,
+          email: employee.email,
+          role: 'EMPLOYEE',
+          employeeId: employee.id,
+        }))
+    })
+
+    then('no other employee sponsorships are returned', () => {
+      expect(response.status).toBe(200)
+      expect(response.body).toEqual([])
+    })
+  })
+
+  test('Unlinked employee cannot view expiring sponsorships', ({ given, and, when, then }) => {
+    given('another employee has a sponsorship expiring soon', async () => {
+      otherEmployee = await createEmployee(prefix, { email: `${prefix}.expiring@example.com` })
+      sponsorship = await createSponsorship(otherEmployee.id, {
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      })
+    })
+
+    and('an unlinked employee user is signed in', () => undefined)
+
+    when('the unlinked employee views expiring sponsorships', async () => {
+      response = await request(app)
+        .get('/api/sponsorships/expiring')
+        .set('Authorization', authHeader({
+          id: 11,
+          email: `${prefix}.unlinked@example.com`,
+          role: 'EMPLOYEE',
+        }))
+    })
+
+    then('no expiring sponsorships are returned', () => {
+      expect(response.status).toBe(200)
+      expect(response.body).toEqual([])
+    })
+  })
+
+  test('Director can manage sponsorships', ({ given, and, when, then }) => {
+    given('a director is signed in', () => undefined)
+
+    and('an employee exists', async () => {
+      employee = await createEmployee(prefix, { email: `${prefix}.managed@example.com` })
+    })
+
+    when('the director creates a sponsorship for that employee', async () => {
+      response = await request(app)
+        .post('/api/sponsorships')
+        .set('Authorization', authHeader({
+          id: 12,
+          email: `${prefix}.director@example.com`,
+          role: 'DIRECTOR',
+        }))
+        .send({
+          employeeId: employee.id,
+          visaType: 'Skilled Worker',
+          sponsorLicenseNumber: 'BDD-LICENCE',
+          startDate: '2026-05-01',
+          endDate: '2027-05-01',
+        })
+    })
+
+    then('the sponsorship is created', () => {
+      expect(response.status).toBe(200)
+      expect(response.body.employeeId).toBe(employee.id)
+    })
+
+    and('an audit log records the sponsorship creation', async () => {
+      const auditLog = await prisma.auditLog.findFirst({
+        where: {
+          userEmail: `${prefix}.director@example.com`,
+          action: 'CREATE',
+          entity: 'Sponsorship',
+        },
+      })
+      expect(auditLog).not.toBeNull()
+    })
+  })
+
+  test('Office assistant cannot edit sponsorship core details', ({ given, and, when, then }) => {
+    given('an office assistant is signed in', () => undefined)
+
+    and('an employee has an active sponsorship', async () => {
+      employee = await createEmployee(prefix, { email: `${prefix}.office-assistant-target@example.com` })
+      sponsorship = await createSponsorship(employee.id)
+    })
+
+    when('the office assistant updates the sponsorship visa type', async () => {
+      response = await request(app)
+        .put(`/api/sponsorships/${sponsorship.id}`)
+        .set('Authorization', authHeader({
+          id: 13,
+          email: `${prefix}.assistant@example.com`,
+          role: 'OFFICE_ASSISTANT',
+        }))
+        .send({ visaType: 'Changed Worker' })
+    })
+
+    then('the request is forbidden', () => {
+      expect(response.status).toBe(403)
+    })
+  })
+})
+```
+
+- [ ] **Step 3: Extend GDPR BDD for consent ownership**
+
+Append to `backend/src/__tests__/features/gdpr.feature`:
+
+```gherkin
+  Scenario: Employee cannot record consent for another employee
+    Given another employee exists
+    And a linked employee is signed in
+    When the linked employee records consent for the other employee
+    Then the request is forbidden
+```
+
+Add matching step bindings in `backend/src/__tests__/bdd/gdpr.feature.test.ts` using the existing file's setup pattern.
+
+- [ ] **Step 4: Run failing BDD tests**
+
+Run:
+
+```bash
+npm --prefix backend run test -- sponsorships.feature.test.ts gdpr.feature.test.ts
+```
+
+Expected: fail because current sponsorship and GDPR route behavior is too permissive.
+
+- [ ] **Step 5: Add sponsorship permission helpers**
+
+Add to `backend/src/lib/roles.ts`:
+
+```ts
+export function canViewSponsorships(role: unknown) {
+  return isHrAdminRole(role) || normalizeRole(role) === ROLES.OFFICE_ASSISTANT
+}
+
+export function canManageSponsorships(role: unknown) {
+  return isHrAdminRole(role)
+}
+
+export function canExportSponsorships(role: unknown) {
+  return isHrAdminRole(role)
+}
+
+export function canRecordComplianceEvent(role: unknown) {
+  return isHrAdminRole(role) || normalizeRole(role) === ROLES.OFFICE_ASSISTANT
+}
+
+export function canViewAuditLogs(role: unknown) {
+  return isOwnerRole(role)
+}
+
+export function canExportGdprData(role: unknown) {
+  return isOwnerRole(role)
+}
+```
+
+- [ ] **Step 6: Harden sponsorship list and expiring routes**
+
+Modify `backend/src/routes/sponsorships.ts`:
+
+```ts
+import { auditLog } from '../middleware/audit'
+import { normalizeRole, ROLES, canViewSponsorships } from '../lib/roles'
+```
+
+In `GET /`:
+
+```ts
+const user = (req as any).user
+const role = normalizeRole(user?.role)
+
+if (role === ROLES.EMPLOYEE) {
+  if (!user.employeeId) return res.json([])
+  const ownItems = await prisma.sponsorship.findMany({
+    where: { employeeId: user.employeeId },
+    include: { employee: true },
+  })
+  await auditLog(req as any, 'READ', 'Sponsorship', undefined, { selfAccess: true, count: ownItems.length })
+  return res.json(ownItems)
+}
+
+if (!canViewSponsorships(role)) return res.status(403).json({ error: 'forbidden' })
+
+const items = await prisma.sponsorship.findMany({ include: { employee: true } })
+await auditLog(req as any, 'READ', 'Sponsorship', undefined, { count: items.length })
+res.json(items)
+```
+
+In `GET /expiring`, use the same employee self-scope behavior:
+
+```ts
+if (role === ROLES.EMPLOYEE) {
+  if (!user.employeeId) return res.json([])
+  whereClause.employeeId = user.employeeId
+} else if (!canViewSponsorships(role)) {
+  return res.status(403).json({ error: 'forbidden' })
+}
+```
+
+- [ ] **Step 7: Audit sponsorship mutations**
+
+In `POST /`, after create:
+
+```ts
+await auditLog(req as any, 'CREATE', 'Sponsorship', s.id, {
+  employeeId,
+  visaType,
+  sponsorLicenseNumber,
+})
+```
+
+In `PUT /:id`, after update:
+
+```ts
+await auditLog(req as any, 'UPDATE', 'Sponsorship', s.id, {
+  updatedFields: Object.keys(data),
+})
+```
+
+In `DELETE /:id`, fetch before delete and log after delete:
+
+```ts
+const existing = await prisma.sponsorship.findUnique({ where: { id } })
+await prisma.sponsorship.delete({ where: { id } })
+await auditLog(req as any, 'DELETE', 'Sponsorship', id, {
+  employeeId: existing?.employeeId,
+  visaType: existing?.visaType,
+})
+```
+
+- [ ] **Step 8: Harden GDPR consent writes**
+
+Modify `backend/src/routes/gdpr.ts` consent POST route:
+
+```ts
+const userRole = normalizeRole(req.user?.role)
+if (userRole === ROLES.EMPLOYEE && req.user?.employeeId !== Number(employeeId)) {
+  return res.status(403).json({ error: 'Unauthorized' })
+}
+if (!req.user?.employeeId && userRole === ROLES.EMPLOYEE) {
+  return res.status(403).json({ error: 'User account is not linked to an employee record' })
+}
+```
+
+Admin/director may record consent administratively only if the current product requires it; otherwise restrict consent writes to the employee themselves.
+
+- [ ] **Step 9: Harden expiring documents for unlinked employees**
+
+Modify `backend/src/routes/documents.ts` in `/expiring`:
+
+```ts
+if (normalizeRole(user.role) === ROLES.EMPLOYEE) {
+  if (!user.employeeId) return res.json([])
+  whereClause.employeeId = user.employeeId
+}
+```
+
+- [ ] **Step 10: Run P0 hardening tests**
+
+Run:
+
+```bash
+npm --prefix backend run test -- sponsorships.feature.test.ts gdpr.feature.test.ts documents.test.ts employees.security.test.ts
+```
+
+Expected: pass.
+
+- [ ] **Step 11: Commit P0 hardening**
+
+```bash
+git add backend/src/routes/sponsorships.ts backend/src/routes/documents.ts backend/src/routes/gdpr.ts backend/src/lib/roles.ts backend/src/__tests__/features/sponsorships.feature backend/src/__tests__/bdd/sponsorships.feature.test.ts backend/src/__tests__/features/gdpr.feature backend/src/__tests__/bdd/gdpr.feature.test.ts
+git commit -m "fix: harden sponsorship gdpr and audit permissions"
+```
+
+---
+
+### Task 10: Sponsorship Compliance API
+
+**Files:**
+- Modify: `backend/src/routes/sponsorships.ts`
+- Modify: `backend/src/lib/roles.ts`
+- Test: `backend/src/__tests__/bdd/sponsorship-compliance.feature.test.ts`
+
+- [ ] **Step 1: Add role helper tests for sponsorship compliance**
+
+Extend `backend/src/__tests__/roles.test.ts`:
+
+```ts
+import {
+  canManageSponsorshipCompliance,
+  canUploadSponsorshipEvidence,
+} from '../lib/roles'
+
+it('allows only admin and director to manage sponsorship core details', () => {
+  expect(canManageSponsorshipCompliance('ADMIN')).toBe(true)
+  expect(canManageSponsorshipCompliance('DIRECTOR')).toBe(true)
+  expect(canManageSponsorshipCompliance('OFFICE_ASSISTANT')).toBe(false)
+  expect(canManageSponsorshipCompliance('EMPLOYEE')).toBe(false)
+})
+
+it('allows office assistant to upload sponsorship evidence', () => {
+  expect(canUploadSponsorshipEvidence('ADMIN')).toBe(true)
+  expect(canUploadSponsorshipEvidence('DIRECTOR')).toBe(true)
+  expect(canUploadSponsorshipEvidence('OFFICE_ASSISTANT')).toBe(true)
+  expect(canUploadSponsorshipEvidence('EMPLOYEE')).toBe(false)
+})
+```
+
+- [ ] **Step 2: Run role tests and verify red**
+
+Run:
+
+```bash
+npm --prefix backend run test -- roles.test.ts
+```
+
+Expected: fail until the new helpers exist.
+
+- [ ] **Step 3: Implement sponsorship role helpers**
+
+Add to `backend/src/lib/roles.ts`:
+
+```ts
+export function canManageSponsorshipCompliance(role: unknown) {
+  return isHrAdminRole(role)
+}
+
+export function canUploadSponsorshipEvidence(role: unknown) {
+  return canOperateDocuments(role)
+}
+```
+
+- [ ] **Step 4: Implement compliance status endpoint**
+
+Add to `backend/src/routes/sponsorships.ts`:
+
+```ts
+const REQUIRED_EVIDENCE = [
+  { type: 'RIGHT_TO_WORK_CHECK', label: 'Right to work check evidence' },
+  { type: 'EMPLOYMENT_RIGHTS_NOTIFICATION', label: 'Employment rights notification' },
+  { type: 'RECRUITMENT_EVIDENCE', label: 'Recruitment evidence' },
+  { type: 'SALARY_EVIDENCE', label: 'Salary evidence' },
+  { type: 'SKILL_LEVEL_EVIDENCE', label: 'Skill level evidence' },
+]
+
+router.get('/:id/compliance', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req, res) => {
+  const sponsorship = await prisma.sponsorship.findUnique({
+    where: { id: Number(req.params.id) },
+    include: {
+      employee: true,
+      complianceEvidence: true,
+    },
+  })
+
+  if (!sponsorship) return res.status(404).json({ error: 'Sponsorship not found' })
+
+  const presentTypes = new Set(sponsorship.complianceEvidence.map((item) => item.evidenceType))
+  const missingItems = REQUIRED_EVIDENCE
+    .filter((item) => !presentTypes.has(item.type))
+    .map((item) => item.label)
+
+  res.json({
+    sponsorshipId: sponsorship.id,
+    employeeId: sponsorship.employeeId,
+    status: missingItems.length === 0 ? 'COMPLETE' : 'INCOMPLETE',
+    requiredItems: REQUIRED_EVIDENCE,
+    missingItems,
+    evidence: sponsorship.complianceEvidence,
+  })
+})
+```
+
+- [ ] **Step 5: Implement evidence upload/link endpoint**
+
+Add:
+
+```ts
+router.post('/:id/compliance/evidence', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req: any, res) => {
+  const { evidenceType, documentId, notes } = req.body
+  if (!evidenceType) return res.status(400).json({ error: 'evidenceType is required' })
+
+  const sponsorship = await prisma.sponsorship.findUnique({ where: { id: Number(req.params.id) } })
+  if (!sponsorship) return res.status(404).json({ error: 'Sponsorship not found' })
+
+  if (documentId) {
+    const document = await prisma.document.findUnique({ where: { id: Number(documentId) } })
+    if (!document || document.employeeId !== sponsorship.employeeId) {
+      return res.status(400).json({ error: 'Document must belong to the sponsored employee' })
+    }
+  }
+
+  const evidence = await prisma.sponsorshipComplianceEvidence.create({
+    data: {
+      sponsorshipId: sponsorship.id,
+      documentId: documentId ? Number(documentId) : undefined,
+      evidenceType,
+      notes,
+      verifiedAt: new Date(),
+      verifiedBy: req.user?.id,
+    },
+  })
+
+  res.json(evidence)
+})
+```
+
+- [ ] **Step 6: Restrict sponsorship core management**
+
+Change sponsorship create/update/delete guards:
+
+```ts
+requireRole('ADMIN', 'DIRECTOR')
+```
+
+Keep list/compliance view open to `OFFICE_ASSISTANT`. Keep employee self-service restricted to own sponsorships where applicable.
+
+- [ ] **Step 7: Run BDD and role tests**
+
+Run:
+
+```bash
+npm --prefix backend run test -- sponsorship-compliance.feature.test.ts roles.test.ts
+```
+
+Expected: pass.
+
+- [ ] **Step 8: Commit compliance API**
+
+```bash
+git add backend/src/routes/sponsorships.ts backend/src/lib/roles.ts backend/src/__tests__/roles.test.ts backend/src/__tests__/bdd/sponsorship-compliance.feature.test.ts
+git commit -m "feat: add sponsorship compliance evidence API"
+```
+
+---
+
+### Task 11: Reportable Events and Compliance Alerts
+
+**Files:**
+- Modify: `backend/prisma/schema.prisma`
+- Modify: `backend/src/routes/sponsorships.ts`
+- Modify: `frontend/src/pages/Sponsorships.tsx`
+- Modify: `backend/src/__tests__/features/sponsorship-compliance.feature`
+- Modify: `backend/src/__tests__/bdd/sponsorship-compliance.feature.test.ts`
+
+- [ ] **Step 1: Add BDD scenarios for reportable events**
+
+Append to `backend/src/__tests__/features/sponsorship-compliance.feature`:
+
+```gherkin
+  Scenario: Delayed sponsored worker start becomes reportable
+    Given a sponsored worker was expected to start 29 days ago
+    And the worker has not started
+    When an admin reviews reportable sponsorship events
+    Then the worker is flagged for delayed start reporting
+    And the reporting deadline is 10 working days after the 28 day period
+
+  Scenario: Ten consecutive unauthorised absence days becomes reportable
+    Given a sponsored worker has 10 consecutive unauthorised absence days
+    When a director reviews reportable sponsorship events
+    Then the worker is flagged for unauthorised absence reporting
+```
+
+- [ ] **Step 2: Add reportable event model**
+
+Modify `backend/prisma/schema.prisma`:
+
+```prisma
+model SponsorshipReportableEvent {
+  id            Int         @id @default(autoincrement())
+  sponsorship   Sponsorship @relation(fields: [sponsorshipId], references: [id], onDelete: Cascade)
+  sponsorshipId Int
+  eventType     String
+  eventDate     DateTime
+  dueDate       DateTime
+  status        String      @default("OPEN")
+  notes         String?     @db.Text
+  reportedAt    DateTime?
+  reportedBy    Int?
+  createdAt     DateTime    @default(now())
+}
+```
+
+Add to `Sponsorship`:
+
+```prisma
+reportableEvents SponsorshipReportableEvent[]
+```
+
+- [ ] **Step 3: Run migration**
+
+Run:
+
+```bash
+npm --prefix backend run prisma:migrate -- --name add_sponsorship_reportable_events
+npm --prefix backend run prisma:generate
+```
+
+- [ ] **Step 4: Implement reportable event endpoints**
+
+Add endpoints in `backend/src/routes/sponsorships.ts`:
+
+```ts
+router.get('/reportable-events/open', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req, res) => {
+  const events = await prisma.sponsorshipReportableEvent.findMany({
+    where: { status: 'OPEN' },
+    include: { sponsorship: { include: { employee: true } } },
+    orderBy: { dueDate: 'asc' },
+  })
+  res.json(events)
+})
+
+router.post('/:id/reportable-events', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req, res) => {
+  const { eventType, eventDate, dueDate, notes } = req.body
+  if (!eventType || !eventDate || !dueDate) return res.status(400).json({ error: 'missing fields' })
+
+  const event = await prisma.sponsorshipReportableEvent.create({
+    data: {
+      sponsorshipId: Number(req.params.id),
+      eventType,
+      eventDate: new Date(eventDate),
+      dueDate: new Date(dueDate),
+      notes,
+    },
+  })
+
+  res.json(event)
+})
+
+router.put('/reportable-events/:eventId/mark-reported', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
+  const event = await prisma.sponsorshipReportableEvent.update({
+    where: { id: Number(req.params.eventId) },
+    data: {
+      status: 'REPORTED',
+      reportedAt: new Date(),
+      reportedBy: req.user?.id,
+    },
+  })
+
+  res.json(event)
+})
+```
+
+- [ ] **Step 5: Update Sponsorships UI**
+
+Modify `frontend/src/pages/Sponsorships.tsx` to show:
+
+- Compliance status column: Complete, Incomplete, Expiring, Expired.
+- Missing evidence count.
+- Open reportable events count.
+- Detail section for evidence checklist.
+- Buttons for upload/link evidence for admin/director/office assistant.
+- Button for mark reported for admin/director only.
+
+- [ ] **Step 6: Run BDD, backend build, frontend build**
+
+Run:
+
+```bash
+npm --prefix backend run test -- sponsorship-compliance.feature.test.ts
+npm --prefix backend run build
+npm --prefix frontend run build
+```
+
+Expected: pass.
+
+- [ ] **Step 7: Commit reportable events**
+
+```bash
+git add backend/prisma/schema.prisma backend/prisma/migrations backend/src/routes/sponsorships.ts backend/src/__tests__/features/sponsorship-compliance.feature backend/src/__tests__/bdd/sponsorship-compliance.feature.test.ts frontend/src/pages/Sponsorships.tsx
+git commit -m "feat: add sponsorship reportable event workflows"
+```
+
+---
+
+### Task 12: Feature Guide and Compliance Release Notes
+
+**Files:**
+- Create: `docs/user-employee-sponsorship-compliance-guide.md`
+- Modify: `README.md` if it has a documentation index.
+
+- [ ] **Step 1: Write the user/admin guide**
+
+Create `docs/user-employee-sponsorship-compliance-guide.md`:
+
+```md
+# User, Employee, and Sponsorship Compliance Guide
+
+## Roles
+
+- Admin: full system owner.
+- Director: HR/business admin.
+- Office Assistant: operational support for documents, leave, time, and sponsorship evidence uploads.
+- Employee: self-service access to own records.
+
+## User/Employee Management
+
+Use User/Employee Management to manage employee records and linked login accounts from one screen.
+
+## Office Assistant Access
+
+Office Assistants can view employee basics, upload employee documents, approve/reject leave and timesheets, and upload sponsorship compliance evidence. They cannot edit core employee details, assign roles, reset passwords, view bank or NI data, export GDPR bundles, access audit logs, or change settings.
+
+## Sponsorship Compliance
+
+Sponsorship compliance tools help track evidence and operational deadlines. They do not replace legal advice. Administrators should verify current duties against GOV.UK before relying on the system for a sponsor compliance process.
+
+Official guidance checked during implementation:
+
+- Appendix D record-keeping duties, checked 2 May 2026.
+- Sponsor duties and compliance, checked 2 May 2026.
+- Sponsor a worker, checked 2 May 2026.
+- Sponsor compliance visits, checked 2 May 2026.
+
+## Evidence Packs
+
+Each active sponsorship can have an evidence checklist. Missing evidence is shown as incomplete.
+
+## Reportable Events
+
+The system can track reportable events such as delayed starts, unauthorised absence, sponsorship ending, and unpaid leave over 4 weeks. Admins and Directors mark events as reported after they complete the appropriate SMS action outside the system.
+
+## Audit Logging
+
+Sensitive actions should be logged to AuditLog, including account role changes, employee changes, document uploads/deletions, sponsorship compliance evidence changes, and reportable event status changes.
+```
+
+- [ ] **Step 2: Verify guide matches implementation**
+
+Search the guide for features that do not exist:
+
+```bash
+rg -n "can track|can have|should be logged|cannot|can " docs/user-employee-sponsorship-compliance-guide.md
+```
+
+Compare every claim with implemented behavior. Edit the guide if any claim is too broad.
+
+- [ ] **Step 3: Commit guide**
+
+```bash
+git add docs/user-employee-sponsorship-compliance-guide.md README.md
+git commit -m "docs: add user employee sponsorship compliance guide"
+```
+
+---
+
 ## Self-Review
 
-- Spec coverage: The tasks cover role normalization, unified `/employees` screen, `/users` removal, office assistant permissions, sensitive data redaction, backend route protections, and verification.
+- Spec coverage: The tasks cover role normalization, unified `/employees` screen, `/users` removal, office assistant permissions, sensitive data redaction, backend route protections, sponsorship compliance evidence, reportable-event workflows, domain BDD regression coverage, an HRM compliance tester gate, and verification.
 - Placeholder scan: The plan contains no open placeholder markers. Test setup comments point workers to existing test helpers because this repo already has test scaffolding with local conventions.
 - Type consistency: Role names are consistently `ADMIN`, `DIRECTOR`, `OFFICE_ASSISTANT`, and `EMPLOYEE`; legacy `MANAGER`/`USER` are only used as normalization inputs.
