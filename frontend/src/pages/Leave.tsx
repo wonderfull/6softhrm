@@ -27,7 +27,7 @@ export default function Leave() {
 
   const user = getCurrentUser()
   const role = normalizeRole(user?.role)
-  const canApprove = user && (role === 'ADMIN' || role === 'DIRECTOR')
+  const canApprove = user && (role === 'ADMIN' || role === 'DIRECTOR' || role === 'OFFICE_ASSISTANT')
   const canRequestLeave = user && user.employeeId
   const showLinkWarning = role === 'EMPLOYEE' && !user?.employeeId
 

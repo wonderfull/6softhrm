@@ -52,7 +52,7 @@ export default function Documents() {
   const [uploadingPayslips, setUploadingPayslips] = React.useState(false)
 
   const user = getCurrentUser()
-  const isElevated = hasRole(user, 'ADMIN', 'MANAGER')
+  const isElevated = hasRole(user, 'ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT')
 
   async function loadDocuments() {
     try {
