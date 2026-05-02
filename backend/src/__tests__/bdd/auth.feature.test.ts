@@ -1,6 +1,7 @@
 import path from 'path'
 import { afterEach, beforeEach, describe, expect } from '@jest/globals'
 import request from 'supertest'
+import jwt from 'jsonwebtoken'
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'
 import { authHeader, cleanupFixturePrefix, createUser, uniquePrefix } from './helpers/fixtures'
@@ -48,10 +49,10 @@ describe('BDD: auth', () => {
         })
       })
 
-      then('the created account is stored with the USER role', () => {
+      then('the created account is stored with the EMPLOYEE role', () => {
         expect(response.status).toBe(200)
         expect(response.body.email).toBe(email)
-        expect(response.body.role).toBe('USER')
+        expect(response.body.role).toBe('EMPLOYEE')
       })
     })
 
@@ -109,14 +110,17 @@ describe('BDD: auth', () => {
       let resetResponse: request.Response
       let loginResponse: request.Response
       let email = ''
+      let resetToken = ''
+      let userId = 0
 
       given('an existing registered user with a known password', async () => {
         email = `${prefix}.reset@example.com`
-        await createUser(prefix, {
+        const user = await createUser(prefix, {
           email,
           password: 'password123',
           name: `${prefix} Reset User`,
         })
+        userId = user.id
       })
 
       when('the user requests a password reset token', async () => {
@@ -125,10 +129,17 @@ describe('BDD: auth', () => {
 
       and('the user resets the password with the generated token', async () => {
         expect(resetResponse.status).toBe(200)
-        expect(resetResponse.body.resetToken).toEqual(expect.any(String))
+        expect(resetResponse.body.resetToken).toBeUndefined()
+        expect(resetResponse.body.resetLink).toBeUndefined()
+
+        resetToken = jwt.sign(
+          { id: userId, email, type: 'password-reset' },
+          process.env.JWT_SECRET || 'test-secret-key',
+          { expiresIn: '1h' }
+        )
 
         await request(app).post('/api/auth/reset-password').send({
-          token: resetResponse.body.resetToken,
+          token: resetToken,
           newPassword: 'new-password123',
         })
       })
@@ -144,7 +155,7 @@ describe('BDD: auth', () => {
       })
     })
 
-    test('Admin can generate a reset link for an employee', ({ given, when, then }) => {
+    test('Admin can trigger a reset link for an employee', ({ given, when, then }) => {
       let response: request.Response
       let userId = 0
 
@@ -163,10 +174,11 @@ describe('BDD: auth', () => {
           .set('Authorization', authHeader({ id: 60, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
       })
 
-      then('the response contains a reset link for that user', () => {
+      then('the response confirms the reset link was handled without exposing it', () => {
         expect(response.status).toBe(200)
-        expect(response.body.resetLink).toEqual(expect.any(String))
-        expect(response.body.resetToken).toEqual(expect.any(String))
+        expect(response.body.resetLink).toBeUndefined()
+        expect(response.body.resetToken).toBeUndefined()
+        expect(response.body.message).toEqual(expect.any(String))
       })
     })
 

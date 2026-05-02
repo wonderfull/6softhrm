@@ -2,17 +2,52 @@ import { Router } from 'express'
 import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
 import { auditLog } from '../middleware/audit'
+import { requireRole } from '../middleware/roles'
 import * as XLSX from 'xlsx'
 import type { DataConsent, Employee } from '@prisma/client'
+import { normalizeRole, ROLES } from '../lib/roles'
 
 const router = Router()
 
+const employeeListInclude = {
+  sponsorships: true,
+  documents: true,
+  user: {
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      employeeId: true,
+      createdAt: true,
+    },
+  },
+}
+
+function normalizeEmployeeUserRole(employee: any) {
+  return {
+    ...employee,
+    user: employee.user ? { ...employee.user, role: normalizeRole(employee.user.role) } : employee.user,
+  }
+}
+
+function redactSensitiveEmployeeFields(employee: any) {
+  return {
+    ...normalizeEmployeeUserRole(employee),
+    niNumber: null,
+    bankName: null,
+    accountNumber: null,
+    sortCode: null,
+    emergencyContactAddress: null,
+  }
+}
+
 router.get('/', requireAuth, async (req: any, res) => {
-  const userRole = req.user?.role || 'USER'
+  const userRole = normalizeRole(req.user?.role)
   const userEmail = req.user?.email
 
-  // If user is not ADMIN/MANAGER, show only their own employee record
-  if (userRole !== 'ADMIN' && userRole !== 'MANAGER' && userEmail) {
+  // If user is not elevated, show only their own employee record
+  if (userRole !== ROLES.ADMIN && userRole !== ROLES.DIRECTOR && userRole !== ROLES.OFFICE_ASSISTANT && userEmail) {
     const employee = await prisma.employee.findUnique({
       where: { email: userEmail },
       include: { sponsorships: true, documents: true }
@@ -21,8 +56,13 @@ router.get('/', requireAuth, async (req: any, res) => {
     return res.json(employee ? [employee] : [])
   }
 
-  // Admin/Manager users see all employees
-  const employees = await prisma.employee.findMany({ include: { sponsorships: true, documents: true } })
+  // Admin, Director, and Office Assistant users see all employees.
+  const employees = await prisma.employee.findMany({ include: employeeListInclude })
+
+  if (userRole === ROLES.OFFICE_ASSISTANT) {
+    await auditLog(req, 'READ', 'Employee', undefined, { count: employees.length, redacted: true })
+    return res.json(employees.map(redactSensitiveEmployeeFields))
+  }
   
   // Fetch all consents for all employees
   const allConsents = await prisma.dataConsent.findMany({
@@ -38,7 +78,8 @@ router.get('/', requireAuth, async (req: any, res) => {
   
   // Attach consent summary to each employee
   const employeesWithConsents = employees.map((emp: Employee) => {
-    const empConsents = allConsents.filter((c: DataConsent) => c.employeeId === emp.id)
+    const normalizedEmployee = normalizeEmployeeUserRole(emp)
+    const empConsents = allConsents.filter((c: DataConsent) => c.employeeId === normalizedEmployee.id)
     
     // Get latest consent for each type
     const consentSummary = consentTypes.map(type => {
@@ -56,7 +97,7 @@ router.get('/', requireAuth, async (req: any, res) => {
     })
     
     return {
-      ...emp,
+      ...normalizedEmployee,
       consents: consentSummary,
       consentCount: consentSummary.filter((c) => c.status === 'granted').length
     }
@@ -66,7 +107,7 @@ router.get('/', requireAuth, async (req: any, res) => {
   res.json(employeesWithConsents)
 })
 
-router.post('/', requireAuth, async (req: any, res) => {
+router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
   const data = req.body
   try {
     // Convert startDate to DateTime if provided, otherwise set to undefined
@@ -105,7 +146,7 @@ router.post('/', requireAuth, async (req: any, res) => {
   }
 })
 
-router.put('/:id', requireAuth, async (req: any, res) => {
+router.put('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
   const { id } = req.params
   const data = req.body
   try {
@@ -136,7 +177,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
   }
 })
 
-router.delete('/:id', requireAuth, async (req: any, res) => {
+router.delete('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
   const { id } = req.params
   try {
     const emp = await prisma.employee.findUnique({ where: { id: parseInt(id) } })

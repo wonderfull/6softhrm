@@ -6,6 +6,14 @@ import dotenv from 'dotenv'
 import { createAuditLog } from '../middleware/audit'
 import { requireAuth, AuthRequest } from '../middleware/auth'
 import { requireRole } from '../middleware/roles'
+import { getJwtSecret } from '../lib/authConfig'
+import { sendEmail } from '../lib/emailService'
+import {
+  canManageUserAccounts,
+  normalizeRole,
+  requireAssignableRole,
+  ROLES,
+} from '../lib/roles'
 
 dotenv.config()
 
@@ -17,7 +25,7 @@ function getOptionalUser(req: AuthRequest) {
 
   try {
     const token = header.replace('Bearer ', '')
-    const secret = process.env.JWT_SECRET || 'change_me'
+    const secret = getJwtSecret()
     return jwt.verify(token, secret) as any
   } catch {
     return null
@@ -25,13 +33,26 @@ function getOptionalUser(req: AuthRequest) {
 }
 
 function createPasswordResetPayload(user: { id: number; email: string }) {
-  const secret = process.env.JWT_SECRET || 'change_me'
+  const secret = getJwtSecret()
   const resetToken = jwt.sign({ id: user.id, email: user.email, type: 'password-reset' }, secret, { expiresIn: '1h' })
 
   return {
     resetToken,
     resetLink: `${process.env.FRONTEND_URL || 'http://localhost:5174'}/reset-password?token=${resetToken}`
   }
+}
+
+async function sendPasswordResetEmail(email: string, resetLink: string) {
+  return sendEmail({
+    to: email,
+    subject: 'Reset your 6Soft HRM password',
+    text: `Use this link to reset your password: ${resetLink}`,
+    html: `
+      <p>A password reset was requested for your 6Soft HRM account.</p>
+      <p><a href="${resetLink}">Reset your password</a></p>
+      <p>If you did not request this, you can ignore this email.</p>
+    `,
+  })
 }
 
 router.post('/register', async (req: AuthRequest, res) => {
@@ -41,12 +62,16 @@ router.post('/register', async (req: AuthRequest, res) => {
   const hashed = await bcrypt.hash(password, 10)
   try {
     const requester = getOptionalUser(req)
-    const canAssignRole = requester?.role === 'ADMIN'
+    const requesterRole = normalizeRole(requester?.role)
+    const requestedRole = normalizeRole(role)
+    const assignedRole = canManageUserAccounts(requesterRole)
+      ? requireAssignableRole(requesterRole, requestedRole)
+      : ROLES.EMPLOYEE
     const userData: any = {
       email,
       password: hashed,
       name,
-      role: canAssignRole && role ? role : 'USER',
+      role: assignedRole,
     }
 
     // Auto-link to employee if email matches
@@ -56,14 +81,15 @@ router.post('/register', async (req: AuthRequest, res) => {
     }
 
     const user = await prisma.user.create({ data: userData })
-    res.json({ id: user.id, email: user.email, name: user.name, role: user.role })
+    res.json({ id: user.id, email: user.email, name: user.name, role: normalizeRole(user.role) })
   } catch (e: any) {
-    res.status(400).json({ error: e.message })
+    const status = /permission/i.test(e.message) ? 403 : 400
+    res.status(status).json({ error: e.message })
   }
 })
 
 // Manual link endpoint (to fix existing users)
-router.post('/link-employee', requireAuth, requireRole('ADMIN'), async (req: any, res) => {
+router.post('/link-employee', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
   const { email } = req.body
   if (!email) return res.status(400).json({ error: 'email required' })
 
@@ -105,31 +131,36 @@ router.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Invalid credentials' })
   }
 
-  const secret = process.env.JWT_SECRET || 'change_me'
-  const token = jwt.sign({
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    employeeId: user.employeeId
-  }, secret, { expiresIn: '8h' })
-
-  await createAuditLog(user.id, email, 'LOGIN_SUCCESS', 'User', user.id, null, req)
-
-  res.json({
-    token,
-    user: {
+  try {
+    const secret = getJwtSecret()
+    const role = normalizeRole(user.role)
+    const token = jwt.sign({
       id: user.id,
       email: user.email,
-      name: user.name,
-      role: user.role,
-      employeeId: user.employeeId,
-      employee: user.employee
-    }
-  })
+      role,
+      employeeId: user.employeeId
+    }, secret, { expiresIn: '8h' })
+
+    await createAuditLog(user.id, email, 'LOGIN_SUCCESS', 'User', user.id, null, req)
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role,
+        employeeId: user.employeeId,
+        employee: user.employee
+      }
+    })
+  } catch (e: any) {
+    res.status(500).json({ error: 'Authentication configuration error' })
+  }
 })
 
-// Get all users (admin only)
-router.get('/users', requireAuth, requireRole('ADMIN'), async (req, res) => {
+// Get all users
+router.get('/users', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req, res) => {
   const users = await prisma.user.findMany({
     select: {
       id: true,
@@ -149,51 +180,73 @@ router.get('/users', requireAuth, requireRole('ADMIN'), async (req, res) => {
       createdAt: true
     }
   })
-  res.json(users)
+  res.json(users.map((user) => ({ ...user, role: normalizeRole(user.role) })))
 })
 
-// Update user (admin only)
-router.put('/users/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+// Update user
+router.put('/users/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: AuthRequest, res) => {
   const { email, name, role, password, employeeId } = req.body
-  const data: any = { email, name, role }
-  if (password) {
-    data.password = await bcrypt.hash(password, 10)
-  }
-  if (employeeId !== undefined) {
-    data.employeeId = employeeId || null
-  }
   try {
+    const existingUser = await prisma.user.findUnique({ where: { id: Number(req.params.id) } })
+    if (!existingUser) return res.status(404).json({ error: 'User not found' })
+
+    const requesterRole = normalizeRole(req.user?.role)
+    if (normalizeRole(existingUser.role) === ROLES.ADMIN && requesterRole !== ROLES.ADMIN) {
+      return res.status(403).json({ error: 'You do not have permission to manage admin accounts' })
+    }
+
+    const data: any = { email, name }
+    if (role !== undefined) {
+      data.role = requireAssignableRole(requesterRole, role)
+    }
+    if (password) {
+      data.password = await bcrypt.hash(password, 10)
+    }
+    if (employeeId !== undefined) {
+      data.employeeId = employeeId || null
+    }
+
     const user = await prisma.user.update({ where: { id: Number(req.params.id) }, data })
-    res.json({ id: user.id, email: user.email, name: user.name, role: user.role })
+    res.json({ id: user.id, email: user.email, name: user.name, role: normalizeRole(user.role) })
   } catch (e: any) {
-    res.status(400).json({ error: e.message })
+    const status = /permission/i.test(e.message) ? 403 : 400
+    res.status(status).json({ error: e.message })
   }
 })
 
-router.post('/users/:id/reset-link', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+router.post('/users/:id/reset-link', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: AuthRequest, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: Number(req.params.id) } })
     if (!user) return res.status(404).json({ error: 'User not found' })
+    if (normalizeRole(user.role) === ROLES.ADMIN && normalizeRole(req.user?.role) !== ROLES.ADMIN) {
+      return res.status(403).json({ error: 'You do not have permission to manage admin accounts' })
+    }
 
     const payload = createPasswordResetPayload(user)
+    const deliveryAttempted = await sendPasswordResetEmail(user.email, payload.resetLink)
     await createAuditLog(req.user?.id, req.user?.email, 'PASSWORD_RESET_LINK_GENERATED', 'User', user.id, null, req)
 
     res.json({
-      message: 'Password reset link generated',
-      ...payload
+      message: deliveryAttempted
+        ? 'Password reset link generated and sent if delivery is configured.'
+        : 'Password reset link generated. Configure SMTP to send reset emails.'
     })
   } catch (e: any) {
-    res.status(400).json({ error: e.message })
+    const status = e?.message === 'JWT_SECRET is not configured securely' ? 500 : 400
+    res.status(status).json({ error: e?.message || 'Failed to generate password reset link' })
   }
 })
 
-router.post('/users/:id/reset-password', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+router.post('/users/:id/reset-password', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: AuthRequest, res) => {
   const { newPassword } = req.body
   if (!newPassword) return res.status(400).json({ error: 'newPassword required' })
 
   try {
     const user = await prisma.user.findUnique({ where: { id: Number(req.params.id) } })
     if (!user) return res.status(404).json({ error: 'User not found' })
+    if (normalizeRole(user.role) === ROLES.ADMIN && normalizeRole(req.user?.role) !== ROLES.ADMIN) {
+      return res.status(403).json({ error: 'You do not have permission to manage admin accounts' })
+    }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10)
     await prisma.user.update({
@@ -209,9 +262,15 @@ router.post('/users/:id/reset-password', requireAuth, requireRole('ADMIN'), asyn
   }
 })
 
-// Delete user (admin only)
-router.delete('/users/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+// Delete user
+router.delete('/users/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: AuthRequest, res) => {
   try {
+    const user = await prisma.user.findUnique({ where: { id: Number(req.params.id) } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    if (normalizeRole(user.role) === ROLES.ADMIN && normalizeRole(req.user?.role) !== ROLES.ADMIN) {
+      return res.status(403).json({ error: 'You do not have permission to manage admin accounts' })
+    }
+
     await prisma.user.delete({ where: { id: Number(req.params.id) } })
     res.json({ ok: true })
   } catch (e: any) {
@@ -232,13 +291,14 @@ router.post('/forgot-password', async (req, res) => {
     }
 
     const payload = createPasswordResetPayload(user)
+    await sendPasswordResetEmail(user.email, payload.resetLink)
 
     res.json({
-      message: 'Password reset token generated',
-      ...payload
+      message: 'If the email exists, a reset link has been generated.'
     })
   } catch (e: any) {
-    res.status(500).json({ error: 'Failed to process request' })
+    const status = e?.message === 'JWT_SECRET is not configured securely' ? 500 : 500
+    res.status(status).json({ error: 'Failed to process request' })
   }
 })
 
@@ -248,7 +308,7 @@ router.post('/reset-password', async (req, res) => {
   if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' })
 
   try {
-    const secret = process.env.JWT_SECRET || 'change_me'
+    const secret = getJwtSecret()
     const decoded: any = jwt.verify(token, secret)
 
     // Verify it's a password reset token
@@ -265,6 +325,9 @@ router.post('/reset-password', async (req, res) => {
 
     res.json({ message: 'Password reset successful' })
   } catch (e: any) {
+    if (e.message === 'JWT_SECRET is not configured securely') {
+      return res.status(500).json({ error: 'Authentication configuration error' })
+    }
     if (e.name === 'TokenExpiredError') {
       return res.status(400).json({ error: 'Reset token has expired' })
     }

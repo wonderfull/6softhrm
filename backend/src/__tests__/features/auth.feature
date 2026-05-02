@@ -10,7 +10,7 @@ Feature: Authentication and password recovery
   Scenario: Public registration cannot self-assign admin role
     Given a public registration payload requesting the ADMIN role
     When the registration is submitted
-    Then the created account is stored with the USER role
+    Then the created account is stored with the EMPLOYEE role
 
   Scenario: Valid login returns a JWT and user identity
     Given an existing registered user with a known password
@@ -29,10 +29,10 @@ Feature: Authentication and password recovery
     And the user resets the password with the generated token
     Then the user can log in with the new password
 
-  Scenario: Admin can generate a reset link for an employee
+  Scenario: Admin can trigger a reset link for an employee
     Given an existing registered user with a known password
     When an admin generates a password reset link for that user
-    Then the response contains a reset link for that user
+    Then the response confirms the reset link was handled without exposing it
 
   Scenario: Admin can set a temporary password for an employee
     Given an existing registered user with a known password
