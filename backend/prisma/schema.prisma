@@ -52,8 +52,8 @@ model Employee {
 }
 
 model Sponsorship {
-  id                   Int       @id @default(autoincrement())
-  employee             Employee  @relation(fields: [employeeId], references: [id])
+  id                   Int                             @id @default(autoincrement())
+  employee             Employee                        @relation(fields: [employeeId], references: [id])
   employeeId           Int
   visaType             String
   casNumber            String? // Confirmation of acceptance for studies or CAS if relevant
@@ -61,7 +61,21 @@ model Sponsorship {
   startDate            DateTime
   endDate              DateTime?
   complianceNotes      String?
-  active               Boolean   @default(true)
+  active               Boolean                         @default(true)
+  complianceEvidence   SponsorshipComplianceEvidence[]
+}
+
+model SponsorshipComplianceEvidence {
+  id             Int          @id @default(autoincrement())
+  sponsorship   Sponsorship  @relation(fields: [sponsorshipId], references: [id], onDelete: Cascade)
+  sponsorshipId Int
+  document      Document?    @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentId    Int?
+  evidenceType  String
+  notes         String?      @db.Text
+  verifiedAt    DateTime?
+  verifiedBy    Int?
+  createdAt     DateTime     @default(now())
 }
 
 model Project {
@@ -97,16 +111,17 @@ model LeaveRequest {
 }
 
 model Document {
-  id         Int       @id @default(autoincrement())
-  employee   Employee  @relation(fields: [employeeId], references: [id])
-  employeeId Int
-  name       String
-  path       String
-  type       String? // Document type (e.g., CONTRACT, PASSPORT, etc.)
-  shareToken String?   @unique
-  sharedAt   DateTime?
-  expiryDate DateTime? // Optional expiry date for documents
-  uploadedAt DateTime  @default(now())
+  id                            Int                             @id @default(autoincrement())
+  employee                      Employee                        @relation(fields: [employeeId], references: [id])
+  employeeId                    Int
+  name                          String
+  path                          String
+  type                          String? // Document type (e.g., CONTRACT, PASSPORT, etc.)
+  shareToken                    String?                         @unique
+  sharedAt                      DateTime?
+  expiryDate                    DateTime? // Optional expiry date for documents
+  uploadedAt                    DateTime                        @default(now())
+  sponsorshipComplianceEvidence SponsorshipComplianceEvidence[]
 }
 
 model GoogleAccount {

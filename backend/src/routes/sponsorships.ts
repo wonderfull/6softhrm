@@ -3,9 +3,108 @@ import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
 import { requireRole } from '../middleware/roles'
 import { auditLog } from '../middleware/audit'
-import { canViewSponsorships, normalizeRole, ROLES } from '../lib/roles'
+import {
+  canManageSponsorshipCompliance,
+  canUploadSponsorshipEvidence,
+  canViewSponsorships,
+  normalizeRole,
+  ROLES,
+} from '../lib/roles'
 
 const router = Router()
+
+const REQUIRED_COMPLIANCE_EVIDENCE = [
+  { key: 'RIGHT_TO_WORK_CHECK', label: 'Right-to-work check' },
+  { key: 'EMPLOYMENT_RIGHTS_NOTIFICATION', label: 'Employment rights notification' },
+  { key: 'RECRUITMENT_EVIDENCE', label: 'Recruitment evidence' },
+  { key: 'SALARY_EVIDENCE', label: 'Salary evidence' },
+  { key: 'SKILL_LEVEL_EVIDENCE', label: 'Skill-level evidence' },
+] as const
+
+const REQUIRED_COMPLIANCE_EVIDENCE_KEYS = new Set(REQUIRED_COMPLIANCE_EVIDENCE.map((item) => item.key))
+
+function summarizeEmployee(employee: any) {
+  return {
+    id: employee.id,
+    firstName: employee.firstName,
+    lastName: employee.lastName,
+    email: employee.email,
+    jobTitle: employee.jobTitle,
+  }
+}
+
+function buildCompliancePack(sponsorship: any) {
+  const existingEvidence = sponsorship.complianceEvidence || []
+  const latestEvidenceByType = new Map<string, any>()
+
+  for (const evidence of existingEvidence) {
+    if (!latestEvidenceByType.has(evidence.evidenceType)) {
+      latestEvidenceByType.set(evidence.evidenceType, evidence)
+    }
+  }
+
+  const requiredEvidence = REQUIRED_COMPLIANCE_EVIDENCE.map((item) => {
+    const evidence = latestEvidenceByType.get(item.key)
+
+    return {
+      ...item,
+      status: evidence ? 'COMPLETE' : 'MISSING',
+      evidence: evidence || null,
+    }
+  })
+
+  return {
+    sponsorship: {
+      id: sponsorship.id,
+      visaType: sponsorship.visaType,
+      sponsorLicenseNumber: sponsorship.sponsorLicenseNumber,
+      startDate: sponsorship.startDate,
+      endDate: sponsorship.endDate,
+      active: sponsorship.active,
+    },
+    employee: summarizeEmployee(sponsorship.employee),
+    requiredEvidence,
+    existingEvidence,
+    missingCount: requiredEvidence.filter((item) => item.status === 'MISSING').length,
+  }
+}
+
+async function findAuthorizedSponsorshipForCompliance(req: any, res: any, id: number) {
+  const user = req.user
+  const role = normalizeRole(user?.role)
+
+  const sponsorship = await prisma.sponsorship.findUnique({
+    where: { id },
+    include: {
+      employee: true,
+      complianceEvidence: {
+        include: { document: true },
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+  })
+
+  if (!sponsorship) {
+    res.status(404).json({ error: 'Sponsorship not found' })
+    return null
+  }
+
+  if (role === ROLES.EMPLOYEE) {
+    if (!user.employeeId || sponsorship.employeeId !== user.employeeId) {
+      res.status(404).json({ error: 'Sponsorship not found' })
+      return null
+    }
+
+    return sponsorship
+  }
+
+  if (!canManageSponsorshipCompliance(role)) {
+    res.status(403).json({ error: 'forbidden' })
+    return null
+  }
+
+  return sponsorship
+}
 
 // List sponsorships
 router.get('/', requireAuth, async (req: any, res) => {
@@ -71,6 +170,78 @@ router.get('/expiring', requireAuth, async (req: any, res) => {
       selfAccess: role === ROLES.EMPLOYEE,
     })
     res.json(expiringSponsorships)
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+// View sponsorship compliance pack
+router.get('/:id/compliance', requireAuth, async (req: any, res) => {
+  const id = Number(req.params.id)
+
+  try {
+    const sponsorship = await findAuthorizedSponsorshipForCompliance(req, res, id)
+    if (!sponsorship) return
+
+    await auditLog(req, 'READ', 'SponsorshipComplianceEvidence', sponsorship.id, {
+      sponsorshipId: sponsorship.id,
+      employeeId: sponsorship.employeeId,
+      selfAccess: normalizeRole(req.user?.role) === ROLES.EMPLOYEE,
+    })
+    res.json(buildCompliancePack(sponsorship))
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+// Add sponsorship compliance evidence
+router.post('/:id/compliance/evidence', requireAuth, async (req: any, res) => {
+  const id = Number(req.params.id)
+  const role = normalizeRole(req.user?.role)
+
+  if (!canUploadSponsorshipEvidence(role)) {
+    return res.status(403).json({ error: 'forbidden' })
+  }
+
+  const { evidenceType, documentId, notes, verifiedAt } = req.body
+  if (!REQUIRED_COMPLIANCE_EVIDENCE_KEYS.has(evidenceType)) {
+    return res.status(400).json({ error: 'Invalid evidenceType' })
+  }
+
+  try {
+    const sponsorship = await prisma.sponsorship.findUnique({
+      where: { id },
+      include: { employee: true },
+    })
+    if (!sponsorship) return res.status(404).json({ error: 'Sponsorship not found' })
+
+    if (documentId) {
+      const document = await prisma.document.findUnique({ where: { id: Number(documentId) } })
+      if (!document) return res.status(400).json({ error: 'Document not found' })
+      if (document.employeeId !== sponsorship.employeeId) {
+        return res.status(400).json({ error: 'Document must belong to the sponsored employee' })
+      }
+    }
+
+    const evidence = await prisma.sponsorshipComplianceEvidence.create({
+      data: {
+        sponsorshipId: sponsorship.id,
+        documentId: documentId ? Number(documentId) : undefined,
+        evidenceType,
+        notes,
+        verifiedAt: verifiedAt ? new Date(verifiedAt) : undefined,
+        verifiedBy: req.user?.id,
+      },
+      include: { document: true },
+    })
+
+    await auditLog(req, 'CREATE', 'SponsorshipComplianceEvidence', evidence.id, {
+      sponsorshipId: sponsorship.id,
+      employeeId: sponsorship.employeeId,
+      documentId: evidence.documentId,
+      evidenceType: evidence.evidenceType,
+    })
+    res.status(201).json(evidence)
   } catch (e: any) {
     res.status(400).json({ error: e.message })
   }

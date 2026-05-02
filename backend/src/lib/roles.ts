@@ -95,6 +95,14 @@ export function canRecordComplianceEvent(role: unknown) {
   return isHrAdminRole(role) || normalizeRole(role) === ROLES.OFFICE_ASSISTANT
 }
 
+export function canManageSponsorshipCompliance(role: unknown) {
+  return canRecordComplianceEvent(role)
+}
+
+export function canUploadSponsorshipEvidence(role: unknown) {
+  return canManageSponsorshipCompliance(role)
+}
+
 export function canViewAuditLogs(role: unknown) {
   return isOwnerRole(role)
 }

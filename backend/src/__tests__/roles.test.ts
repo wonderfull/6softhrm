@@ -1,8 +1,10 @@
 import {
   canAssignRole,
   canManageEmployeeRecords,
+  canManageSponsorshipCompliance,
   canOperateDocuments,
   canReviewLeaveAndTime,
+  canUploadSponsorshipEvidence,
   canViewSensitiveEmployeeFields,
   normalizeRole,
 } from '../lib/roles'
@@ -45,5 +47,17 @@ describe('role helpers', () => {
     expect(canOperateDocuments('OFFICE_ASSISTANT')).toBe(true)
     expect(canReviewLeaveAndTime('OFFICE_ASSISTANT')).toBe(true)
     expect(canViewSensitiveEmployeeFields('OFFICE_ASSISTANT')).toBe(false)
+  })
+
+  it('allows office assistants to manage sponsorship compliance evidence without HR admin powers', () => {
+    expect(canManageSponsorshipCompliance('ADMIN')).toBe(true)
+    expect(canManageSponsorshipCompliance('DIRECTOR')).toBe(true)
+    expect(canManageSponsorshipCompliance('OFFICE_ASSISTANT')).toBe(true)
+    expect(canManageSponsorshipCompliance('EMPLOYEE')).toBe(false)
+
+    expect(canUploadSponsorshipEvidence('ADMIN')).toBe(true)
+    expect(canUploadSponsorshipEvidence('DIRECTOR')).toBe(true)
+    expect(canUploadSponsorshipEvidence('OFFICE_ASSISTANT')).toBe(true)
+    expect(canUploadSponsorshipEvidence('EMPLOYEE')).toBe(false)
   })
 })

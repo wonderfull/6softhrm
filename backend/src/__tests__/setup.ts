@@ -1,4 +1,4 @@
-import { beforeAll, afterAll } from '@jest/globals'
+import { beforeAll, afterAll, expect } from '@jest/globals'
 import { execSync } from 'child_process'
 
 // Setup before all tests
@@ -6,6 +6,11 @@ beforeAll(() => {
   // Set test environment variables
   process.env.NODE_ENV = 'test'
   process.env.JWT_SECRET = 'test-secret-key'
+
+  const testPath = expect.getState().testPath || ''
+  if (testPath.endsWith('roles.test.ts')) {
+    return
+  }
 
   // Prefer a dedicated test DB when configured, otherwise fall back to DATABASE_URL.
   if (process.env.TEST_DATABASE_URL) {
