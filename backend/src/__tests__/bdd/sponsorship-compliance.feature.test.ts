@@ -28,6 +28,7 @@ defineFeature(feature, (test) => {
   let sponsorship: any
   let document: any
   let otherDocument: any
+  let reportableEvent: any
   let response: request.Response
 
   beforeEach(() => {
@@ -204,6 +205,130 @@ defineFeature(feature, (test) => {
         documentId: document.id,
       }))
       expect(response.body.missingCount).toBe(4)
+    })
+  })
+
+  test('Delayed sponsored worker start becomes reportable', ({ given, and, when, then }) => {
+    given('a sponsored worker was expected to start 29 days ago', async () => {
+      employee = await createEmployee(prefix, {
+        email: `${prefix}.delayed-start@example.com`,
+        startDate: null,
+      })
+      sponsorship = await createSponsorship(employee.id, {
+        startDate: new Date('2026-04-02T00:00:00.000Z'),
+      })
+    })
+
+    and('the worker has not started', () => {
+      expect(employee.startDate).toBeNull()
+    })
+
+    when('an admin reviews reportable sponsorship events', async () => {
+      response = await request(app)
+        .get('/api/sponsorships/reportable-events/open')
+        .set('Authorization', roleHeader('ADMIN', 56))
+    })
+
+    then('the worker is flagged for delayed start reporting', () => {
+      expect(response.status).toBe(200)
+      expect(response.body).toContainEqual(expect.objectContaining({
+        sponsorshipId: sponsorship.id,
+        eventType: 'DELAYED_START',
+        status: 'OPEN',
+      }))
+    })
+
+    and('the reporting deadline is 10 working days after the 28 day period', () => {
+      const event = response.body.find((item: any) => item.sponsorshipId === sponsorship.id)
+      expect(event.dueDate).toBe('2026-05-15T00:00:00.000Z')
+    })
+  })
+
+  test('Ten consecutive unauthorised absence days becomes reportable', ({ given, when, then }) => {
+    given('a sponsored worker has 10 consecutive unauthorised absence days', async () => {
+      await createSponsoredEmployee()
+    })
+
+    when('a director reviews reportable sponsorship events', async () => {
+      response = await request(app)
+        .post(`/api/sponsorships/${sponsorship.id}/reportable-events`)
+        .set('Authorization', roleHeader('DIRECTOR', 57))
+        .send({
+          eventType: 'UNAUTHORISED_ABSENCE_10_DAYS',
+          eventDate: '2026-05-01T00:00:00.000Z',
+          dueDate: '2026-05-15T00:00:00.000Z',
+          notes: 'Ten consecutive unauthorised absence days',
+        })
+    })
+
+    then('the worker is flagged for unauthorised absence reporting', () => {
+      expect(response.status).toBe(201)
+      expect(response.body).toEqual(expect.objectContaining({
+        sponsorshipId: sponsorship.id,
+        eventType: 'UNAUTHORISED_ABSENCE_10_DAYS',
+        status: 'OPEN',
+      }))
+    })
+  })
+
+  test('Office assistant can create report-support open events but cannot mark reported', ({ given, when, then }) => {
+    given('a sponsored employee has no compliance evidence', createSponsoredEmployee)
+
+    when('the office assistant creates a work location changed reportable event', async () => {
+      response = await request(app)
+        .post(`/api/sponsorships/${sponsorship.id}/reportable-events`)
+        .set('Authorization', roleHeader('OFFICE_ASSISTANT', 58))
+        .send({
+          eventType: 'WORK_LOCATION_CHANGED',
+          eventDate: '2026-05-01T00:00:00.000Z',
+          dueDate: '2026-05-15T00:00:00.000Z',
+          notes: 'Worker location changed to client site',
+        })
+      reportableEvent = response.body
+    })
+
+    then('the reportable event is open', () => {
+      expect(response.status).toBe(201)
+      expect(reportableEvent.status).toBe('OPEN')
+      expect(reportableEvent.eventType).toBe('WORK_LOCATION_CHANGED')
+    })
+
+    when('the office assistant marks the reportable event as reported', async () => {
+      response = await request(app)
+        .put(`/api/sponsorships/reportable-events/${reportableEvent.id}/mark-reported`)
+        .set('Authorization', roleHeader('OFFICE_ASSISTANT', 58))
+    })
+
+    then('the reportable event update is forbidden', () => {
+      expect(response.status).toBe(403)
+    })
+  })
+
+  test('Admin and director can mark reportable events as reported', ({ given, when, then }) => {
+    given('a sponsored employee has an open employment ended reportable event', async () => {
+      await createSponsoredEmployee()
+      reportableEvent = await prisma.sponsorshipReportableEvent.create({
+        data: {
+          sponsorshipId: sponsorship.id,
+          eventType: 'EMPLOYMENT_ENDED',
+          eventDate: new Date('2026-05-01T00:00:00.000Z'),
+          dueDate: new Date('2026-05-15T00:00:00.000Z'),
+          notes: 'Employment ended',
+        },
+      })
+    })
+
+    when('a director marks the reportable event as reported', async () => {
+      response = await request(app)
+        .put(`/api/sponsorships/reportable-events/${reportableEvent.id}/mark-reported`)
+        .set('Authorization', roleHeader('DIRECTOR', 59))
+    })
+
+    then('the reportable event is marked as reported by the director', () => {
+      expect(response.status).toBe(200)
+      expect(response.body.status).toBe('REPORTED')
+      expect(response.body.reportedAt).toEqual(expect.any(String))
+      expect(response.body.reportedBy).toBe(59)
     })
   })
 })

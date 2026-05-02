@@ -63,6 +63,7 @@ model Sponsorship {
   complianceNotes      String?
   active               Boolean                         @default(true)
   complianceEvidence   SponsorshipComplianceEvidence[]
+  reportableEvents     SponsorshipReportableEvent[]
 }
 
 model SponsorshipComplianceEvidence {
@@ -76,6 +77,20 @@ model SponsorshipComplianceEvidence {
   verifiedAt    DateTime?
   verifiedBy    Int?
   createdAt     DateTime     @default(now())
+}
+
+model SponsorshipReportableEvent {
+  id            Int         @id @default(autoincrement())
+  sponsorship   Sponsorship @relation(fields: [sponsorshipId], references: [id], onDelete: Cascade)
+  sponsorshipId Int
+  eventType     String
+  eventDate     DateTime
+  dueDate       DateTime
+  status        String      @default("OPEN")
+  notes         String?     @db.Text
+  reportedAt    DateTime?
+  reportedBy    Int?
+  createdAt     DateTime    @default(now())
 }
 
 model Project {

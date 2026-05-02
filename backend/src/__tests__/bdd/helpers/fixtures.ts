@@ -144,6 +144,13 @@ export async function cleanupFixturePrefix(prefix: string) {
         },
       },
     })
+    await prisma.sponsorshipReportableEvent.deleteMany({
+      where: {
+        sponsorship: {
+          employeeId: { in: employeeIds },
+        },
+      },
+    })
     await prisma.document.deleteMany({ where: { employeeId: { in: employeeIds } } })
     await prisma.leaveRequest.deleteMany({ where: { employeeId: { in: employeeIds } } })
     await prisma.timesheet.deleteMany({ where: { employeeId: { in: employeeIds } } })

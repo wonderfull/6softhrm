@@ -22,6 +22,13 @@ const REQUIRED_COMPLIANCE_EVIDENCE = [
 ] as const
 
 const REQUIRED_COMPLIANCE_EVIDENCE_KEYS = new Set(REQUIRED_COMPLIANCE_EVIDENCE.map((item) => item.key))
+const REPORTABLE_EVENT_TYPES = new Set([
+  'DELAYED_START',
+  'UNAUTHORISED_ABSENCE_10_DAYS',
+  'EMPLOYMENT_ENDED',
+  'WORK_LOCATION_CHANGED',
+  'UNPAID_LEAVE_OVER_4_WEEKS',
+])
 
 function summarizeEmployee(employee: any) {
   return {
@@ -66,6 +73,59 @@ function buildCompliancePack(sponsorship: any) {
     requiredEvidence,
     existingEvidence,
     missingCount: requiredEvidence.filter((item) => item.status === 'MISSING').length,
+  }
+}
+
+function parseRequiredDate(value: unknown) {
+  if (typeof value !== 'string' || value.trim() === '') return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date
+}
+
+function addUtcDays(date: Date, days: number) {
+  const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+  next.setUTCDate(next.getUTCDate() + days)
+  return next
+}
+
+function isEarlyMayBankHoliday(date: Date) {
+  return date.getUTCMonth() === 4 && date.getUTCDay() === 1 && date.getUTCDate() <= 7
+}
+
+function isWorkingDay(date: Date) {
+  const day = date.getUTCDay()
+  return day !== 0 && day !== 6 && !isEarlyMayBankHoliday(date)
+}
+
+function addWorkingDays(date: Date, workingDays: number) {
+  let remaining = workingDays
+  let next = addUtcDays(date, 0)
+
+  while (remaining > 0) {
+    next = addUtcDays(next, 1)
+    if (isWorkingDay(next)) remaining -= 1
+  }
+
+  return next
+}
+
+function buildDelayedStartAlert(sponsorship: any) {
+  const eventDate = addUtcDays(sponsorship.startDate, 28)
+
+  return {
+    id: null,
+    sponsorshipId: sponsorship.id,
+    eventType: 'DELAYED_START',
+    eventDate,
+    dueDate: addWorkingDays(eventDate, 10),
+    status: 'OPEN',
+    notes: 'Sponsored worker has not started within 28 days of expected start date',
+    reportedAt: null,
+    reportedBy: null,
+    createdAt: new Date(),
+    alertSource: 'AUTO',
+    sponsorship,
   }
 }
 
@@ -175,6 +235,78 @@ router.get('/expiring', requireAuth, async (req: any, res) => {
   }
 })
 
+// List open reportable sponsorship events
+router.get('/reportable-events/open', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req: any, res) => {
+  try {
+    const now = new Date()
+    const delayedStartCutoff = addUtcDays(now, -28)
+    const events = await prisma.sponsorshipReportableEvent.findMany({
+      where: { status: 'OPEN' },
+      include: {
+        sponsorship: {
+          include: { employee: true },
+        },
+      },
+      orderBy: { dueDate: 'asc' },
+    })
+    const delayedStartEventSponsorshipIds = new Set(
+      events
+        .filter((event) => event.eventType === 'DELAYED_START')
+        .map((event) => event.sponsorshipId),
+    )
+    const delayedStartSponsorships = await prisma.sponsorship.findMany({
+      where: {
+        active: true,
+        startDate: { lte: delayedStartCutoff },
+        employee: { startDate: null },
+        id: { notIn: Array.from(delayedStartEventSponsorshipIds) },
+      },
+      include: { employee: true },
+    })
+    const delayedStartAlerts = delayedStartSponsorships.map(buildDelayedStartAlert)
+    const openItems = [...events, ...delayedStartAlerts].sort(
+      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+    )
+
+    await auditLog(req, 'READ', 'SponsorshipReportableEvent', undefined, {
+      status: 'OPEN',
+      count: openItems.length,
+    })
+    res.json(openItems)
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+// Mark a reportable sponsorship event as reported
+router.put('/reportable-events/:eventId/mark-reported', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
+  const eventId = Number(req.params.eventId)
+
+  if (!Number.isInteger(eventId)) {
+    return res.status(400).json({ error: 'Invalid eventId' })
+  }
+
+  try {
+    const event = await prisma.sponsorshipReportableEvent.update({
+      where: { id: eventId },
+      data: {
+        status: 'REPORTED',
+        reportedAt: new Date(),
+        reportedBy: req.user?.id,
+      },
+    })
+
+    await auditLog(req, 'UPDATE', 'SponsorshipReportableEvent', event.id, {
+      sponsorshipId: event.sponsorshipId,
+      eventType: event.eventType,
+      status: event.status,
+    })
+    res.json(event)
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
 // View sponsorship compliance pack
 router.get('/:id/compliance', requireAuth, async (req: any, res) => {
   const id = Number(req.params.id)
@@ -242,6 +374,52 @@ router.post('/:id/compliance/evidence', requireAuth, async (req: any, res) => {
       evidenceType: evidence.evidenceType,
     })
     res.status(201).json(evidence)
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+// Create reportable sponsorship event
+router.post('/:id/reportable-events', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req: any, res) => {
+  const sponsorshipId = Number(req.params.id)
+  const { eventType, eventDate, dueDate, notes } = req.body
+  const parsedEventDate = parseRequiredDate(eventDate)
+  const parsedDueDate = parseRequiredDate(dueDate)
+
+  if (!Number.isInteger(sponsorshipId)) {
+    return res.status(400).json({ error: 'Invalid sponsorshipId' })
+  }
+  if (!REPORTABLE_EVENT_TYPES.has(eventType)) {
+    return res.status(400).json({ error: 'Invalid eventType' })
+  }
+  if (!parsedEventDate || !parsedDueDate) {
+    return res.status(400).json({ error: 'eventDate and dueDate are required valid dates' })
+  }
+
+  try {
+    const sponsorship = await prisma.sponsorship.findUnique({
+      where: { id: sponsorshipId },
+      select: { id: true, employeeId: true },
+    })
+    if (!sponsorship) return res.status(404).json({ error: 'Sponsorship not found' })
+
+    const event = await prisma.sponsorshipReportableEvent.create({
+      data: {
+        sponsorshipId: sponsorship.id,
+        eventType,
+        eventDate: parsedEventDate,
+        dueDate: parsedDueDate,
+        notes,
+      },
+    })
+
+    await auditLog(req, 'CREATE', 'SponsorshipReportableEvent', event.id, {
+      sponsorshipId: sponsorship.id,
+      employeeId: sponsorship.employeeId,
+      eventType: event.eventType,
+      dueDate: event.dueDate,
+    })
+    res.status(201).json(event)
   } catch (e: any) {
     res.status(400).json({ error: e.message })
   }

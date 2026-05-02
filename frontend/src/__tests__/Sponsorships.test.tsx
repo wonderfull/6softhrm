@@ -8,7 +8,8 @@ vi.mock('../lib/api', () => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
   apiPut: vi.fn(),
-  apiDelete: vi.fn()
+  apiDelete: vi.fn(),
+  getCurrentUser: vi.fn(() => ({ id: 7, role: 'ADMIN', email: 'admin@test.com' }))
 }))
 
 vi.mock('xlsx', () => ({
@@ -45,6 +46,33 @@ describe('Sponsorships Page', () => {
     ;(api.apiGet as any).mockImplementation((endpoint: string) => {
       if (endpoint === '/sponsorships') return Promise.resolve(mockSponsorships)
       if (endpoint === '/employees') return Promise.resolve(mockEmployees)
+      if (endpoint === '/sponsorships/reportable-events/open') return Promise.resolve([
+        {
+          id: 77,
+          sponsorshipId: 1,
+          eventType: 'DELAYED_START',
+          eventDate: '2026-04-30T00:00:00.000Z',
+          dueDate: '2026-05-15T00:00:00.000Z',
+          status: 'OPEN',
+          sponsorship: {
+            id: 1,
+            employee: mockEmployees[0]
+          }
+        }
+      ])
+      if (endpoint === '/sponsorships/1/compliance') return Promise.resolve({
+        sponsorship: { id: 1 },
+        employee: mockEmployees[0],
+        missingCount: 4,
+        requiredEvidence: [
+          { key: 'RIGHT_TO_WORK_CHECK', label: 'Right-to-work check', status: 'COMPLETE' },
+          { key: 'EMPLOYMENT_RIGHTS_NOTIFICATION', label: 'Employment rights notification', status: 'MISSING' },
+          { key: 'RECRUITMENT_EVIDENCE', label: 'Recruitment evidence', status: 'MISSING' },
+          { key: 'SALARY_EVIDENCE', label: 'Salary evidence', status: 'MISSING' },
+          { key: 'SKILL_LEVEL_EVIDENCE', label: 'Skill-level evidence', status: 'MISSING' }
+        ],
+        existingEvidence: []
+      })
       return Promise.resolve([])
     })
   })
@@ -82,7 +110,7 @@ describe('Sponsorships Page', () => {
 
   it('should export sponsorships to Excel when export clicked', async () => {
     render(<Sponsorships />)
-    await screen.findByText(/Skilled Worker/i)
+    await screen.findAllByText(/Skilled Worker/i)
     fireEvent.click(screen.getByText(/Export to Excel/i))
 
     await waitFor(() => {
@@ -162,7 +190,7 @@ describe('Sponsorships Page', () => {
 
   it('should format dates in UK format in export', async () => {
     render(<Sponsorships />)
-    await screen.findByText(/Skilled Worker/i)
+    await screen.findAllByText(/Skilled Worker/i)
     fireEvent.click(screen.getByText(/Export to Excel/i))
 
     await waitFor(() => {
@@ -173,6 +201,18 @@ describe('Sponsorships Page', () => {
           })
         ])
       )
+    })
+  })
+
+  it('shows compliance evidence status and open reportable events', async () => {
+    render(<Sponsorships />)
+
+    await screen.findAllByText(/John Doe/i)
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/4 missing/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/Delayed start/i).length).toBeGreaterThan(0)
+      expect(screen.getByText(/Right-to-work check/i)).toBeInTheDocument()
     })
   })
 })
