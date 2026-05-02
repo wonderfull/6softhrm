@@ -8,7 +8,7 @@ import type { Employee, Sponsorship, User } from '@prisma/client'
 const router = Router()
 
 // Check for upcoming expiries and send notifications
-router.post('/check-expiries', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
+router.post('/check-expiries', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req, res) => {
   try {
     const results = {
       visasChecked: 0,
@@ -49,9 +49,9 @@ router.post('/check-expiries', requireAuth, requireRole('ADMIN', 'MANAGER'), asy
           daysUntilExpiry
         )
 
-        // Get admin emails
+        // Get HR admin emails
         const admins = await prisma.user.findMany({
-          where: { role: { in: ['ADMIN', 'MANAGER'] } },
+          where: { role: { in: ['ADMIN', 'DIRECTOR'] } },
           select: { email: true },
         })
 
@@ -89,9 +89,9 @@ router.post('/check-expiries', requireAuth, requireRole('ADMIN', 'MANAGER'), asy
           daysUntilExpiry
         )
 
-        // Get admin emails
+        // Get HR admin emails
         const admins = await prisma.user.findMany({
-          where: { role: { in: ['ADMIN', 'MANAGER'] } },
+          where: { role: { in: ['ADMIN', 'DIRECTOR'] } },
           select: { email: true },
         })
 
@@ -194,7 +194,7 @@ router.get('/upcoming-expiries', requireAuth, async (req, res) => {
   }
 })
 
-// Send leave request notification to admins
+// Send leave request notification to operational approvers
 router.post('/notify-leave-request', requireAuth, async (req, res) => {
   try {
     const { leaveRequestId } = req.body
@@ -222,9 +222,9 @@ router.post('/notify-leave-request', requireAuth, async (req, res) => {
       leaveRequest.id
     )
 
-    // Get admin emails
+    // Get operational approver emails
     const admins = await prisma.user.findMany({
-      where: { role: { in: ['ADMIN', 'MANAGER'] } },
+      where: { role: { in: ['ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'] } },
       select: { email: true },
     })
 
@@ -242,7 +242,7 @@ router.post('/notify-leave-request', requireAuth, async (req, res) => {
 })
 
 // Send leave approval/rejection notification to employee
-router.post('/notify-leave-status', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
+router.post('/notify-leave-status', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req, res) => {
   try {
     const { leaveRequestId, status, reason } = req.body
 

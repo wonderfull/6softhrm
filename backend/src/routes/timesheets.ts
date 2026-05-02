@@ -2,36 +2,42 @@ import { Router } from 'express'
 import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
 import * as XLSX from 'xlsx'
+import { canReviewLeaveAndTime, normalizeRole, ROLES } from '../lib/roles'
 
 const router = Router()
 
 router.get('/', requireAuth, async (req: any, res) => {
   const user = req.user
+  const role = normalizeRole(user.role)
   
-  // If user is an employee (USER role), only show their own timesheets
-  if (user.role === 'USER' && user.employeeId) {
+  if (role === ROLES.EMPLOYEE) {
+    if (!user.employeeId) return res.json([])
+
     const items = await prisma.timesheet.findMany({ 
       where: { employeeId: user.employeeId },
       include: { employee: true, project: true } 
     })
     return res.json(items)
   }
+
+  if (!canReviewLeaveAndTime(role)) return res.status(403).json({ error: 'Unauthorized' })
   
-  // Admins and managers see all timesheets
   const items = await prisma.timesheet.findMany({ include: { employee: true, project: true } })
   res.json(items)
 })
 
 router.post('/', requireAuth, async (req: any, res) => {
   const user = req.user
+  const role = normalizeRole(user.role)
   let { employeeId, projectId, date, hours, notes } = req.body
   
-  // If user is an employee, they can only create timesheets for themselves
-  if (user.role === 'USER') {
+  if (role === ROLES.EMPLOYEE) {
     if (!user.employeeId) {
       return res.status(403).json({ error: 'User account is not linked to an employee record' })
     }
     employeeId = user.employeeId
+  } else if (!canReviewLeaveAndTime(role)) {
+    return res.status(403).json({ error: 'Unauthorized' })
   }
   
   if (!employeeId || !date || !hours) return res.status(400).json({ error: 'missing fields' })
@@ -51,10 +57,26 @@ router.post('/', requireAuth, async (req: any, res) => {
   }
 })
 
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, async (req: any, res) => {
   const { id } = req.params
   const { employeeId, projectId, date, hours, notes } = req.body
   try {
+    const user = req.user
+    const role = normalizeRole(user.role)
+    const existing = await prisma.timesheet.findUnique({ where: { id: parseInt(id) } })
+    if (!existing) return res.status(404).json({ error: 'Timesheet not found' })
+
+    if (role === ROLES.EMPLOYEE) {
+      if (!user.employeeId || existing.employeeId !== user.employeeId) {
+        return res.status(403).json({ error: 'Unauthorized' })
+      }
+      if (employeeId && Number(employeeId) !== user.employeeId) {
+        return res.status(403).json({ error: 'Unauthorized' })
+      }
+    } else if (!canReviewLeaveAndTime(role)) {
+      return res.status(403).json({ error: 'Unauthorized' })
+    }
+
     const data: any = {}
     if (employeeId) data.employeeId = employeeId
     if (projectId !== undefined) data.projectId = projectId || null
@@ -72,9 +94,22 @@ router.put('/:id', requireAuth, async (req, res) => {
   }
 })
 
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAuth, async (req: any, res) => {
   const { id } = req.params
   try {
+    const user = req.user
+    const role = normalizeRole(user.role)
+    const existing = await prisma.timesheet.findUnique({ where: { id: parseInt(id) } })
+    if (!existing) return res.status(404).json({ error: 'Timesheet not found' })
+
+    if (role === ROLES.EMPLOYEE) {
+      if (!user.employeeId || existing.employeeId !== user.employeeId) {
+        return res.status(403).json({ error: 'Unauthorized' })
+      }
+    } else if (!canReviewLeaveAndTime(role)) {
+      return res.status(403).json({ error: 'Unauthorized' })
+    }
+
     await prisma.timesheet.delete({ where: { id: parseInt(id) } })
     res.json({ success: true })
   } catch (e: any) {
@@ -86,16 +121,22 @@ router.delete('/:id', requireAuth, async (req, res) => {
 router.get('/export/excel', requireAuth, async (req: any, res) => {
   try {
     const user = req.user
+    const role = normalizeRole(user.role)
     
     let timesheets: any[] = []
-    // If user is an employee, only export their own timesheets
-    if (user.role === 'USER' && user.employeeId) {
-      timesheets = await prisma.timesheet.findMany({ 
-        where: { employeeId: user.employeeId },
-        include: { employee: true, project: true } 
-      })
-    } else {
+    if (role === ROLES.EMPLOYEE) {
+      if (!user.employeeId) {
+        timesheets = []
+      } else {
+        timesheets = await prisma.timesheet.findMany({ 
+          where: { employeeId: user.employeeId },
+          include: { employee: true, project: true } 
+        })
+      }
+    } else if (canReviewLeaveAndTime(role)) {
       timesheets = await prisma.timesheet.findMany({ include: { employee: true, project: true } })
+    } else {
+      return res.status(403).json({ error: 'Unauthorized' })
     }
     
     // Format data for Excel

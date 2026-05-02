@@ -1,11 +1,18 @@
 import { Router } from 'express'
 import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
+import { requireRole } from '../middleware/roles'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import archiver from 'archiver'
 import crypto from 'crypto'
+import {
+  canDeleteDocuments,
+  canOperateDocuments,
+  normalizeRole,
+  ROLES,
+} from '../lib/roles'
 
 const router = Router()
 
@@ -33,8 +40,9 @@ const upload = multer({
 
 function canAccessDocument(user: any, employeeId: number) {
   if (!user) return false
-  if (user.role === 'ADMIN' || user.role === 'MANAGER') return true
-  return user.role === 'USER' && user.employeeId === employeeId
+  const role = normalizeRole(user.role)
+  if (canOperateDocuments(role)) return true
+  return role === ROLES.EMPLOYEE && user.employeeId === employeeId
 }
 
 function getAbsoluteFilePath(documentPath: string) {
@@ -67,12 +75,11 @@ async function createSharedDocumentRecord(data: {
 
 router.get('/', requireAuth, async (req: any, res) => {
   const user = req.user
+  const role = normalizeRole(user.role)
 
-  // If user is an employee (USER role), only show their own documents
-  // If user is an employee (USER role), only show their own documents
-  if (user.role === 'USER') {
+  if (role === ROLES.EMPLOYEE) {
     if (!user.employeeId) {
-      return res.json([]) // Unlinked users see no documents
+      return res.json([])
     }
     const docs = await prisma.document.findMany({
       where: { employeeId: user.employeeId },
@@ -81,7 +88,8 @@ router.get('/', requireAuth, async (req: any, res) => {
     return res.json(docs)
   }
 
-  // Admins and managers see all documents
+  if (!canOperateDocuments(role)) return res.status(403).json({ error: 'Unauthorized' })
+
   const docs = await prisma.document.findMany({ include: { employee: true } })
   res.json(docs)
 })
@@ -123,7 +131,7 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
 })
 
 // upload file and create metadata record (local storage only)
-router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
+router.post('/upload', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), upload.single('file'), async (req, res) => {
   const file = req.file as Express.Multer.File | undefined
   const { employeeId, name, type, expiryDate } = req.body
   if (!file || !employeeId || !name) return res.status(400).json({ error: 'missing fields or file' })
@@ -150,7 +158,7 @@ router.post('/upload-payslips', requireAuth, upload.array('files', 20), async (r
   const files = (req.files || []) as Express.Multer.File[]
   const { employeeId } = req.body
 
-  if (!(req.user?.role === 'ADMIN' || req.user?.role === 'MANAGER')) {
+  if (!canOperateDocuments(req.user?.role)) {
     return res.status(403).json({ error: 'Unauthorized' })
   }
 
@@ -184,7 +192,7 @@ router.post('/upload-payslips', requireAuth, upload.array('files', 20), async (r
   }
 })
 
-router.post('/:id/share-link', requireAuth, async (req: any, res) => {
+router.post('/:id/share-link', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
   try {
     const document = await prisma.document.findUnique({ where: { id: Number(req.params.id) } })
     if (!document) return res.status(404).json({ error: 'Document not found' })
@@ -217,12 +225,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
     const doc = await prisma.document.findUnique({ where: { id: parseInt(id) } })
     if (!doc) return res.status(404).json({ error: 'Document not found' })
 
-    // Ownership check
     const user = (req as any).user
-    if (user.role === 'USER') {
-      if (!user.employeeId || doc.employeeId !== user.employeeId) {
-        return res.status(403).json({ error: 'Unauthorized' })
-      }
+    if (!canDeleteDocuments(user.role)) {
+      return res.status(403).json({ error: 'Unauthorized' })
     }
 
     // Delete the physical file
@@ -245,12 +250,9 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
   const { employeeId } = req.params
 
   try {
-    // Ownership check
     const user = (req as any).user
-    if (user.role === 'USER') {
-      if (!user.employeeId || parseInt(employeeId) !== user.employeeId) {
-        return res.status(403).json({ error: 'Unauthorized' })
-      }
+    if (!canAccessDocument(user, parseInt(employeeId))) {
+      return res.status(403).json({ error: 'Unauthorized' })
     }
 
     const employee = await prisma.employee.findUnique({
@@ -294,6 +296,7 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
 router.get('/expiring', requireAuth, async (req: any, res) => {
   try {
     const user = req.user
+    const role = normalizeRole(user.role)
     const now = new Date()
     const thirtyDaysFromNow = new Date()
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
@@ -306,9 +309,13 @@ router.get('/expiring', requireAuth, async (req: any, res) => {
       }
     }
 
-    // If user is an employee, only show their own expiring documents
-    if (user.role === 'USER' && user.employeeId) {
+    if (role === ROLES.EMPLOYEE) {
+      if (!user.employeeId) {
+        return res.json([])
+      }
       whereClause.employeeId = user.employeeId
+    } else if (!canOperateDocuments(role)) {
+      return res.status(403).json({ error: 'Unauthorized' })
     }
 
     const expiringDocs = await prisma.document.findMany({

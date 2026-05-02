@@ -13,6 +13,9 @@ app.use('/api/documents', documentsRouter)
 
 describe('Documents API', () => {
   let authToken: string
+  let userToken: string
+  let unlinkedUserToken: string
+  let officeAssistantToken: string
   let testEmployeeId: number
   let testDocumentId: number
 
@@ -38,6 +41,9 @@ describe('Documents API', () => {
 
     // Mock auth token (valid JWT signed with test secret)
     authToken = 'Bearer ' + jwt.sign({ email: employee.email, role: 'ADMIN' }, process.env.JWT_SECRET || 'test-secret-key')
+    userToken = 'Bearer ' + jwt.sign({ email: employee.email, role: 'USER', employeeId: employee.id }, process.env.JWT_SECRET || 'test-secret-key')
+    unlinkedUserToken = 'Bearer ' + jwt.sign({ email: 'unlinked@documents.com', role: 'USER' }, process.env.JWT_SECRET || 'test-secret-key')
+    officeAssistantToken = 'Bearer ' + jwt.sign({ email: 'office@documents.com', role: 'OFFICE_ASSISTANT' }, process.env.JWT_SECRET || 'test-secret-key')
   })
 
   afterAll(async () => {
@@ -88,6 +94,33 @@ describe('Documents API', () => {
         .attach('file', Buffer.from('test'), 'test.pdf')
 
       expect(response.status).toBe(400)
+    })
+
+    it('should reject upload for non-admin users', async () => {
+      const response = await request(app)
+        .post('/api/documents/upload')
+        .set('Authorization', userToken)
+        .field('employeeId', testEmployeeId.toString())
+        .field('name', 'Blocked Document')
+        .attach('file', Buffer.from('test'), 'blocked.pdf')
+
+      expect(response.status).toBe(403)
+    })
+
+    it('allows office assistants to upload documents for employees', async () => {
+      const response = await request(app)
+        .post('/api/documents/upload')
+        .set('Authorization', officeAssistantToken)
+        .field('employeeId', testEmployeeId.toString())
+        .field('name', 'Office Assistant Upload')
+        .field('type', 'CONTRACT')
+        .attach('file', Buffer.from('office upload'), 'office-upload.pdf')
+
+      expect(response.status).toBe(200)
+      expect(response.body.name).toBe('Office Assistant Upload')
+      expect(response.body.employeeId).toBe(testEmployeeId)
+
+      await prisma.document.delete({ where: { id: response.body.id } })
     })
   })
 
@@ -180,6 +213,30 @@ describe('Documents API', () => {
       // Clean up
       await prisma.document.delete({ where: { id: doc.id } })
     })
+
+    it('returns no expiring documents for unlinked employees', async () => {
+      const futureDate = new Date()
+      futureDate.setDate(futureDate.getDate() + 15)
+
+      const doc = await prisma.document.create({
+        data: {
+          employeeId: testEmployeeId,
+          name: 'Unlinked Leak Check',
+          path: '/test/path.pdf',
+          type: 'VISA',
+          expiryDate: futureDate
+        }
+      })
+
+      const response = await request(app)
+        .get('/api/documents/expiring')
+        .set('Authorization', unlinkedUserToken)
+
+      expect(response.status).toBe(200)
+      expect(response.body).toEqual([])
+
+      await prisma.document.delete({ where: { id: doc.id } })
+    })
   })
 
   describe('GET /documents/download-all/:employeeId', () => {
@@ -270,6 +327,31 @@ describe('Documents API', () => {
       await prisma.document.delete({ where: { id: doc.id } })
       fs.unlinkSync(testFilePath)
     })
+
+    it('allows office assistants to download employee documents', async () => {
+      const uploadsDir = path.join(process.cwd(), 'uploads')
+      const testFilePath = path.join(uploadsDir, 'test-office-download.pdf')
+      fs.writeFileSync(testFilePath, 'Office download content')
+
+      const doc = await prisma.document.create({
+        data: {
+          employeeId: testEmployeeId,
+          name: 'Office Download.pdf',
+          path: '/uploads/test-office-download.pdf',
+          type: 'OTHER'
+        }
+      })
+
+      const response = await request(app)
+        .get(`/api/documents/${doc.id}/file`)
+        .set('Authorization', officeAssistantToken)
+
+      expect(response.status).toBe(200)
+      expect(response.headers['content-disposition']).toContain('Office Download.pdf')
+
+      await prisma.document.delete({ where: { id: doc.id } })
+      fs.unlinkSync(testFilePath)
+    })
   })
 
   describe('POST /documents/:id/share-link and GET /documents/share/:token', () => {
@@ -304,6 +386,25 @@ describe('Documents API', () => {
       await prisma.document.delete({ where: { id: doc.id } })
       fs.unlinkSync(testFilePath)
     })
+
+    it('should reject share link generation for non-admin users', async () => {
+      const doc = await prisma.document.create({
+        data: {
+          employeeId: testEmployeeId,
+          name: 'Blocked Share.pdf',
+          path: '/uploads/test-share.pdf',
+          type: 'PAYSLIP'
+        }
+      })
+
+      const response = await request(app)
+        .post(`/api/documents/${doc.id}/share-link`)
+        .set('Authorization', userToken)
+
+      expect(response.status).toBe(403)
+
+      await prisma.document.delete({ where: { id: doc.id } })
+    })
   })
 
   describe('POST /documents/upload-payslips', () => {
@@ -319,6 +420,19 @@ describe('Documents API', () => {
       expect(response.body.uploadedCount).toBe(2)
       expect(response.body.documents.every((doc: any) => doc.type === 'PAYSLIP')).toBe(true)
       expect(response.body.documents.every((doc: any) => doc.shareUrl)).toBe(true)
+    })
+
+    it('allows office assistants to upload payslips', async () => {
+      const response = await request(app)
+        .post('/api/documents/upload-payslips')
+        .set('Authorization', officeAssistantToken)
+        .field('employeeId', testEmployeeId.toString())
+        .attach('files', Buffer.from('office payslip'), 'office-payslip.pdf')
+
+      expect(response.status).toBe(200)
+      expect(response.body.uploadedCount).toBe(1)
+      expect(response.body.documents[0].type).toBe('PAYSLIP')
+      expect(response.body.documents[0].shareUrl).toBeTruthy()
     })
   })
 
@@ -350,6 +464,25 @@ describe('Documents API', () => {
       
       // Verify file deleted
       expect(fs.existsSync(testFilePath)).toBe(false)
+    })
+
+    it('prevents office assistants from deleting documents', async () => {
+      const doc = await prisma.document.create({
+        data: {
+          employeeId: testEmployeeId,
+          name: 'Office Delete Block',
+          path: '/uploads/non-existent-office-delete.pdf',
+          type: 'OTHER'
+        }
+      })
+
+      const response = await request(app)
+        .delete(`/api/documents/${doc.id}`)
+        .set('Authorization', officeAssistantToken)
+
+      expect(response.status).toBe(403)
+
+      await prisma.document.delete({ where: { id: doc.id } })
     })
   })
 })

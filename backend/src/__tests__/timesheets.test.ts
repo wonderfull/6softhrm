@@ -11,7 +11,11 @@ app.use('/api/timesheets', timesheetsRouter)
 
 describe('Timesheets API', () => {
   let authToken: string
+  let employeeToken: string
+  let unlinkedEmployeeToken: string
+  let officeAssistantToken: string
   let testEmployeeId: number
+  let secondEmployeeId: number
   let testProjectId: number
   let testTimesheetId: number
 
@@ -36,6 +40,17 @@ describe('Timesheets API', () => {
     })
     testEmployeeId = employee.id
 
+    const secondEmployee = await prisma.employee.create({
+      data: {
+        firstName: 'Second',
+        lastName: 'Employee',
+        email: 'second@timesheets.com',
+        jobTitle: 'Designer',
+        employeeType: 'EMPLOYEE'
+      }
+    })
+    secondEmployeeId = secondEmployee.id
+
     // Create test project
     const project = await prisma.project.create({
       data: {
@@ -47,6 +62,9 @@ describe('Timesheets API', () => {
     testProjectId = project.id
 
     authToken = 'Bearer ' + jwt.sign({ email: employee.email, role: 'ADMIN' }, process.env.JWT_SECRET || 'test-secret-key')
+    employeeToken = 'Bearer ' + jwt.sign({ email: employee.email, role: 'EMPLOYEE', employeeId: employee.id }, process.env.JWT_SECRET || 'test-secret-key')
+    unlinkedEmployeeToken = 'Bearer ' + jwt.sign({ email: 'unlinked@timesheets.com', role: 'EMPLOYEE' }, process.env.JWT_SECRET || 'test-secret-key')
+    officeAssistantToken = 'Bearer ' + jwt.sign({ email: 'office@timesheets.com', role: 'OFFICE_ASSISTANT' }, process.env.JWT_SECRET || 'test-secret-key')
   })
 
   afterAll(async () => {
@@ -55,6 +73,7 @@ describe('Timesheets API', () => {
       await prisma.timesheet.delete({ where: { id: testTimesheetId } }).catch(() => {})
     }
     await prisma.project.delete({ where: { id: testProjectId } }).catch(() => {})
+    await prisma.employee.delete({ where: { id: secondEmployeeId } }).catch(() => {})
     await prisma.employee.delete({ where: { id: testEmployeeId } }).catch(() => {})
     await prisma.$disconnect()
   })
@@ -119,6 +138,32 @@ describe('Timesheets API', () => {
         expect(response.body[0]).toHaveProperty('employee')
       }
     })
+
+    it('returns no timesheets for unlinked employees', async () => {
+      await prisma.timesheet.create({
+        data: {
+          employeeId: testEmployeeId,
+          date: new Date('2025-11-22'),
+          hours: 4
+        }
+      })
+
+      const response = await request(app)
+        .get('/api/timesheets')
+        .set('Authorization', unlinkedEmployeeToken)
+
+      expect(response.status).toBe(200)
+      expect(response.body).toEqual([])
+    })
+
+    it('allows office assistants to view operational time records', async () => {
+      const response = await request(app)
+        .get('/api/timesheets')
+        .set('Authorization', officeAssistantToken)
+
+      expect(response.status).toBe(200)
+      expect(Array.isArray(response.body)).toBe(true)
+    })
   })
 
   describe('PUT /timesheets/:id', () => {
@@ -134,6 +179,46 @@ describe('Timesheets API', () => {
       expect(response.status).toBe(200)
       expect(response.body.hours).toBe(10)
       expect(response.body.notes).toBe('Updated notes')
+    })
+
+    it('prevents employees from updating another employee timesheet', async () => {
+      const otherTimesheet = await prisma.timesheet.create({
+        data: {
+          employeeId: secondEmployeeId,
+          date: new Date('2025-11-23'),
+          hours: 5
+        }
+      })
+
+      const response = await request(app)
+        .put(`/api/timesheets/${otherTimesheet.id}`)
+        .set('Authorization', employeeToken)
+        .send({ hours: 9 })
+
+      expect(response.status).toBe(403)
+
+      await prisma.timesheet.delete({ where: { id: otherTimesheet.id } })
+    })
+
+    it('allows office assistants to update operational time records', async () => {
+      const operationalTimesheet = await prisma.timesheet.create({
+        data: {
+          employeeId: testEmployeeId,
+          date: new Date('2025-11-24'),
+          hours: 6
+        }
+      })
+
+      const response = await request(app)
+        .put(`/api/timesheets/${operationalTimesheet.id}`)
+        .set('Authorization', officeAssistantToken)
+        .send({ hours: 7, notes: 'Office update' })
+
+      expect(response.status).toBe(200)
+      expect(response.body.hours).toBe(7)
+      expect(response.body.notes).toBe('Office update')
+
+      await prisma.timesheet.delete({ where: { id: operationalTimesheet.id } })
     })
   })
 
@@ -155,6 +240,24 @@ describe('Timesheets API', () => {
       
       const deleted = await prisma.timesheet.findUnique({ where: { id: newTimesheet.id } })
       expect(deleted).toBeNull()
+    })
+
+    it('prevents employees from deleting another employee timesheet', async () => {
+      const otherTimesheet = await prisma.timesheet.create({
+        data: {
+          employeeId: secondEmployeeId,
+          date: new Date('2025-11-25'),
+          hours: 5
+        }
+      })
+
+      const response = await request(app)
+        .delete(`/api/timesheets/${otherTimesheet.id}`)
+        .set('Authorization', employeeToken)
+
+      expect(response.status).toBe(403)
+
+      await prisma.timesheet.delete({ where: { id: otherTimesheet.id } })
     })
   })
 

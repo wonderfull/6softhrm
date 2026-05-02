@@ -18,10 +18,10 @@ Feature: Document lifecycle
     When a linked employee tries to delete that document
     Then the delete request is rejected with a 403 response
 
-  Scenario: Employee can delete their own document
+  Scenario: Employee cannot delete their own document
     Given a document owned by the linked employee
     When the linked employee deletes that document
-    Then the document delete succeeds
+    Then the own document delete request is rejected with a 403 response
 
   Scenario: Download all returns a ZIP for an employee with documents
     Given an employee with a stored document file

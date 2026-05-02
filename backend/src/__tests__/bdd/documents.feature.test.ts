@@ -111,7 +111,7 @@ describe('BDD: documents', () => {
       })
     })
 
-    test('Employee can delete their own document', ({ given, when, then }) => {
+    test('Employee cannot delete their own document', ({ given, when, then }) => {
       let response: request.Response
       let documentId = 0
       let employeeId = 0
@@ -133,9 +133,8 @@ describe('BDD: documents', () => {
           .set('Authorization', authHeader({ id: 33, email, role: 'USER', employeeId }))
       })
 
-      then('the document delete succeeds', () => {
-        expect(response.status).toBe(200)
-        expect(response.body.success).toBe(true)
+      then('the own document delete request is rejected with a 403 response', () => {
+        expect(response.status).toBe(403)
       })
     })
 

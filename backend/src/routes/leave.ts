@@ -3,16 +3,17 @@ import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
 import { requireRole } from '../middleware/roles'
 import { sendEmail, EmailTemplates } from '../lib/emailService'
+import { canReviewLeaveAndTime, normalizeRole, ROLES } from '../lib/roles'
 
 const router = Router()
 
 router.get('/', requireAuth, async (req: any, res) => {
   const user = req.user
+  const role = normalizeRole(user.role)
 
-  // If user is an employee (USER role), only show their own leave requests
-  if (user.role === 'USER') {
+  if (role === ROLES.EMPLOYEE) {
     if (!user.employeeId) {
-      return res.json([]) // Unlinked users see no leave requests
+      return res.json([])
     }
     const leaves = await prisma.leaveRequest.findMany({
       where: { employeeId: user.employeeId },
@@ -21,17 +22,18 @@ router.get('/', requireAuth, async (req: any, res) => {
     return res.json(leaves)
   }
 
-  // Admins and managers see all leave requests
+  if (!canReviewLeaveAndTime(role)) return res.status(403).json({ error: 'Unauthorized' })
+
   const leaves = await prisma.leaveRequest.findMany({ include: { employee: true } })
   res.json(leaves)
 })
 
 router.post('/', requireAuth, async (req: any, res) => {
   const user = req.user
+  const role = normalizeRole(user.role)
   let { employeeId, type, startDate, endDate, reason } = req.body
 
-  // If user is an employee, they can only create leave for themselves
-  if (user.role === 'USER') {
+  if (role === ROLES.EMPLOYEE) {
     if (!user.employeeId) {
       return res.status(403).json({ error: 'User account is not linked to an employee record' })
     }
@@ -45,10 +47,10 @@ router.post('/', requireAuth, async (req: any, res) => {
       include: { employee: true }
     })
 
-    // Send notification to admins/managers
+    // Send notification to operational approvers
     try {
       const admins = await prisma.user.findMany({
-        where: { role: { in: ['ADMIN', 'MANAGER'] } }
+        where: { role: { in: ['ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'] } }
       })
 
       for (const admin of admins) {
@@ -78,7 +80,7 @@ router.post('/', requireAuth, async (req: any, res) => {
   }
 })
 
-router.put('/:id/approve', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
+router.put('/:id/approve', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req, res) => {
   const id = Number(req.params.id)
   try {
     const lr = await prisma.leaveRequest.update({
@@ -112,7 +114,7 @@ router.put('/:id/approve', requireAuth, requireRole('ADMIN', 'MANAGER'), async (
   }
 })
 
-router.put('/:id/reject', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
+router.put('/:id/reject', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req, res) => {
   const id = Number(req.params.id)
   try {
     const lr = await prisma.leaveRequest.update({
