@@ -1,128 +1,231 @@
 import React from 'react'
-import { apiGet, apiPost, apiPut, apiDelete, API_BASE_URL } from '../lib/api'
-import Card from '../components/Card'
-import { HiPlus } from 'react-icons/hi'
+import { apiGet, apiPost, apiPut, apiDelete, API_BASE_URL, getCurrentUser } from '../lib/api'
+import { assignableRoles, canAssignRole, isElevatedRole, normalizeRole, roleBadgeClass, roleLabel, type AppRole } from '../lib/roles'
+import { HiArrowDownTray, HiKey, HiPencilSquare, HiPlus, HiTrash, HiUserPlus, HiXMark } from 'react-icons/hi2'
 
-// Consent Badge Component
-const ConsentBadge: React.FC<{ count: number }> = ({ count }) => {
-  if (count === 0) {
-    return (
-      <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded flex items-center gap-1" title="No consents given">
-        ⚠️ No Consents
-      </span>
-    )
-  }
-  
-  if (count < 3) {
-    return (
-      <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded flex items-center gap-1" title={`${count} of 7 consents given`}>
-        ⚡ {count}/7
-      </span>
-    )
-  }
-  
+type Employee = {
+  id: number
+  firstName: string
+  lastName: string
+  title?: string
+  email: string
+  phoneNumber?: string
+  jobTitle?: string
+  employeeType?: string
+  department?: string
+  niNumber?: string
+  startDate?: string
+  bankName?: string
+  accountNumber?: string
+  sortCode?: string
+  emergencyContactName?: string
+  emergencyContactPhone?: string
+  emergencyContactRelation?: string
+  emergencyContactAddress?: string
+  consentCount?: number
+}
+
+type UserAccount = {
+  id: number
+  email: string
+  name?: string
+  role: string
+  employeeId?: number | null
+  employee?: Partial<Employee>
+}
+
+type EmployeeFormData = {
+  firstName: string
+  lastName: string
+  title: string
+  email: string
+  phoneNumber: string
+  jobTitle: string
+  employeeType: string
+  department: string
+  niNumber: string
+  startDate: string
+  bankName: string
+  accountNumber: string
+  sortCode: string
+  emergencyContactName: string
+  emergencyContactPhone: string
+  emergencyContactRelation: string
+  emergencyContactAddress: string
+}
+
+type AccountFormData = {
+  id: number | null
+  employeeId: number | null
+  email: string
+  name: string
+  role: AppRole
+  password: string
+}
+
+const emptyEmployeeForm: EmployeeFormData = {
+  firstName: '',
+  lastName: '',
+  title: '',
+  email: '',
+  phoneNumber: '',
+  jobTitle: '',
+  employeeType: 'EMPLOYEE',
+  department: '',
+  niNumber: '',
+  startDate: '',
+  bankName: '',
+  accountNumber: '',
+  sortCode: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  emergencyContactRelation: '',
+  emergencyContactAddress: '',
+}
+
+const emptyAccountForm: AccountFormData = {
+  id: null,
+  employeeId: null,
+  email: '',
+  name: '',
+  role: 'EMPLOYEE',
+  password: '',
+}
+
+function generateTemporaryPassword() {
+  return `Temp-${Math.random().toString(36).slice(2, 8)}!${Math.floor(100 + Math.random() * 900)}`
+}
+
+function fullName(employee: Employee) {
+  return `${employee.firstName} ${employee.lastName}`.trim()
+}
+
+function formatDate(value?: string) {
+  if (!value) return 'Not set'
+  return new Date(value).toLocaleDateString()
+}
+
+function maskAccountNumber(value?: string) {
+  if (!value) return 'Not provided'
+  return `****${value.slice(-4)}`
+}
+
+function accountForEmployee(employee: Employee, users: UserAccount[]) {
+  return users.find((user) => user.employeeId === employee.id || user.email.toLowerCase() === employee.email.toLowerCase())
+}
+
+function Badge({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded flex items-center gap-1" title={`${count} of 7 consents given`}>
-      ✓ {count}/7
+    <span className={`inline-flex min-h-6 items-center rounded-full border px-2 text-xs font-semibold ${className}`}>
+      {children}
     </span>
   )
 }
 
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</dt>
+      <dd className="mt-1 text-sm text-slate-900 dark:text-slate-100">{value || 'Not provided'}</dd>
+    </div>
+  )
+}
 
 export default function Employees() {
-  const [items, setItems] = React.useState<any[]>([])
-  const [showForm, setShowForm] = React.useState(false)
-  const [editingId, setEditingId] = React.useState<number | null>(null)
-  const [userRole, setUserRole] = React.useState('USER')
-  const [userEmail, setUserEmail] = React.useState('')
-  const [formData, setFormData] = React.useState({
-    firstName: '',
-    lastName: '',
-    title: '',
-    email: '',
-    phoneNumber: '',
-    jobTitle: '',
-    employeeType: 'EMPLOYEE',
-    department: '',
-    niNumber: '',
-    startDate: '',
-    // Bank Details
-    bankName: '',
-    accountNumber: '',
-    sortCode: '',
-    // Emergency Contact
-    emergencyContactName: '',
-    emergencyContactPhone: '',
-    emergencyContactRelation: '',
-    emergencyContactAddress: ''
-  })
+  const currentUser = getCurrentUser()
+  const currentRole = normalizeRole(currentUser?.role)
+  const isElevated = isElevatedRole(currentRole)
+  const isSupport = currentRole === 'OFFICE_ASSISTANT'
+  const canManageEmployees = isElevated
+  const canManageAccounts = isElevated
+  const canViewSensitive = isElevated || currentRole === 'EMPLOYEE'
 
-  const loadEmployees = () => {
-    apiGet('/employees')
-      .then(setItems)
-      .catch(() => setItems([]))
-  }
+  const [employees, setEmployees] = React.useState<Employee[]>([])
+  const [users, setUsers] = React.useState<UserAccount[]>([])
+  const [selectedId, setSelectedId] = React.useState<number | null>(null)
+  const [query, setQuery] = React.useState('')
+  const [status, setStatus] = React.useState<string | null>(null)
+  const [showEmployeeForm, setShowEmployeeForm] = React.useState(false)
+  const [editingEmployeeId, setEditingEmployeeId] = React.useState<number | null>(null)
+  const [employeeForm, setEmployeeForm] = React.useState<EmployeeFormData>(emptyEmployeeForm)
+  const [accountForm, setAccountForm] = React.useState<AccountFormData>(emptyAccountForm)
+  const [busyAccountId, setBusyAccountId] = React.useState<number | null>(null)
 
-  React.useEffect(() => {
-    // Get user role and email from token
-    const token = localStorage.getItem('token')
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        setUserRole(payload.role || 'USER')
-        setUserEmail(payload.email || '')
-      } catch (e) {
-        console.error('Failed to parse token:', e)
-      }
+  const loadEmployees = React.useCallback(async () => {
+    try {
+      const data = await apiGet('/employees')
+      setEmployees(data)
+      setSelectedId((existing) => existing ?? data[0]?.id ?? null)
+    } catch {
+      setEmployees([])
+      setSelectedId(null)
     }
-    loadEmployees()
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      if (editingId) {
-        await apiPut(`/employees/${editingId}`, formData)
-        alert('Employee updated successfully!')
-      } else {
-        await apiPost('/employees', formData)
-        alert('Employee added successfully!')
-      }
-      setShowForm(false)
-      setEditingId(null)
-      setFormData({
-        firstName: '',
-        lastName: '',
-        title: '',
-        email: '',
-        phoneNumber: '',
-        jobTitle: '',
-        employeeType: 'EMPLOYEE',
-        department: '',
-        niNumber: '',
-        startDate: '',
-        bankName: '',
-        accountNumber: '',
-        sortCode: '',
-        emergencyContactName: '',
-        emergencyContactPhone: '',
-        emergencyContactRelation: '',
-        emergencyContactAddress: ''
-      })
-      loadEmployees()
-    } catch (err: any) {
-      console.error('Error saving employee:', err)
-      alert('Failed to save employee: ' + (err.message || JSON.stringify(err)))
+  const loadUsers = React.useCallback(async () => {
+    if (!canManageAccounts) {
+      setUsers([])
+      return
     }
+
+    try {
+      const data = await apiGet('/auth/users')
+      setUsers(data.map((user: UserAccount) => ({ ...user, role: normalizeRole(user.role) })))
+    } catch {
+      setUsers([])
+    }
+  }, [canManageAccounts])
+
+  React.useEffect(() => {
+    loadEmployees()
+    loadUsers()
+  }, [loadEmployees, loadUsers])
+
+  const visibleEmployees = React.useMemo(() => {
+    const scoped = currentRole === 'EMPLOYEE'
+      ? employees.filter((employee) => employee.email === currentUser?.email || employee.id === currentUser?.employeeId)
+      : employees
+
+    const needle = query.trim().toLowerCase()
+    if (!needle) return scoped
+
+    return scoped.filter((employee) => [
+      fullName(employee),
+      employee.email,
+      employee.department,
+      employee.jobTitle,
+    ].some((value) => value?.toLowerCase().includes(needle)))
+  }, [currentRole, currentUser?.email, currentUser?.employeeId, employees, query])
+
+  const selectedEmployee = React.useMemo(() => {
+    return visibleEmployees.find((employee) => employee.id === selectedId) || visibleEmployees[0] || null
+  }, [selectedId, visibleEmployees])
+
+  const selectedAccount = selectedEmployee ? accountForEmployee(selectedEmployee, users) : undefined
+  const missingAccountCount = employees.filter((employee) => !accountForEmployee(employee, users)).length
+  const activeLoginCount = users.filter((user) => !!user.employeeId || employees.some((employee) => employee.email === user.email)).length
+  const pendingReviews = employees.filter((employee) => (employee.consentCount ?? 7) < 3).length
+
+  const resetEmployeeForm = () => {
+    setShowEmployeeForm(false)
+    setEditingEmployeeId(null)
+    setEmployeeForm(emptyEmployeeForm)
   }
 
-  const handleEdit = (employee: any) => {
-    setEditingId(employee.id)
-    setFormData({
-      firstName: employee.firstName,
-      lastName: employee.lastName,
+  const openEmployeeForm = (employee?: Employee) => {
+    if (!employee) {
+      setEmployeeForm(emptyEmployeeForm)
+      setEditingEmployeeId(null)
+      setShowEmployeeForm(true)
+      return
+    }
+
+    setEditingEmployeeId(employee.id)
+    setEmployeeForm({
+      firstName: employee.firstName || '',
+      lastName: employee.lastName || '',
       title: employee.title || '',
-      email: employee.email,
+      email: employee.email || '',
       phoneNumber: employee.phoneNumber || '',
       jobTitle: employee.jobTitle || '',
       employeeType: employee.employeeType || 'EMPLOYEE',
@@ -135,73 +238,161 @@ export default function Employees() {
       emergencyContactName: employee.emergencyContactName || '',
       emergencyContactPhone: employee.emergencyContactPhone || '',
       emergencyContactRelation: employee.emergencyContactRelation || '',
-      emergencyContactAddress: employee.emergencyContactAddress || ''
+      emergencyContactAddress: employee.emergencyContactAddress || '',
     })
-    setShowForm(true)
+    setShowEmployeeForm(true)
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this employee?')) return
-    
+  const openAccountForm = (employee: Employee, account?: UserAccount) => {
+    setStatus(null)
+    setAccountForm({
+      id: account?.id ?? null,
+      employeeId: employee.id,
+      email: account?.email || employee.email,
+      name: account?.name || fullName(employee),
+      role: normalizeRole(account?.role || 'EMPLOYEE'),
+      password: '',
+    })
+  }
+
+  const closeAccountForm = () => setAccountForm(emptyAccountForm)
+
+  const handleEmployeeSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
     try {
-      await apiDelete(`/employees/${id}`)
-      alert('Employee deleted successfully!')
-      loadEmployees()
+      if (editingEmployeeId) {
+        await apiPut(`/employees/${editingEmployeeId}`, employeeForm)
+        setStatus('Employee record updated.')
+      } else {
+        await apiPost('/employees', employeeForm)
+        setStatus('Employee record created.')
+      }
+      resetEmployeeForm()
+      await loadEmployees()
     } catch (err: any) {
-      console.error('Error deleting employee:', err)
+      alert('Failed to save employee: ' + (err.message || JSON.stringify(err)))
+    }
+  }
+
+  const handleDeleteEmployee = async (employee: Employee) => {
+    if (!confirm(`Delete employee record for ${fullName(employee)}?`)) return
+
+    try {
+      await apiDelete(`/employees/${employee.id}`)
+      setStatus('Employee record deleted.')
+      await loadEmployees()
+    } catch (err: any) {
       alert('Failed to delete employee: ' + (err.message || JSON.stringify(err)))
     }
   }
 
-  const handleCancel = () => {
-    setShowForm(false)
-    setEditingId(null)
-    setFormData({
-      firstName: '',
-      lastName: '',
-      title: '',
-      email: '',
-      phoneNumber: '',
-      jobTitle: '',
-      employeeType: 'EMPLOYEE',
-      department: '',
-      niNumber: '',
-      startDate: '',
-      bankName: '',
-      accountNumber: '',
-      sortCode: '',
-      emergencyContactName: '',
-      emergencyContactPhone: '',
-      emergencyContactRelation: '',
-      emergencyContactAddress: ''
-    })
+  const handleAccountSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!canAssignRole(currentRole, accountForm.role)) return
+
+    try {
+      if (accountForm.id) {
+        const updateData: any = {
+          email: accountForm.email,
+          name: accountForm.name,
+          role: accountForm.role,
+          employeeId: accountForm.employeeId,
+        }
+        if (accountForm.password) updateData.password = accountForm.password
+        await apiPut(`/auth/users/${accountForm.id}`, updateData)
+        setStatus('Account updated.')
+      } else {
+        await apiPost('/auth/register', {
+          email: accountForm.email,
+          name: accountForm.name,
+          role: accountForm.role,
+          password: accountForm.password || generateTemporaryPassword(),
+        })
+        const updatedUsers = await apiGet('/auth/users')
+        const created = updatedUsers.find((user: UserAccount) => user.email.toLowerCase() === accountForm.email.toLowerCase())
+        if (created && accountForm.employeeId) {
+          await apiPut(`/auth/users/${created.id}`, {
+            email: created.email,
+            name: created.name,
+            role: normalizeRole(created.role),
+            employeeId: accountForm.employeeId,
+          })
+        }
+        setStatus('Account created and linked.')
+      }
+      closeAccountForm()
+      await loadUsers()
+    } catch (err: any) {
+      alert('Failed to save account: ' + (err.message || JSON.stringify(err)))
+    }
   }
 
-  // Filter employees for non-admin users
-  const filteredItems = React.useMemo(() => {
-    if (userRole === 'ADMIN' || userRole === 'MANAGER') {
-      return items
-    }
-    // Show only the logged-in employee's data
-    return items.filter(emp => emp.email === userEmail)
-  }, [items, userRole, userEmail])
+  const handleCreateAccountForEmployee = async (employee: Employee) => {
+    const suggestedPassword = generateTemporaryPassword()
+    const password = prompt(`Temporary password for ${fullName(employee)}`, suggestedPassword)?.trim() || suggestedPassword
 
-  const isAdmin = userRole === 'ADMIN' || userRole === 'MANAGER'
-  const pageTitle = isAdmin ? 'Employees' : 'My Profile'
+    try {
+      await apiPost('/auth/register', {
+        email: employee.email,
+        password,
+        name: fullName(employee),
+        role: 'EMPLOYEE',
+      })
+
+      const updatedUsers = await apiGet('/auth/users')
+      const created = updatedUsers.find((user: UserAccount) => user.email.toLowerCase() === employee.email.toLowerCase())
+      if (created) {
+        await apiPut(`/auth/users/${created.id}`, {
+          email: created.email,
+          name: created.name,
+          role: normalizeRole(created.role),
+          employeeId: employee.id,
+        })
+      }
+
+      setStatus('Account created and linked.')
+      await loadUsers()
+    } catch (err: any) {
+      alert('Failed to create account: ' + (err.message || JSON.stringify(err)))
+    }
+  }
+
+  const handleGenerateResetLink = async (account: UserAccount) => {
+    try {
+      setBusyAccountId(account.id)
+      const response = await apiPost(`/auth/users/${account.id}/reset-link`)
+      setStatus(response.message || `Password reset email requested for ${account.email}.`)
+    } catch (err: any) {
+      alert('Failed to request password reset: ' + (err.message || JSON.stringify(err)))
+    } finally {
+      setBusyAccountId(null)
+    }
+  }
+
+  const handleSetTemporaryPassword = async (account: UserAccount) => {
+    const temporaryPassword = prompt(`Temporary password for ${account.email}`, generateTemporaryPassword())
+    if (!temporaryPassword?.trim()) return
+
+    try {
+      setBusyAccountId(account.id)
+      await apiPost(`/auth/users/${account.id}/reset-password`, { newPassword: temporaryPassword.trim() })
+      setStatus(`Temporary password updated for ${account.email}.`)
+    } catch (err: any) {
+      alert('Failed to reset password: ' + (err.message || JSON.stringify(err)))
+    } finally {
+      setBusyAccountId(null)
+    }
+  }
 
   async function handleExportExcel() {
     try {
       const token = localStorage.getItem('token')
       const response = await fetch(`${API_BASE_URL}/employees/export/excel`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` },
       })
-      
-      if (!response.ok) {
-        throw new Error('Export failed')
-      }
-      
+
+      if (!response.ok) throw new Error('Export failed')
+
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -217,312 +408,340 @@ export default function Employees() {
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">{pageTitle}</h2>
-        <div className="flex gap-2">
-          <button
-            onClick={handleExportExcel}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
-          >
-            📊 Export to Excel
-          </button>
-          {isAdmin && (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-slate-700 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-950 dark:text-white">
+            {currentRole === 'EMPLOYEE' ? 'My Profile' : 'User/Employee Management'}
+          </h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            Employee records, account linkage, and access roles.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {isElevated && (
             <button
-              onClick={() => {
-                if (showForm && !editingId) {
-                  setShowForm(false);
-                } else {
-                  setEditingId(null);
-                  setFormData({
-                    firstName: '',
-                    lastName: '',
-                    title: '',
-                    email: '',
-                    phoneNumber: '',
-                    jobTitle: '',
-                    employeeType: 'EMPLOYEE',
-                    department: '',
-                    niNumber: '',
-                    startDate: '',
-                    bankName: '',
-                    accountNumber: '',
-                    sortCode: '',
-                    emergencyContactName: '',
-                    emergencyContactPhone: '',
-                    emergencyContactRelation: '',
-                    emergencyContactAddress: ''
-                  });
-                  setShowForm(true);
-                }
-              }}
-              className="btn-primary"
+              type="button"
+              onClick={handleExportExcel}
+              className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             >
-              <HiPlus /> {showForm ? 'Cancel' : 'Add Employee'}
+              <HiArrowDownTray size={18} />
+              Export
+            </button>
+          )}
+          {canManageEmployees && (
+            <button type="button" onClick={() => openEmployeeForm()} className="btn-primary min-h-10">
+              <HiPlus size={18} />
+              Add Person
             </button>
           )}
         </div>
       </div>
 
-      {showForm && (
-        <div className="mb-6 p-4 border rounded bg-slate-50 dark:bg-slate-800">
-          <h3 className="text-lg font-semibold mb-3">{editingId ? 'Edit Employee' : 'New Employee'}</h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+      {status && (
+        <div className="flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+          <span>{status}</span>
+          <button type="button" onClick={() => setStatus(null)} aria-label="Dismiss status" className="rounded p-1 hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:hover:bg-emerald-900">
+            <HiXMark size={18} />
+          </button>
+        </div>
+      )}
+
+      {isElevated && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total People</div>
+            <div className="mt-2 text-2xl font-bold">{employees.length}</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Active Logins</div>
+            <div className="mt-2 text-2xl font-bold">{activeLoginCount}</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Missing Login</div>
+            <div className="mt-2 text-2xl font-bold">{missingAccountCount}</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Pending Reviews</div>
+            <div className="mt-2 text-2xl font-bold">{pendingReviews}</div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+          <div className="flex flex-col gap-3 border-b border-slate-200 p-3 dark:border-slate-700 sm:flex-row">
+            <label className="sr-only" htmlFor="people-search">Search people</label>
             <input
-              value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              placeholder="First Name *"
-              required
-              className="form-input"
+              id="people-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="form-input min-h-10 py-2"
+              placeholder="Search name, email, department, role"
             />
-            <input
-              value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              placeholder="Last Name *"
-              required
-              className="form-input"
-            />
-            <input
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Title (Mr, Mrs, Dr, etc.)"
-              className="form-input"
-            />
-            <input
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="Email *"
-              type="email"
-              required
-              className="form-input"
-            />
-            <input
-              value={formData.phoneNumber}
-              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-              placeholder="Phone Number"
-              className="form-input"
-            />
-            <input
-              value={formData.jobTitle}
-              onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-              placeholder="Job Title *"
-              required
-              className="form-input"
-            />
-            <select
-              value={formData.employeeType}
-              onChange={(e) => setFormData({ ...formData, employeeType: e.target.value })}
-              className="form-input"
-            >
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-[820px] w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Person</th>
+                  <th className="px-4 py-3">Department</th>
+                  <th className="px-4 py-3">Access Role</th>
+                  <th className="px-4 py-3">Account</th>
+                  <th className="px-4 py-3">Review</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                {visibleEmployees.map((employee) => {
+                  const account = accountForEmployee(employee, users)
+                  const role = normalizeRole(account?.role || employee.employeeType)
+                  const selected = selectedEmployee?.id === employee.id
+                  return (
+                    <tr
+                      key={employee.id}
+                      className={`${selected ? 'bg-primary-50/70 dark:bg-primary-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-700/40'}`}
+                    >
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(employee.id)}
+                          className="text-left focus:outline-none focus:ring-2 focus:ring-primary-400"
+                        >
+                          <span className="block font-semibold text-slate-950 dark:text-white">{fullName(employee)}</span>
+                          <span className="block text-xs text-slate-500 dark:text-slate-400">{employee.email}</span>
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
+                        <span className="block">{employee.department || 'Unassigned'}</span>
+                        <span className="block text-xs text-slate-500 dark:text-slate-400">{employee.jobTitle || 'No job title'}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {account ? (
+                          <Badge className={roleBadgeClass(account.role)}>{normalizeRole(account.role)}</Badge>
+                        ) : (
+                          <Badge className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">NO LOGIN</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
+                        {account ? 'Linked' : 'Missing'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {employee.consentCount === undefined ? (
+                          <Badge className="border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">Not tracked</Badge>
+                        ) : employee.consentCount < 3 ? (
+                          <Badge className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">{employee.consentCount}/7 consents</Badge>
+                        ) : (
+                          <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">{employee.consentCount}/7 consents</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          {canManageAccounts && account && canAssignRole(currentRole, role) && (
+                            <button
+                              type="button"
+                              aria-label={`Edit account for ${fullName(employee)}`}
+                              onClick={() => openAccountForm(employee, account)}
+                              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                            >
+                              <HiPencilSquare size={17} />
+                            </button>
+                          )}
+                          {canManageAccounts && !account && (
+                            <button
+                              type="button"
+                              aria-label={`Create account for ${fullName(employee)}`}
+                              onClick={() => handleCreateAccountForEmployee(employee)}
+                              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+                            >
+                              <HiUserPlus size={17} />
+                            </button>
+                          )}
+                          {canManageEmployees && (
+                            <button
+                              type="button"
+                              aria-label={`Edit employee record for ${fullName(employee)}`}
+                              onClick={() => openEmployeeForm(employee)}
+                              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                            >
+                              <HiPencilSquare size={17} />
+                            </button>
+                          )}
+                          {canManageEmployees && (
+                            <button
+                              type="button"
+                              aria-label={`Delete employee record for ${fullName(employee)}`}
+                              onClick={() => handleDeleteEmployee(employee)}
+                              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md border border-red-200 bg-white text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 dark:border-red-800 dark:bg-slate-900 dark:text-red-300"
+                            >
+                              <HiTrash size={17} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+          {selectedEmployee ? (
+            <>
+              <div className="border-b border-slate-200 p-5 dark:border-slate-700">
+                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-primary-50 text-sm font-bold text-primary-700 dark:bg-primary-900 dark:text-primary-200">
+                  {selectedEmployee.firstName.charAt(0)}{selectedEmployee.lastName.charAt(0)}
+                </div>
+                <h3 className="text-lg font-semibold text-slate-950 dark:text-white">{fullName(selectedEmployee)}</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">{selectedEmployee.jobTitle || 'No job title'}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedAccount ? (
+                    <Badge className={roleBadgeClass(selectedAccount.role)}>{roleLabel(selectedAccount.role)}</Badge>
+                  ) : (
+                    <Badge className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">No login</Badge>
+                  )}
+                  <Badge className="border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">
+                    {selectedEmployee.department || 'Unassigned'}
+                  </Badge>
+                </div>
+              </div>
+
+              <dl className="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 dark:border-slate-700 sm:grid-cols-2 xl:grid-cols-1">
+                <Field label="Email" value={selectedEmployee.email} />
+                <Field label="Phone" value={selectedEmployee.phoneNumber || 'Not provided'} />
+                <Field label="Start Date" value={formatDate(selectedEmployee.startDate)} />
+                <Field label="Employee Type" value={selectedEmployee.employeeType || 'EMPLOYEE'} />
+                {canViewSensitive && (
+                  <>
+                    <Field label="NI Number" value={selectedEmployee.niNumber || 'Not provided'} />
+                    <Field label="Bank" value={selectedEmployee.bankName || 'Not provided'} />
+                    <Field label="Account" value={maskAccountNumber(selectedEmployee.accountNumber)} />
+                    <Field label="Sort Code" value={selectedEmployee.sortCode || 'Not provided'} />
+                  </>
+                )}
+              </dl>
+
+              <div className="border-b border-slate-200 p-5 dark:border-slate-700">
+                <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Account Controls</div>
+                {selectedAccount ? (
+                  <div className="space-y-2">
+                    <div className="text-sm text-slate-700 dark:text-slate-200">{selectedAccount.email}</div>
+                    {canManageAccounts && canAssignRole(currentRole, selectedAccount.role) && (
+                      <div className="grid gap-2">
+                        <button type="button" onClick={() => openAccountForm(selectedEmployee, selectedAccount)} className="btn-ghost min-h-10 justify-center">
+                          <HiPencilSquare size={17} />
+                          Edit Account
+                        </button>
+                        <button type="button" onClick={() => handleGenerateResetLink(selectedAccount)} disabled={busyAccountId === selectedAccount.id} className="btn-ghost min-h-10 justify-center">
+                          <HiKey size={17} />
+                          {busyAccountId === selectedAccount.id ? 'Working...' : 'Request Reset Email'}
+                        </button>
+                        <button type="button" onClick={() => handleSetTemporaryPassword(selectedAccount)} disabled={busyAccountId === selectedAccount.id} className="btn-ghost min-h-10 justify-center">
+                          <HiKey size={17} />
+                          Temporary Password
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : canManageAccounts ? (
+                  <button type="button" onClick={() => handleCreateAccountForEmployee(selectedEmployee)} className="btn-primary min-h-10 w-full justify-center">
+                    <HiUserPlus size={17} />
+                    Create Account
+                  </button>
+                ) : (
+                  <div className="text-sm text-slate-600 dark:text-slate-400">No linked account.</div>
+                )}
+              </div>
+
+              <div className="p-5">
+                <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Emergency Contact</div>
+                <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                  <Field label="Name" value={selectedEmployee.emergencyContactName || 'Not provided'} />
+                  <Field label="Phone" value={selectedEmployee.emergencyContactPhone || 'Not provided'} />
+                  <Field label="Relation" value={selectedEmployee.emergencyContactRelation || 'Not provided'} />
+                </dl>
+              </div>
+            </>
+          ) : (
+            <div className="p-5 text-sm text-slate-600 dark:text-slate-400">No employee records found.</div>
+          )}
+        </aside>
+      </div>
+
+      {showEmployeeForm && canManageEmployees && (
+        <section className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold">{editingEmployeeId ? 'Edit Employee Record' : 'New Employee Record'}</h3>
+            <button type="button" onClick={resetEmployeeForm} aria-label="Close employee form" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:hover:bg-slate-700">
+              <HiXMark size={20} />
+            </button>
+          </div>
+          <form onSubmit={handleEmployeeSubmit} className="grid gap-4 md:grid-cols-2">
+            <input value={employeeForm.firstName} onChange={(event) => setEmployeeForm({ ...employeeForm, firstName: event.target.value })} placeholder="First Name *" required className="form-input" />
+            <input value={employeeForm.lastName} onChange={(event) => setEmployeeForm({ ...employeeForm, lastName: event.target.value })} placeholder="Last Name *" required className="form-input" />
+            <input value={employeeForm.title} onChange={(event) => setEmployeeForm({ ...employeeForm, title: event.target.value })} placeholder="Title" className="form-input" />
+            <input value={employeeForm.email} onChange={(event) => setEmployeeForm({ ...employeeForm, email: event.target.value })} placeholder="Email *" type="email" required className="form-input" />
+            <input value={employeeForm.phoneNumber} onChange={(event) => setEmployeeForm({ ...employeeForm, phoneNumber: event.target.value })} placeholder="Phone Number" className="form-input" />
+            <input value={employeeForm.jobTitle} onChange={(event) => setEmployeeForm({ ...employeeForm, jobTitle: event.target.value })} placeholder="Job Title *" required className="form-input" />
+            <select value={employeeForm.employeeType} onChange={(event) => setEmployeeForm({ ...employeeForm, employeeType: event.target.value })} className="form-input">
               <option value="EMPLOYEE">Employee</option>
               <option value="DIRECTOR">Director</option>
             </select>
-            <input
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              placeholder="Department"
-              className="form-input"
-            />
-            <input
-              value={formData.niNumber}
-              onChange={(e) => setFormData({ ...formData, niNumber: e.target.value })}
-              placeholder="NI Number (UK)"
-              className="form-input"
-            />
+            <input value={employeeForm.department} onChange={(event) => setEmployeeForm({ ...employeeForm, department: event.target.value })} placeholder="Department" className="form-input" />
+            <input value={employeeForm.niNumber} onChange={(event) => setEmployeeForm({ ...employeeForm, niNumber: event.target.value })} placeholder="NI Number" className="form-input" />
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Employment Start Date
-              </label>
-              <input
-                value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                type="date"
-                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-              />
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Employment Start Date</label>
+              <input value={employeeForm.startDate} onChange={(event) => setEmployeeForm({ ...employeeForm, startDate: event.target.value })} type="date" className="form-input" />
             </div>
-
-            {/* Bank Details Section */}
-            <div className="col-span-2 mt-4 mb-2">
-              <h4 className="text-md font-semibold text-slate-700 dark:text-slate-300">Bank Details</h4>
-              <div className="h-px bg-slate-300 dark:bg-slate-600 mt-1"></div>
-            </div>
-            <input
-              value={formData.bankName}
-              onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-              placeholder="Bank Name"
-              className="form-input"
-            />
-            <input
-              value={formData.accountNumber}
-              onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-              placeholder="Account Number"
-              className="form-input"
-            />
-            <input
-              value={formData.sortCode}
-              onChange={(e) => setFormData({ ...formData, sortCode: e.target.value })}
-              placeholder="Sort Code"
-              className="form-input"
-            />
-
-            {/* Emergency Contact Section */}
-            <div className="col-span-2 mt-4 mb-2">
-              <h4 className="text-md font-semibold text-slate-700 dark:text-slate-300">Emergency Contact Information</h4>
-              <div className="h-px bg-slate-300 dark:bg-slate-600 mt-1"></div>
-            </div>
-            <input
-              value={formData.emergencyContactName}
-              onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
-              placeholder="Emergency Contact Name"
-              className="form-input"
-            />
-            <input
-              value={formData.emergencyContactPhone}
-              onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
-              placeholder="Emergency Contact Phone"
-              className="form-input"
-            />
-            <input
-              value={formData.emergencyContactRelation}
-              onChange={(e) => setFormData({ ...formData, emergencyContactRelation: e.target.value })}
-              placeholder="Relationship"
-              className="form-input"
-            />
-            <input
-              value={formData.emergencyContactAddress}
-              onChange={(e) => setFormData({ ...formData, emergencyContactAddress: e.target.value })}
-              placeholder="Emergency Contact Address"
-              className="form-input col-span-2"
-            />
-
-            <div className="col-span-2 flex gap-2">
-              <button type="submit" className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
-                {editingId ? 'Update Employee' : 'Add Employee'}
-              </button>
-              {editingId && (
-                <button type="button" onClick={handleCancel} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
-                  Cancel
-                </button>
-              )}
+            <input value={employeeForm.bankName} onChange={(event) => setEmployeeForm({ ...employeeForm, bankName: event.target.value })} placeholder="Bank Name" className="form-input" />
+            <input value={employeeForm.accountNumber} onChange={(event) => setEmployeeForm({ ...employeeForm, accountNumber: event.target.value })} placeholder="Account Number" className="form-input" />
+            <input value={employeeForm.sortCode} onChange={(event) => setEmployeeForm({ ...employeeForm, sortCode: event.target.value })} placeholder="Sort Code" className="form-input" />
+            <input value={employeeForm.emergencyContactName} onChange={(event) => setEmployeeForm({ ...employeeForm, emergencyContactName: event.target.value })} placeholder="Emergency Contact Name" className="form-input" />
+            <input value={employeeForm.emergencyContactPhone} onChange={(event) => setEmployeeForm({ ...employeeForm, emergencyContactPhone: event.target.value })} placeholder="Emergency Contact Phone" className="form-input" />
+            <input value={employeeForm.emergencyContactRelation} onChange={(event) => setEmployeeForm({ ...employeeForm, emergencyContactRelation: event.target.value })} placeholder="Relationship" className="form-input" />
+            <input value={employeeForm.emergencyContactAddress} onChange={(event) => setEmployeeForm({ ...employeeForm, emergencyContactAddress: event.target.value })} placeholder="Emergency Contact Address" className="form-input md:col-span-2" />
+            <div className="flex gap-2 md:col-span-2">
+              <button type="submit" className="btn-primary min-h-10 flex-1 justify-center">{editingEmployeeId ? 'Update Employee' : 'Add Employee'}</button>
+              <button type="button" onClick={resetEmployeeForm} className="btn-ghost min-h-10">Cancel</button>
             </div>
           </form>
-        </div>
+        </section>
       )}
 
-      {/* Employee Profile View - Full Details */}
-      {!isAdmin && filteredItems.length > 0 && (
-        <Card className="p-6 max-w-4xl">
-          {filteredItems.map((e) => (
-            <div key={e.id}>
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h3 className="text-2xl font-bold">{e.title ? `${e.title} ` : ''}{e.firstName} {e.lastName}</h3>
-                  <p className="text-slate-600 dark:text-slate-400">{e.jobTitle}</p>
-                </div>
-                <button
-                  onClick={() => handleEdit(e)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  Update Profile
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Personal Information */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300">Personal Information</h4>
-                  <div className="space-y-2 text-sm">
-                    <div><span className="font-medium">Email:</span> {e.email}</div>
-                    <div><span className="font-medium">Phone:</span> {e.phoneNumber || 'Not provided'}</div>
-                    <div><span className="font-medium">Department:</span> {e.department || 'Not assigned'}</div>
-                    <div><span className="font-medium">Employee Type:</span> {e.employeeType}</div>
-                    <div><span className="font-medium">NI Number:</span> {e.niNumber || 'Not provided'}</div>
-                    <div><span className="font-medium">Start Date:</span> {e.startDate ? new Date(e.startDate).toLocaleDateString() : 'Not set'}</div>
-                  </div>
-                </div>
-
-                {/* Bank Details */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300">Bank Details</h4>
-                  <div className="space-y-2 text-sm">
-                    <div><span className="font-medium">Bank Name:</span> {e.bankName || 'Not provided'}</div>
-                    <div><span className="font-medium">Account Number:</span> {e.accountNumber ? '****' + e.accountNumber.slice(-4) : 'Not provided'}</div>
-                    <div><span className="font-medium">Sort Code:</span> {e.sortCode || 'Not provided'}</div>
-                  </div>
-                </div>
-
-                {/* Emergency Contact */}
-                <div className="md:col-span-2">
-                  <h4 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300">Emergency Contact</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div><span className="font-medium">Name:</span> {e.emergencyContactName || 'Not provided'}</div>
-                    <div><span className="font-medium">Phone:</span> {e.emergencyContactPhone || 'Not provided'}</div>
-                    <div><span className="font-medium">Relationship:</span> {e.emergencyContactRelation || 'Not provided'}</div>
-                    <div><span className="font-medium">Address:</span> {e.emergencyContactAddress || 'Not provided'}</div>
-                  </div>
-                </div>
-              </div>
+      {accountForm.email && canManageAccounts && (
+        <section className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold">{accountForm.id ? 'Edit Account' : 'New Account'}</h3>
+            <button type="button" onClick={closeAccountForm} aria-label="Close account form" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:hover:bg-slate-700">
+              <HiXMark size={20} />
+            </button>
+          </div>
+          <form onSubmit={handleAccountSubmit} className="grid gap-4 md:grid-cols-2">
+            <input value={accountForm.email} onChange={(event) => setAccountForm({ ...accountForm, email: event.target.value })} placeholder="Email *" type="email" required className="form-input" />
+            <input value={accountForm.name} onChange={(event) => setAccountForm({ ...accountForm, name: event.target.value })} placeholder="Name" className="form-input" />
+            <input value={accountForm.password} onChange={(event) => setAccountForm({ ...accountForm, password: event.target.value })} placeholder={accountForm.id ? 'Password (leave blank to keep)' : 'Password'} type="password" className="form-input" />
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="account-role">Access Role</label>
+              <select
+                id="account-role"
+                value={accountForm.role}
+                onChange={(event) => setAccountForm({ ...accountForm, role: normalizeRole(event.target.value) })}
+                className="form-input"
+                required
+              >
+                {assignableRoles(currentRole).map((role) => (
+                  <option key={role} value={role}>{roleLabel(role)}</option>
+                ))}
+              </select>
             </div>
-          ))}
-        </Card>
-      )}
-
-      {/* Admin Grid View */}
-      {isAdmin && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredItems.map((e) => (
-            <Card key={e.id} className="p-4">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="font-bold">{e.title ? `${e.title} ` : ''}{e.firstName} {e.lastName}</div>
-                    {e.consentCount !== undefined && (
-                      <ConsentBadge count={e.consentCount} />
-                    )}
-                    {e.employeeType === 'DIRECTOR' && (
-                      <span className="px-2 py-1 text-xs bg-purple-500 text-white rounded">Director</span>
-                    )}
-                  </div>
-                  <div className="text-sm">{e.jobTitle} — {e.email}</div>
-                  {e.department && <div className="text-sm text-slate-600 dark:text-slate-400">Department: {e.department}</div>}
-                  {e.niNumber && <div className="text-sm text-slate-600 dark:text-slate-400">NI: {e.niNumber}</div>}
-                  
-                  {/* Bank Details Preview */}
-                  {e.bankName && (
-                    <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
-                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Bank Details</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">{e.bankName}</div>
-                      {e.sortCode && <div className="text-xs text-slate-500 dark:text-slate-500">Sort: {e.sortCode}</div>}
-                    </div>
-                  )}
-                  
-                  {/* Emergency Contact Preview */}
-                  {e.emergencyContactName && (
-                    <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
-                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Emergency Contact</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">{e.emergencyContactName}</div>
-                      {e.emergencyContactPhone && <div className="text-xs text-slate-500 dark:text-slate-500">{e.emergencyContactPhone}</div>}
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(e)}
-                    className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(e.id)}
-                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+            <div className="flex gap-2 md:col-span-2">
+              <button type="submit" className="btn-primary min-h-10 flex-1 justify-center">{accountForm.id ? 'Update Account' : 'Add Account'}</button>
+              <button type="button" onClick={closeAccountForm} className="btn-ghost min-h-10">Cancel</button>
+            </div>
+          </form>
+        </section>
       )}
     </div>
   )

@@ -109,7 +109,7 @@ export default function Settings() {
         `${counts.sponsorships || 0} sponsorships\n` +
         `${counts.users || 0} user accounts\n\n` +
         `No sample login accounts were created.\n` +
-        `Create real employee access from the Users page when required.`
+        `Create real employee access from User/Employee Management when required.`
       )
       setTimeout(() => setDevToolsStatus(''), 3000)
     } catch (error: any) {

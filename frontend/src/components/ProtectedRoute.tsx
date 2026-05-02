@@ -1,6 +1,7 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { getCurrentUser } from '../lib/api'
+import { normalizeRole, normalizeRoles } from '../lib/roles'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -31,7 +32,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   if (allowedRoles && allowedRoles.length > 0) {
     const user = getCurrentUser()
-    if (!user || !allowedRoles.includes(user.role)) {
+    if (!user || !normalizeRoles(allowedRoles).includes(normalizeRole(user.role))) {
       return <Navigate to="/dashboard" replace />
     }
   }

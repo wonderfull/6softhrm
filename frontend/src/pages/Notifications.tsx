@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Card from '../components/Card'
+import { normalizeRole } from '../lib/roles'
 
 interface ExpiryItem {
   id: number
@@ -124,16 +125,16 @@ const Notifications: React.FC = () => {
 
   const getUserRole = () => {
     const token = localStorage.getItem('token')
-    if (!token) return 'USER'
+    if (!token) return 'EMPLOYEE'
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))
-      return payload.role || 'USER'
+      return normalizeRole(payload.role)
     } catch {
-      return 'USER'
+      return 'EMPLOYEE'
     }
   }
 
-  const isAdmin = getUserRole() === 'ADMIN' || getUserRole() === 'MANAGER'
+  const isAdmin = getUserRole() === 'ADMIN' || getUserRole() === 'DIRECTOR'
 
   if (loading) {
     return (

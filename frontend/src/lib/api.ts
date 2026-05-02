@@ -1,3 +1,5 @@
+import { normalizeRole } from './roles'
+
 // API Configuration
 // In production, VITE_API_URL should be set to your Railway backend URL
 // Example: https://your-app.up.railway.app/api
@@ -60,12 +62,13 @@ export function getCurrentUser() {
   try {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     if (!token) return null
-    return parseJwtPayload(token)
+    const user = parseJwtPayload(token)
+    return user ? { ...user, role: normalizeRole(user.role) } : null
   } catch {
     return null
   }
 }
 
 export function hasRole(user: any, ...roles: string[]) {
-  return !!user && roles.includes(user.role)
+  return !!user && roles.map(normalizeRole).includes(normalizeRole(user.role))
 }

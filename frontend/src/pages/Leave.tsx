@@ -2,6 +2,7 @@ import React from 'react'
 import { apiGet, apiPost, apiPut, getCurrentUser } from '../lib/api'
 import Card from '../components/Card'
 import { HiPlus } from 'react-icons/hi'
+import { normalizeRole } from '../lib/roles'
 
 export default function Leave() {
   const [items, setItems] = React.useState<any[]>([])
@@ -25,9 +26,10 @@ export default function Leave() {
   }, [])
 
   const user = getCurrentUser()
-  const canApprove = user && (user.role === 'ADMIN' || user.role === 'MANAGER')
+  const role = normalizeRole(user?.role)
+  const canApprove = user && (role === 'ADMIN' || role === 'DIRECTOR')
   const canRequestLeave = user && user.employeeId
-  const showLinkWarning = user?.role === 'USER' && !user.employeeId
+  const showLinkWarning = role === 'EMPLOYEE' && !user?.employeeId
 
   async function handleApprove(id: number) {
     try {

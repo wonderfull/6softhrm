@@ -9,7 +9,6 @@ import Time from './pages/Time'
 import Projects from './pages/Projects'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
-import Users from './pages/Users'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
@@ -69,14 +68,13 @@ function App() {
                   <Routes>
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/employees" element={<Employees />} />
-                    <Route path="/sponsorships" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><Sponsorships /></ProtectedRoute>} />
+                    <Route path="/sponsorships" element={<ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}><Sponsorships /></ProtectedRoute>} />
                     <Route path="/time" element={<Time />} />
-                    <Route path="/projects" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><Projects /></ProtectedRoute>} />
+                    <Route path="/projects" element={<ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}><Projects /></ProtectedRoute>} />
                     <Route path="/leave" element={<Leave />} />
                     <Route path="/documents" element={<Documents />} />
                     <Route path="/settings" element={<Settings />} />
-                    <Route path="/users" element={<ProtectedRoute allowedRoles={['ADMIN']}><Users /></ProtectedRoute>} />
-                    <Route path="/notifications" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><Notifications /></ProtectedRoute>} />
+                    <Route path="/notifications" element={<ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT']}><Notifications /></ProtectedRoute>} />
                     <Route path="/audit-logs" element={<ProtectedRoute allowedRoles={['ADMIN']}><AuditLogs /></ProtectedRoute>} />
                     <Route path="/data-export" element={<ProtectedRoute allowedRoles={['ADMIN']}><DataExport /></ProtectedRoute>} />
                     <Route path="/consent" element={<Consent />} />

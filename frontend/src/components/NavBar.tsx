@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { HiOutlineBell, HiOutlineUserCircle, HiOutlineLogout, HiOutlineSun, HiOutlineMoon } from 'react-icons/hi'
 import { HiChevronDown } from 'react-icons/hi2'
+import { roleLabel } from '../lib/roles'
 
 interface NavBarProps {
   darkMode: boolean
@@ -59,7 +60,7 @@ export default function NavBar({ darkMode, onToggleDarkMode, onLogout }: NavBarP
                   <p className="text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 capitalize mt-1">
                     <span className="inline-block px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
-                      {user?.role || 'USER'}
+                      {roleLabel(user?.role)}
                     </span>
                   </p>
                 </div>

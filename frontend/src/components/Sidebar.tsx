@@ -1,12 +1,12 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { HiHome, HiUsers, HiDocumentText, HiClock, HiOutlineSquares2X2, HiUserGroup, HiCalendar, HiFolder, HiClipboardDocumentList, HiArrowDownTray, HiShieldCheck, HiBell, HiCog6Tooth } from 'react-icons/hi2'
+import { HiHome, HiUsers, HiDocumentText, HiClock, HiOutlineSquares2X2, HiCalendar, HiFolder, HiClipboardDocumentList, HiArrowDownTray, HiShieldCheck, HiBell, HiCog6Tooth } from 'react-icons/hi2'
 import { getCurrentUser } from '../lib/api'
+import { normalizeRole } from '../lib/roles'
 
 const adminMenu = [
   { to: '/dashboard', label: 'Dashboard', icon: <HiHome size={18} /> },
-  { to: '/employees', label: 'Employees', icon: <HiUsers size={18} /> },
-  { to: '/users', label: 'User Management', icon: <HiUserGroup size={18} /> },
+  { to: '/employees', label: 'User/Employee Management', icon: <HiUsers size={18} /> },
   { to: '/sponsorships', label: 'Sponsorships', icon: <HiDocumentText size={18} /> },
   { to: '/time', label: 'Time', icon: <HiClock size={18} /> },
   { to: '/projects', label: 'Projects', icon: <HiOutlineSquares2X2 size={18} /> },
@@ -20,12 +20,22 @@ const adminMenu = [
 
 const managerMenu = [
   { to: '/dashboard', label: 'Dashboard', icon: <HiHome size={18} /> },
-  { to: '/employees', label: 'Employees', icon: <HiUsers size={18} /> },
+  { to: '/employees', label: 'User/Employee Management', icon: <HiUsers size={18} /> },
   { to: '/sponsorships', label: 'Sponsorships', icon: <HiDocumentText size={18} /> },
   { to: '/time', label: 'Time', icon: <HiClock size={18} /> },
   { to: '/projects', label: 'Projects', icon: <HiOutlineSquares2X2 size={18} /> },
   { to: '/leave', label: 'Leave', icon: <HiCalendar size={18} /> },
   { to: '/documents', label: 'Documents', icon: <HiFolder size={18} /> },
+  { to: '/notifications', label: 'Notifications', icon: <HiBell size={18} /> },
+  { to: '/settings', label: 'Settings', icon: <HiCog6Tooth size={18} /> },
+]
+
+const assistantMenu = [
+  { to: '/dashboard', label: 'Dashboard', icon: <HiHome size={18} /> },
+  { to: '/employees', label: 'Employee Records', icon: <HiUsers size={18} /> },
+  { to: '/time', label: 'Time Support', icon: <HiClock size={18} /> },
+  { to: '/leave', label: 'Leave Support', icon: <HiCalendar size={18} /> },
+  { to: '/documents', label: 'Document Support', icon: <HiFolder size={18} /> },
   { to: '/notifications', label: 'Notifications', icon: <HiBell size={18} /> },
   { to: '/settings', label: 'Settings', icon: <HiCog6Tooth size={18} /> },
 ]
@@ -42,12 +52,14 @@ const userMenu = [
 export default function Sidebar() {
   const loc = useLocation()
   
-  const userRole = React.useMemo(() => getCurrentUser()?.role || 'USER', [])
+  const userRole = React.useMemo(() => normalizeRole(getCurrentUser()?.role), [])
 
   const menu = userRole === 'ADMIN'
     ? adminMenu
-    : userRole === 'MANAGER'
+    : userRole === 'DIRECTOR'
       ? managerMenu
+      : userRole === 'OFFICE_ASSISTANT'
+        ? assistantMenu
       : userMenu
 
   return (
