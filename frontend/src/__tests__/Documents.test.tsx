@@ -257,6 +257,20 @@ describe('Documents Page', () => {
     })
   })
 
+  it('shows mandatory field validation before uploading a document', async () => {
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+
+    renderDocuments()
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Upload Document$/i }))
+
+    expect(await screen.findByText('Employee is required')).toBeInTheDocument()
+    expect(screen.getByText('Document name is required')).toBeInTheDocument()
+    expect(screen.getByText('File is required')).toBeInTheDocument()
+    expect(api.apiUpload).not.toHaveBeenCalled()
+  })
+
   it('should delete document when delete button clicked', async () => {
     mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
     localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))

@@ -19,6 +19,12 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ]
 
+type UploadValidationErrors = {
+  employeeId?: string
+  name?: string
+  file?: string
+}
+
 function getFileValidationError(file: File) {
   if (file.size > MAX_SIZE) return 'File is too large (max 5MB)'
   if (!ALLOWED_TYPES.includes(file.type)) {
@@ -67,6 +73,7 @@ export default function Documents() {
   const [openDocumentId, setOpenDocumentId] = React.useState<number | null>(null)
   const [shareDocumentId, setShareDocumentId] = React.useState<number | null>(null)
   const [uploadingPayslips, setUploadingPayslips] = React.useState(false)
+  const [uploadValidationErrors, setUploadValidationErrors] = React.useState<UploadValidationErrors>({})
   const [preview, setPreview] = React.useState<{
     document: any
     url: string | null
@@ -139,6 +146,15 @@ export default function Documents() {
       window.URL.revokeObjectURL(preview.url)
     }
     setPreview(null)
+  }
+
+  function clearUploadValidationError(field: keyof UploadValidationErrors) {
+    setUploadValidationErrors((errors) => {
+      if (!errors[field]) return errors
+      const next = { ...errors }
+      delete next[field]
+      return next
+    })
   }
 
   async function fetchDocumentBlob(documentId: number, disposition: 'inline' | 'attachment') {
@@ -220,11 +236,20 @@ export default function Documents() {
     }
   }
 
+  function validateUploadForm() {
+    const errors: UploadValidationErrors = {}
+
+    if (!employeeId) errors.employeeId = 'Employee is required'
+    if (!name.trim()) errors.name = 'Document name is required'
+    if (!file) errors.file = 'File is required'
+
+    setUploadValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   async function upload(e: React.FormEvent) {
     e.preventDefault()
-    if (!file) return alert('pick a file')
-    if (!employeeId) return alert('select an employee')
-    if (!name || !name.trim()) return alert('give the document a name')
+    if (!validateUploadForm()) return
 
     const fd = new FormData()
     fd.append('file', file)
@@ -256,12 +281,13 @@ export default function Documents() {
 
     const error = getFileValidationError(selectedFile)
     if (error) {
-      alert(error)
+      setUploadValidationErrors((errors) => ({ ...errors, file: error }))
       setFile(null)
       return
     }
 
     setFile(selectedFile)
+    clearUploadValidationError('file')
   }
 
   function setValidatedPayslipFiles(candidateFiles: File[]) {
@@ -374,7 +400,10 @@ export default function Documents() {
               <select
                 id="document-employee"
                 value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
+                onChange={(e) => {
+                  setEmployeeId(e.target.value)
+                  if (e.target.value) clearUploadValidationError('employeeId')
+                }}
                 className="form-input w-full"
                 disabled={employees.length === 0}
               >
@@ -474,10 +503,16 @@ export default function Documents() {
         </section>
       )}
 
-      <form onSubmit={upload} className="mb-6 space-y-3">
+      <form onSubmit={upload} noValidate className="mb-6 space-y-3">
         {!isElevated && (
           <div className="text-sm text-slate-600 dark:text-slate-400">
             Your self-service password reset is available from the <Link to="/login" className="underline">login page</Link> via the &quot;Forgot your password?&quot; link.
+          </div>
+        )}
+
+        {uploadValidationErrors.employeeId && (
+          <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+            {uploadValidationErrors.employeeId}
           </div>
         )}
 
@@ -489,11 +524,18 @@ export default function Documents() {
             <input
               id="document-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value)
+                if (e.target.value.trim()) clearUploadValidationError('name')
+              }}
               placeholder="e.g., Employment Contract"
-              className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-              required
+              className={`form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white ${uploadValidationErrors.name ? 'border-red-500 focus:border-red-500' : ''}`}
+              aria-invalid={Boolean(uploadValidationErrors.name)}
+              aria-describedby={uploadValidationErrors.name ? 'document-name-error' : undefined}
             />
+            {uploadValidationErrors.name && (
+              <div id="document-name-error" className="mt-1 text-sm text-red-600 dark:text-red-400">{uploadValidationErrors.name}</div>
+            )}
           </div>
           <div>
             <label htmlFor="document-type" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -537,14 +579,19 @@ export default function Documents() {
           <input
             id="document-file"
             type="file"
-            className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+            className={`form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white ${uploadValidationErrors.file ? 'border-red-500 focus:border-red-500' : ''}`}
             onChange={handleFileChange}
             disabled={!isElevated && !currentEmployee}
+            aria-invalid={Boolean(uploadValidationErrors.file)}
+            aria-describedby={uploadValidationErrors.file ? 'document-file-error' : undefined}
           />
+          {uploadValidationErrors.file && (
+            <div id="document-file-error" className="mt-1 text-sm text-red-600 dark:text-red-400">{uploadValidationErrors.file}</div>
+          )}
           <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">Allowed types: PDF, PNG, JPG, DOC, DOCX • Max size: 5MB</div>
         </div>
 
-        <button className="btn-primary" disabled={!file || !employeeId || !name || (!isElevated && !currentEmployee)}>
+        <button className="btn-primary" disabled={!isElevated && !currentEmployee}>
           Upload Document
         </button>
       </form>
