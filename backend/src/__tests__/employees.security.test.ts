@@ -191,13 +191,65 @@ describe('user employee management permissions', () => {
     )
   })
 
+  it('persists expanded HR employee details from the unified form', async () => {
+    const response = await request(app)
+      .post('/api/employees')
+      .set('Authorization', authHeader({ id: 108, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+      .send({
+        firstName: 'Expanded',
+        middleName: 'HR',
+        lastName: 'Record',
+        email: `${prefix}-expanded-record@example.com`,
+        employeeType: 'EMPLOYEE',
+        jobTitle: 'Consultant',
+        startDate: '2026-05-03',
+        probationEndDate: '2026-08-03',
+        address1: '1 High Street',
+        townCity: 'London',
+        postcode: 'SW1A 1AA',
+        accountName: 'Expanded Record',
+        bankBranch: 'London',
+        salary: '45000',
+        paymentFrequency: 'Monthly',
+        payrollNumber: 'ABC123',
+        taxCode: '1257L',
+        passportNumber: '123456789',
+        passportExpiryDate: '2030-05-03',
+        visaNumber: 'VISA123',
+        visaExpiryDate: '2028-05-03',
+      })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        middleName: 'HR',
+        address1: '1 High Street',
+        townCity: 'London',
+        postcode: 'SW1A 1AA',
+        accountName: 'Expanded Record',
+        bankBranch: 'London',
+        salary: 45000,
+        paymentFrequency: 'Monthly',
+        payrollNumber: 'ABC123',
+        taxCode: '1257L',
+        passportNumber: '123456789',
+        visaNumber: 'VISA123',
+      }),
+    )
+  })
+
   it('redacts sensitive employee fields for office assistant list access', async () => {
     const employee = await createEmployee(`${prefix}-sensitive-employee`, {
       email: `${prefix}-sensitive-employee@example.com`,
       niNumber: 'QQ123456C',
       bankName: 'Sensitive Bank',
+      accountName: 'Sensitive Account',
       accountNumber: '12345678',
       sortCode: '112233',
+      salary: 55000,
+      taxCode: '1257L',
+      passportNumber: '123456789',
+      visaNumber: 'VISA123',
       emergencyContactAddress: '1 Sensitive Street',
     })
 
@@ -213,8 +265,13 @@ describe('user employee management permissions', () => {
         email: employee.email,
         niNumber: null,
         bankName: null,
+        accountName: null,
         accountNumber: null,
         sortCode: null,
+        salary: null,
+        taxCode: null,
+        passportNumber: null,
+        visaNumber: null,
         emergencyContactAddress: null,
       }),
     )

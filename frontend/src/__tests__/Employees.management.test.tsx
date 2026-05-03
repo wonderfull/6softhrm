@@ -173,6 +173,58 @@ describe('Unified user and employee management', () => {
     })
   })
 
+  it('uses the same sectioned HR details flow for adding employees', async () => {
+    mockedUser = { role: 'ADMIN', email: 'admin@6soft.co.uk' }
+    ;(api.apiPost as any).mockResolvedValue({ ok: true })
+
+    render(
+      <MemoryRouter>
+        <Employees />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: /add person/i }))
+
+    expect(screen.getByRole('heading', { name: 'Add Employee' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Basic details' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Address details' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Emergency contact' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Bank details' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Salary details' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Sensitive details' })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/First name/i), { target: { value: 'Jack' } })
+    fireEvent.change(screen.getByLabelText(/Last name/i), { target: { value: 'Johnson' } })
+    fireEvent.change(screen.getByLabelText(/Email address/i), { target: { value: 'jack.johnson@6soft.co.uk' } })
+    fireEvent.change(screen.getByLabelText(/^Job title/i), { target: { value: 'Software Engineer' } })
+    fireEvent.change(screen.getByLabelText(/Employment start date/i), { target: { value: '2026-05-03' } })
+    fireEvent.change(screen.getByLabelText(/Address 1/i), { target: { value: '1 High Street' } })
+    fireEvent.change(screen.getByLabelText(/Postcode/i), { target: { value: 'SW1A 1AA' } })
+    fireEvent.change(screen.getByLabelText(/Name on account/i), { target: { value: 'Jack Johnson' } })
+    fireEvent.change(screen.getByLabelText(/Account number/i), { target: { value: '12345678' } })
+    fireEvent.change(screen.getByLabelText(/Salary/i), { target: { value: '45000' } })
+    fireEvent.change(screen.getByLabelText(/NI number/i), { target: { value: 'QQ123456C' } })
+    fireEvent.change(screen.getByLabelText(/Visa expiry date/i), { target: { value: '2027-05-03' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add Employee' }))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith('/employees', expect.objectContaining({
+        firstName: 'Jack',
+        lastName: 'Johnson',
+        email: 'jack.johnson@6soft.co.uk',
+        jobTitle: 'Software Engineer',
+        startDate: '2026-05-03',
+        address1: '1 High Street',
+        postcode: 'SW1A 1AA',
+        accountName: 'Jack Johnson',
+        accountNumber: '12345678',
+        salary: '45000',
+        niNumber: 'QQ123456C',
+        visaExpiryDate: '2027-05-03',
+      }))
+    })
+  })
+
   it('limits director role assignment to non-admin roles', async () => {
     mockedUser = { role: 'DIRECTOR', email: 'director@6soft.co.uk' }
 

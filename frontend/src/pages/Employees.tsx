@@ -6,18 +6,48 @@ import { HiArrowDownTray, HiKey, HiPencilSquare, HiPlus, HiTrash, HiUserPlus, Hi
 type Employee = {
   id: number
   firstName: string
+  middleName?: string
   lastName: string
   title?: string
+  gender?: string
+  ethnicity?: string
+  dateOfBirth?: string
   email: string
   phoneNumber?: string
+  workPhone?: string
   jobTitle?: string
   employeeType?: string
   department?: string
   niNumber?: string
   startDate?: string
   bankName?: string
+  probationEndDate?: string
+  address1?: string
+  address2?: string
+  address3?: string
+  townCity?: string
+  county?: string
+  postcode?: string
+  accountName?: string
+  bankBranch?: string
   accountNumber?: string
   sortCode?: string
+  salary?: number | string
+  salaryRate?: string
+  paymentFrequency?: string
+  salaryEffectiveFrom?: string
+  salaryReason?: string
+  payrollNumber?: string
+  taxCode?: string
+  passportNumber?: string
+  passportCountryOfIssue?: string
+  passportExpiryDate?: string
+  licenceNumber?: string
+  licenceCountryOfIssue?: string
+  licenceClass?: string
+  licenceExpiryDate?: string
+  visaNumber?: string
+  visaExpiryDate?: string
   emergencyContactName?: string
   emergencyContactPhone?: string
   emergencyContactRelation?: string
@@ -36,18 +66,48 @@ type UserAccount = {
 
 type EmployeeFormData = {
   firstName: string
+  middleName: string
   lastName: string
   title: string
+  gender: string
+  ethnicity: string
+  dateOfBirth: string
   email: string
   phoneNumber: string
+  workPhone: string
   jobTitle: string
   employeeType: string
   department: string
   niNumber: string
   startDate: string
+  probationEndDate: string
+  address1: string
+  address2: string
+  address3: string
+  townCity: string
+  county: string
+  postcode: string
+  accountName: string
   bankName: string
+  bankBranch: string
   accountNumber: string
   sortCode: string
+  salary: string
+  salaryRate: string
+  paymentFrequency: string
+  salaryEffectiveFrom: string
+  salaryReason: string
+  payrollNumber: string
+  taxCode: string
+  passportNumber: string
+  passportCountryOfIssue: string
+  passportExpiryDate: string
+  licenceNumber: string
+  licenceCountryOfIssue: string
+  licenceClass: string
+  licenceExpiryDate: string
+  visaNumber: string
+  visaExpiryDate: string
   emergencyContactName: string
   emergencyContactPhone: string
   emergencyContactRelation: string
@@ -65,18 +125,48 @@ type AccountFormData = {
 
 const emptyEmployeeForm: EmployeeFormData = {
   firstName: '',
+  middleName: '',
   lastName: '',
   title: '',
+  gender: '',
+  ethnicity: '',
+  dateOfBirth: '',
   email: '',
   phoneNumber: '',
+  workPhone: '',
   jobTitle: '',
   employeeType: 'EMPLOYEE',
   department: '',
   niNumber: '',
   startDate: '',
+  probationEndDate: '',
+  address1: '',
+  address2: '',
+  address3: '',
+  townCity: '',
+  county: '',
+  postcode: '',
+  accountName: '',
   bankName: '',
+  bankBranch: '',
   accountNumber: '',
   sortCode: '',
+  salary: '',
+  salaryRate: '',
+  paymentFrequency: '',
+  salaryEffectiveFrom: '',
+  salaryReason: '',
+  payrollNumber: '',
+  taxCode: '',
+  passportNumber: '',
+  passportCountryOfIssue: '',
+  passportExpiryDate: '',
+  licenceNumber: '',
+  licenceCountryOfIssue: '',
+  licenceClass: '',
+  licenceExpiryDate: '',
+  visaNumber: '',
+  visaExpiryDate: '',
   emergencyContactName: '',
   emergencyContactPhone: '',
   emergencyContactRelation: '',
@@ -105,6 +195,10 @@ function formatDate(value?: string) {
   return new Date(value).toLocaleDateString()
 }
 
+function dateInputValue(value?: string) {
+  return value ? value.split('T')[0] : ''
+}
+
 function maskAccountNumber(value?: string) {
   if (!value) return 'Not provided'
   return `****${value.slice(-4)}`
@@ -127,6 +221,88 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
     <div>
       <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</dt>
       <dd className="mt-1 text-sm text-slate-900 dark:text-slate-100">{value || 'Not provided'}</dd>
+    </div>
+  )
+}
+
+function FormSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className="mb-4">
+        <h4 className="text-base font-semibold text-slate-950 dark:text-white">{title}</h4>
+        {description && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{description}</p>}
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">{children}</div>
+    </section>
+  )
+}
+
+function RequiredMark() {
+  return <span className="ml-1 text-pink-600 dark:text-pink-300">*</span>
+}
+
+type EmployeeInputProps = {
+  id: keyof EmployeeFormData
+  label: string
+  value: string
+  onChange: (id: keyof EmployeeFormData, value: string) => void
+  type?: string
+  required?: boolean
+  placeholder?: string
+  helper?: string
+  className?: string
+  options?: Array<{ value: string; label: string }>
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
+  maxLength?: number
+}
+
+function EmployeeInput({
+  id,
+  label,
+  value,
+  onChange,
+  type = 'text',
+  required,
+  placeholder,
+  helper,
+  className = '',
+  options,
+  inputMode,
+  maxLength,
+}: EmployeeInputProps) {
+  const fieldId = `employee-${String(id)}`
+  return (
+    <div className={className}>
+      <label htmlFor={fieldId} className="mb-1 block text-sm font-semibold text-slate-800 dark:text-slate-200">
+        {label}
+        {required && <RequiredMark />}
+      </label>
+      {options ? (
+        <select
+          id={fieldId}
+          value={value}
+          onChange={(event) => onChange(id, event.target.value)}
+          required={required}
+          className="form-input min-h-11 py-2"
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          id={fieldId}
+          value={value}
+          onChange={(event) => onChange(id, event.target.value)}
+          placeholder={placeholder}
+          type={type}
+          required={required}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          className="form-input min-h-11 py-2"
+        />
+      )}
+      {helper && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{helper}</p>}
     </div>
   )
 }
@@ -223,18 +399,48 @@ export default function Employees() {
     setEditingEmployeeId(employee.id)
     setEmployeeForm({
       firstName: employee.firstName || '',
+      middleName: employee.middleName || '',
       lastName: employee.lastName || '',
       title: employee.title || '',
+      gender: employee.gender || '',
+      ethnicity: employee.ethnicity || '',
+      dateOfBirth: dateInputValue(employee.dateOfBirth),
       email: employee.email || '',
       phoneNumber: employee.phoneNumber || '',
+      workPhone: employee.workPhone || '',
       jobTitle: employee.jobTitle || '',
       employeeType: employee.employeeType || 'EMPLOYEE',
       department: employee.department || '',
       niNumber: employee.niNumber || '',
-      startDate: employee.startDate ? employee.startDate.split('T')[0] : '',
+      startDate: dateInputValue(employee.startDate),
+      probationEndDate: dateInputValue(employee.probationEndDate),
+      address1: employee.address1 || '',
+      address2: employee.address2 || '',
+      address3: employee.address3 || '',
+      townCity: employee.townCity || '',
+      county: employee.county || '',
+      postcode: employee.postcode || '',
+      accountName: employee.accountName || '',
       bankName: employee.bankName || '',
+      bankBranch: employee.bankBranch || '',
       accountNumber: employee.accountNumber || '',
       sortCode: employee.sortCode || '',
+      salary: employee.salary !== undefined && employee.salary !== null ? String(employee.salary) : '',
+      salaryRate: employee.salaryRate || '',
+      paymentFrequency: employee.paymentFrequency || '',
+      salaryEffectiveFrom: dateInputValue(employee.salaryEffectiveFrom),
+      salaryReason: employee.salaryReason || '',
+      payrollNumber: employee.payrollNumber || '',
+      taxCode: employee.taxCode || '',
+      passportNumber: employee.passportNumber || '',
+      passportCountryOfIssue: employee.passportCountryOfIssue || '',
+      passportExpiryDate: dateInputValue(employee.passportExpiryDate),
+      licenceNumber: employee.licenceNumber || '',
+      licenceCountryOfIssue: employee.licenceCountryOfIssue || '',
+      licenceClass: employee.licenceClass || '',
+      licenceExpiryDate: dateInputValue(employee.licenceExpiryDate),
+      visaNumber: employee.visaNumber || '',
+      visaExpiryDate: dateInputValue(employee.visaExpiryDate),
       emergencyContactName: employee.emergencyContactName || '',
       emergencyContactPhone: employee.emergencyContactPhone || '',
       emergencyContactRelation: employee.emergencyContactRelation || '',
@@ -257,14 +463,24 @@ export default function Employees() {
 
   const closeAccountForm = () => setAccountForm(emptyAccountForm)
 
+  const updateEmployeeField = (id: keyof EmployeeFormData, value: string) => {
+    setEmployeeForm((current) => ({ ...current, [id]: value }))
+  }
+
+  const employeePayload = React.useMemo(() => {
+    return Object.fromEntries(
+      Object.entries(employeeForm).map(([key, value]) => [key, typeof value === 'string' ? value.trim() : value]),
+    )
+  }, [employeeForm])
+
   const handleEmployeeSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     try {
       if (editingEmployeeId) {
-        await apiPut(`/employees/${editingEmployeeId}`, employeeForm)
+        await apiPut(`/employees/${editingEmployeeId}`, employeePayload)
         setStatus('Employee record updated.')
       } else {
-        await apiPost('/employees', employeeForm)
+        await apiPost('/employees', employeePayload)
         setStatus('Employee record created.')
       }
       resetEmployeeForm()
@@ -447,29 +663,31 @@ export default function Employees() {
         </div>
       )}
 
-      {isElevated && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total People</div>
-            <div className="mt-2 text-2xl font-bold">{employees.length}</div>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Active Logins</div>
-            <div className="mt-2 text-2xl font-bold">{activeLoginCount}</div>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Missing Login</div>
-            <div className="mt-2 text-2xl font-bold">{missingAccountCount}</div>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Pending Reviews</div>
-            <div className="mt-2 text-2xl font-bold">{pendingReviews}</div>
-          </div>
-        </div>
-      )}
+      {!showEmployeeForm && (
+        <>
+          {isElevated && (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total People</div>
+                <div className="mt-2 text-2xl font-bold">{employees.length}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Active Logins</div>
+                <div className="mt-2 text-2xl font-bold">{activeLoginCount}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Missing Login</div>
+                <div className="mt-2 text-2xl font-bold">{missingAccountCount}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Pending Reviews</div>
+                <div className="mt-2 text-2xl font-bold">{pendingReviews}</div>
+              </div>
+            </div>
+          )}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
           <div className="flex flex-col gap-3 border-b border-slate-200 p-3 dark:border-slate-700 sm:flex-row">
             <label className="sr-only" htmlFor="people-search">Search people</label>
             <input
@@ -610,15 +828,22 @@ export default function Employees() {
 
               <dl className="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 dark:border-slate-700 sm:grid-cols-2 xl:grid-cols-1">
                 <Field label="Email" value={selectedEmployee.email} />
-                <Field label="Phone" value={selectedEmployee.phoneNumber || 'Not provided'} />
+                <Field label="Mobile" value={selectedEmployee.phoneNumber || 'Not provided'} />
+                <Field label="Work Phone" value={selectedEmployee.workPhone || 'Not provided'} />
                 <Field label="Start Date" value={formatDate(selectedEmployee.startDate)} />
+                <Field label="Probation End" value={formatDate(selectedEmployee.probationEndDate)} />
                 <Field label="Employee Type" value={selectedEmployee.employeeType || 'EMPLOYEE'} />
+                <Field label="Address" value={[selectedEmployee.address1, selectedEmployee.address2, selectedEmployee.townCity, selectedEmployee.postcode].filter(Boolean).join(', ') || 'Not provided'} />
                 {canViewSensitive && (
                   <>
+                    <Field label="Tax Code" value={selectedEmployee.taxCode || 'Not provided'} />
                     <Field label="NI Number" value={selectedEmployee.niNumber || 'Not provided'} />
                     <Field label="Bank" value={selectedEmployee.bankName || 'Not provided'} />
                     <Field label="Account" value={maskAccountNumber(selectedEmployee.accountNumber)} />
                     <Field label="Sort Code" value={selectedEmployee.sortCode || 'Not provided'} />
+                    <Field label="Salary" value={selectedEmployee.salary ? `£${Number(selectedEmployee.salary).toLocaleString()}` : 'Not provided'} />
+                    <Field label="Payroll" value={selectedEmployee.payrollNumber || 'Not provided'} />
+                    <Field label="Visa Expiry" value={formatDate(selectedEmployee.visaExpiryDate)} />
                   </>
                 )}
               </dl>
@@ -668,49 +893,155 @@ export default function Employees() {
             <div className="p-5 text-sm text-slate-600 dark:text-slate-400">No employee records found.</div>
           )}
         </aside>
-      </div>
+          </div>
+        </>
+      )}
 
       {showEmployeeForm && canManageEmployees && (
-        <section className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold">{editingEmployeeId ? 'Edit Employee Record' : 'New Employee Record'}</h3>
+        <section className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
+          <div className="mb-4 flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-slate-700 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-slate-950 dark:text-white">
+                {editingEmployeeId ? 'Edit Employee Record' : 'Add Employee'}
+              </h3>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                Complete the employment record once. Required fields are marked and the same sections are used for future edits.
+              </p>
+            </div>
             <button type="button" onClick={resetEmployeeForm} aria-label="Close employee form" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:hover:bg-slate-700">
               <HiXMark size={20} />
             </button>
           </div>
-          <form onSubmit={handleEmployeeSubmit} className="grid gap-4 md:grid-cols-2">
-            <input value={employeeForm.firstName} onChange={(event) => setEmployeeForm({ ...employeeForm, firstName: event.target.value })} placeholder="First Name *" required className="form-input" />
-            <input value={employeeForm.lastName} onChange={(event) => setEmployeeForm({ ...employeeForm, lastName: event.target.value })} placeholder="Last Name *" required className="form-input" />
-            <input value={employeeForm.title} onChange={(event) => setEmployeeForm({ ...employeeForm, title: event.target.value })} placeholder="Title" className="form-input" />
-            <input value={employeeForm.email} onChange={(event) => setEmployeeForm({ ...employeeForm, email: event.target.value })} placeholder="Email *" type="email" required className="form-input" />
-            <input value={employeeForm.phoneNumber} onChange={(event) => setEmployeeForm({ ...employeeForm, phoneNumber: event.target.value })} placeholder="Phone Number" className="form-input" />
-            <input value={employeeForm.jobTitle} onChange={(event) => setEmployeeForm({ ...employeeForm, jobTitle: event.target.value })} placeholder="Job Title *" required className="form-input" />
-            <select value={employeeForm.employeeType} onChange={(event) => setEmployeeForm({ ...employeeForm, employeeType: event.target.value })} className="form-input">
-              <option value="EMPLOYEE">Employee</option>
-              <option value="DIRECTOR">Director</option>
-            </select>
-            <input value={employeeForm.department} onChange={(event) => setEmployeeForm({ ...employeeForm, department: event.target.value })} placeholder="Department" className="form-input" />
-            <input value={employeeForm.niNumber} onChange={(event) => setEmployeeForm({ ...employeeForm, niNumber: event.target.value })} placeholder="NI Number" className="form-input" />
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Employment Start Date</label>
-              <input value={employeeForm.startDate} onChange={(event) => setEmployeeForm({ ...employeeForm, startDate: event.target.value })} type="date" className="form-input" />
-            </div>
-            <input value={employeeForm.bankName} onChange={(event) => setEmployeeForm({ ...employeeForm, bankName: event.target.value })} placeholder="Bank Name" className="form-input" />
-            <input value={employeeForm.accountNumber} onChange={(event) => setEmployeeForm({ ...employeeForm, accountNumber: event.target.value })} placeholder="Account Number" className="form-input" />
-            <input value={employeeForm.sortCode} onChange={(event) => setEmployeeForm({ ...employeeForm, sortCode: event.target.value })} placeholder="Sort Code" className="form-input" />
-            <input value={employeeForm.emergencyContactName} onChange={(event) => setEmployeeForm({ ...employeeForm, emergencyContactName: event.target.value })} placeholder="Emergency Contact Name" className="form-input" />
-            <input value={employeeForm.emergencyContactPhone} onChange={(event) => setEmployeeForm({ ...employeeForm, emergencyContactPhone: event.target.value })} placeholder="Emergency Contact Phone" className="form-input" />
-            <input value={employeeForm.emergencyContactRelation} onChange={(event) => setEmployeeForm({ ...employeeForm, emergencyContactRelation: event.target.value })} placeholder="Relationship" className="form-input" />
-            <input value={employeeForm.emergencyContactAddress} onChange={(event) => setEmployeeForm({ ...employeeForm, emergencyContactAddress: event.target.value })} placeholder="Emergency Contact Address" className="form-input md:col-span-2" />
-            <div className="flex gap-2 md:col-span-2">
-              <button type="submit" className="btn-primary min-h-10 flex-1 justify-center">{editingEmployeeId ? 'Update Employee' : 'Add Employee'}</button>
-              <button type="button" onClick={resetEmployeeForm} className="btn-ghost min-h-10">Cancel</button>
+
+          <form onSubmit={handleEmployeeSubmit} className="space-y-4">
+            <FormSection title="Basic details" description="Personal details, contact information, and employment dates.">
+              <EmployeeInput id="title" label="Title" value={employeeForm.title} onChange={updateEmployeeField} options={[
+                { value: '', label: 'Select title' },
+                { value: 'Mr', label: 'Mr' },
+                { value: 'Mrs', label: 'Mrs' },
+                { value: 'Miss', label: 'Miss' },
+                { value: 'Ms', label: 'Ms' },
+                { value: 'Dr', label: 'Dr' },
+                { value: 'Mx', label: 'Mx' },
+              ]} />
+              <EmployeeInput id="firstName" label="First name" value={employeeForm.firstName} onChange={updateEmployeeField} required placeholder="First name" />
+              <EmployeeInput id="middleName" label="Middle name" value={employeeForm.middleName} onChange={updateEmployeeField} placeholder="Middle name" />
+              <EmployeeInput id="lastName" label="Last name" value={employeeForm.lastName} onChange={updateEmployeeField} required placeholder="Last name" />
+              <EmployeeInput id="gender" label="Gender" value={employeeForm.gender} onChange={updateEmployeeField} options={[
+                { value: '', label: 'Unspecified' },
+                { value: 'Female', label: 'Female' },
+                { value: 'Male', label: 'Male' },
+                { value: 'Non-binary', label: 'Non-binary' },
+                { value: 'Prefer not to say', label: 'Prefer not to say' },
+              ]} />
+              <EmployeeInput id="ethnicity" label="Ethnicity" value={employeeForm.ethnicity} onChange={updateEmployeeField} options={[
+                { value: '', label: 'Unspecified' },
+                { value: 'Asian or Asian British', label: 'Asian or Asian British' },
+                { value: 'Black, Black British, Caribbean or African', label: 'Black, Black British, Caribbean or African' },
+                { value: 'Mixed or multiple ethnic groups', label: 'Mixed or multiple ethnic groups' },
+                { value: 'White', label: 'White' },
+                { value: 'Other ethnic group', label: 'Other ethnic group' },
+                { value: 'Prefer not to say', label: 'Prefer not to say' },
+              ]} />
+              <EmployeeInput id="dateOfBirth" label="Date of birth" value={employeeForm.dateOfBirth} onChange={updateEmployeeField} type="date" />
+              <EmployeeInput id="email" label="Email address" value={employeeForm.email} onChange={updateEmployeeField} type="email" required placeholder="name@example.com" />
+              <EmployeeInput id="phoneNumber" label="Mobile number" value={employeeForm.phoneNumber} onChange={updateEmployeeField} type="tel" inputMode="tel" placeholder="Mobile number" />
+              <EmployeeInput id="workPhone" label="Work phone" value={employeeForm.workPhone} onChange={updateEmployeeField} type="tel" inputMode="tel" placeholder="Work phone" />
+              <EmployeeInput id="jobTitle" label="Job title" value={employeeForm.jobTitle} onChange={updateEmployeeField} required placeholder="Job title" />
+              <EmployeeInput id="employeeType" label="Employee type" value={employeeForm.employeeType} onChange={updateEmployeeField} options={[
+                { value: 'EMPLOYEE', label: 'Employee' },
+                { value: 'DIRECTOR', label: 'Director' },
+              ]} />
+              <EmployeeInput id="department" label="Department" value={employeeForm.department} onChange={updateEmployeeField} placeholder="Department" />
+              <EmployeeInput id="startDate" label="Employment start date" value={employeeForm.startDate} onChange={updateEmployeeField} type="date" required />
+              <EmployeeInput id="probationEndDate" label="Probation end date" value={employeeForm.probationEndDate} onChange={updateEmployeeField} type="date" />
+            </FormSection>
+
+            <FormSection title="Address details">
+              <EmployeeInput id="address1" label="Address 1" value={employeeForm.address1} onChange={updateEmployeeField} placeholder="Address 1" />
+              <EmployeeInput id="address2" label="Address 2" value={employeeForm.address2} onChange={updateEmployeeField} placeholder="Address 2" />
+              <EmployeeInput id="address3" label="Address 3" value={employeeForm.address3} onChange={updateEmployeeField} placeholder="Address 3" />
+              <EmployeeInput id="townCity" label="Town/City" value={employeeForm.townCity} onChange={updateEmployeeField} placeholder="Town or city" />
+              <EmployeeInput id="county" label="County" value={employeeForm.county} onChange={updateEmployeeField} placeholder="County" />
+              <EmployeeInput id="postcode" label="Postcode" value={employeeForm.postcode} onChange={updateEmployeeField} placeholder="Postcode" />
+            </FormSection>
+
+            <FormSection title="Emergency contact" description="Used only if HR needs to contact someone in an emergency.">
+              <EmployeeInput id="emergencyContactName" label="Contact name" value={employeeForm.emergencyContactName} onChange={updateEmployeeField} placeholder="Full name" />
+              <EmployeeInput id="emergencyContactPhone" label="Contact phone" value={employeeForm.emergencyContactPhone} onChange={updateEmployeeField} type="tel" inputMode="tel" placeholder="Phone number" />
+              <EmployeeInput id="emergencyContactRelation" label="Relationship" value={employeeForm.emergencyContactRelation} onChange={updateEmployeeField} placeholder="Relationship" />
+              <EmployeeInput id="emergencyContactAddress" label="Contact address" value={employeeForm.emergencyContactAddress} onChange={updateEmployeeField} placeholder="Address" />
+            </FormSection>
+
+            <FormSection title="Bank details">
+              <EmployeeInput id="accountName" label="Name on account" value={employeeForm.accountName} onChange={updateEmployeeField} placeholder="Account name" helper="Maximum 60 characters." maxLength={60} />
+              <EmployeeInput id="bankName" label="Name of bank" value={employeeForm.bankName} onChange={updateEmployeeField} placeholder="Bank name" helper="Maximum 60 characters." maxLength={60} />
+              <EmployeeInput id="bankBranch" label="Bank branch" value={employeeForm.bankBranch} onChange={updateEmployeeField} placeholder="Bank branch" helper="Bank branch location." />
+              <EmployeeInput id="accountNumber" label="Account number" value={employeeForm.accountNumber} onChange={updateEmployeeField} placeholder="8 digit number" helper="8 digit number." inputMode="numeric" maxLength={8} />
+              <EmployeeInput id="sortCode" label="Sort code" value={employeeForm.sortCode} onChange={updateEmployeeField} placeholder="00-00-00" helper="Example: 00-00-00." maxLength={8} />
+            </FormSection>
+
+            <FormSection title="Salary details">
+              <EmployeeInput id="salary" label="Salary" value={employeeForm.salary} onChange={updateEmployeeField} type="number" inputMode="decimal" placeholder="0" />
+              <EmployeeInput id="salaryRate" label="Rate" value={employeeForm.salaryRate} onChange={updateEmployeeField} options={[
+                { value: '', label: 'Select rate' },
+                { value: 'Annual', label: 'Annual' },
+                { value: 'Monthly', label: 'Monthly' },
+                { value: 'Daily', label: 'Daily' },
+                { value: 'Hourly', label: 'Hourly' },
+              ]} />
+              <EmployeeInput id="paymentFrequency" label="Payment frequency" value={employeeForm.paymentFrequency} onChange={updateEmployeeField} options={[
+                { value: '', label: 'Select frequency' },
+                { value: 'Weekly', label: 'Weekly' },
+                { value: 'Fortnightly', label: 'Fortnightly' },
+                { value: 'Monthly', label: 'Monthly' },
+              ]} />
+              <EmployeeInput id="salaryEffectiveFrom" label="Effective from" value={employeeForm.salaryEffectiveFrom} onChange={updateEmployeeField} type="date" />
+              <EmployeeInput id="salaryReason" label="Reason" value={employeeForm.salaryReason} onChange={updateEmployeeField} options={[
+                { value: '', label: 'Select reason' },
+                { value: 'New starter', label: 'New starter' },
+                { value: 'Promotion', label: 'Promotion' },
+                { value: 'Annual review', label: 'Annual review' },
+                { value: 'Contract change', label: 'Contract change' },
+              ]} />
+              <EmployeeInput id="payrollNumber" label="Payroll number" value={employeeForm.payrollNumber} onChange={updateEmployeeField} placeholder="ABC123" />
+            </FormSection>
+
+            <FormSection title="Sensitive details" description="Tax, identity, licence, and right-to-work information. Access is restricted.">
+              <div className="md:col-span-2">
+                <h5 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Tax, NI and eligibility information</h5>
+              </div>
+              <EmployeeInput id="taxCode" label="Tax code" value={employeeForm.taxCode} onChange={updateEmployeeField} placeholder="Tax code" />
+              <EmployeeInput id="niNumber" label="NI number" value={employeeForm.niNumber} onChange={updateEmployeeField} placeholder="NI number" />
+              <div className="md:col-span-2">
+                <h5 className="pt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Passport</h5>
+              </div>
+              <EmployeeInput id="passportNumber" label="Passport number" value={employeeForm.passportNumber} onChange={updateEmployeeField} placeholder="Passport number" />
+              <EmployeeInput id="passportCountryOfIssue" label="Country of issue" value={employeeForm.passportCountryOfIssue} onChange={updateEmployeeField} placeholder="Country of issue" />
+              <EmployeeInput id="passportExpiryDate" label="Passport expiry date" value={employeeForm.passportExpiryDate} onChange={updateEmployeeField} type="date" />
+              <div className="md:col-span-2">
+                <h5 className="pt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Driving licence</h5>
+              </div>
+              <EmployeeInput id="licenceNumber" label="Licence number" value={employeeForm.licenceNumber} onChange={updateEmployeeField} placeholder="Licence number" />
+              <EmployeeInput id="licenceCountryOfIssue" label="Country of issue" value={employeeForm.licenceCountryOfIssue} onChange={updateEmployeeField} placeholder="Country of issue" />
+              <EmployeeInput id="licenceClass" label="Licence class" value={employeeForm.licenceClass} onChange={updateEmployeeField} placeholder="Licence class" />
+              <EmployeeInput id="licenceExpiryDate" label="Date of expiry" value={employeeForm.licenceExpiryDate} onChange={updateEmployeeField} type="date" />
+              <div className="md:col-span-2">
+                <h5 className="pt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Visa</h5>
+              </div>
+              <EmployeeInput id="visaNumber" label="Visa number" value={employeeForm.visaNumber} onChange={updateEmployeeField} placeholder="Visa number" />
+              <EmployeeInput id="visaExpiryDate" label="Visa expiry date" value={employeeForm.visaExpiryDate} onChange={updateEmployeeField} type="date" />
+            </FormSection>
+
+            <div className="sticky bottom-0 z-10 -mx-4 -mb-4 flex flex-col gap-2 border-t border-slate-200 bg-white/95 p-4 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:flex-row">
+              <button type="submit" className="btn-primary min-h-11 flex-1 justify-center">{editingEmployeeId ? 'Update Employee' : 'Add Employee'}</button>
+              <button type="button" onClick={resetEmployeeForm} className="btn-ghost min-h-11 justify-center">Cancel</button>
             </div>
           </form>
         </section>
       )}
 
-      {accountForm.email && canManageAccounts && (
+      {!showEmployeeForm && accountForm.email && canManageAccounts && (
         <section className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold">{accountForm.id ? 'Edit Account' : 'New Account'}</h3>

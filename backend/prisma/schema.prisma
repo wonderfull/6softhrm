@@ -22,21 +22,57 @@ model User {
 model Employee {
   id           Int       @id @default(autoincrement())
   firstName    String
+  middleName   String?
   lastName     String
   title        String? // Mr, Mrs, Dr, etc.
+  gender       String?
+  ethnicity    String?
+  dateOfBirth  DateTime?
   email        String    @unique
   phoneNumber  String?
+  workPhone    String?
   niNumber     String? // National Insurance placeholder
   jobTitle     String?
   employeeType String    @default("EMPLOYEE") // EMPLOYEE or DIRECTOR
   department   String?
   startDate    DateTime?
   endDate      DateTime?
+  probationEndDate DateTime?
+
+  // Address Details
+  address1 String?
+  address2 String?
+  address3 String?
+  townCity String?
+  county   String?
+  postcode String?
 
   // Bank Details
+  accountName   String?
   bankName      String?
+  bankBranch    String?
   accountNumber String?
   sortCode      String?
+
+  // Salary Details
+  salary              Float?
+  salaryRate          String?
+  paymentFrequency    String?
+  salaryEffectiveFrom DateTime?
+  salaryReason        String?
+  payrollNumber       String?
+
+  // Sensitive Identity and Eligibility Details
+  taxCode               String?
+  passportNumber        String?
+  passportCountryOfIssue String?
+  passportExpiryDate    DateTime?
+  licenceNumber         String?
+  licenceCountryOfIssue String?
+  licenceClass          String?
+  licenceExpiryDate     DateTime?
+  visaNumber            String?
+  visaExpiryDate        DateTime?
 
   // Emergency Contact Information
   emergencyContactName     String?

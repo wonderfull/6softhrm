@@ -35,11 +35,54 @@ function redactSensitiveEmployeeFields(employee: any) {
   return {
     ...normalizeEmployeeUserRole(employee),
     niNumber: null,
+    taxCode: null,
     bankName: null,
+    accountName: null,
     accountNumber: null,
     sortCode: null,
+    salary: null,
+    salaryRate: null,
+    paymentFrequency: null,
+    salaryEffectiveFrom: null,
+    salaryReason: null,
+    payrollNumber: null,
+    passportNumber: null,
+    passportCountryOfIssue: null,
+    passportExpiryDate: null,
+    licenceNumber: null,
+    licenceCountryOfIssue: null,
+    licenceClass: null,
+    licenceExpiryDate: null,
+    visaNumber: null,
+    visaExpiryDate: null,
     emergencyContactAddress: null,
   }
+}
+
+function normalizeEmployeePayload(data: any) {
+  const dateFields = [
+    'startDate',
+    'endDate',
+    'dateOfBirth',
+    'probationEndDate',
+    'salaryEffectiveFrom',
+    'passportExpiryDate',
+    'licenceExpiryDate',
+    'visaExpiryDate',
+  ]
+
+  for (const field of dateFields) {
+    if (data[field] && data[field] !== '') {
+      data[field] = new Date(data[field])
+    } else if (data[field] === '') {
+      data[field] = null
+    }
+  }
+
+  if (data.salary === '') data.salary = null
+  if (data.salary !== undefined && data.salary !== null) data.salary = Number(data.salary)
+
+  return data
 }
 
 router.get('/', requireAuth, async (req: any, res) => {
@@ -108,22 +151,8 @@ router.get('/', requireAuth, async (req: any, res) => {
 })
 
 router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
-  const data = req.body
+  const data = normalizeEmployeePayload(req.body)
   try {
-    // Convert startDate to DateTime if provided, otherwise set to undefined
-    if (data.startDate && data.startDate !== '') {
-      data.startDate = new Date(data.startDate)
-    } else {
-      data.startDate = undefined
-    }
-
-    // Convert endDate to DateTime if provided
-    if (data.endDate && data.endDate !== '') {
-      data.endDate = new Date(data.endDate)
-    } else {
-      data.endDate = undefined
-    }
-
     const emp = await prisma.employee.create({ data })
     await auditLog(req, 'CREATE', 'Employee', emp.id, {
       firstName: emp.firstName,
@@ -148,21 +177,8 @@ router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any,
 
 router.put('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
   const { id } = req.params
-  const data = req.body
+  const data = normalizeEmployeePayload(req.body)
   try {
-    // Convert dates
-    if (data.startDate && data.startDate !== '') {
-      data.startDate = new Date(data.startDate)
-    } else if (data.startDate === '') {
-      data.startDate = null
-    }
-
-    if (data.endDate && data.endDate !== '') {
-      data.endDate = new Date(data.endDate)
-    } else if (data.endDate === '') {
-      data.endDate = null
-    }
-
     const emp = await prisma.employee.update({
       where: { id: parseInt(id) },
       data
@@ -216,14 +232,26 @@ router.get('/export/excel', requireAuth, async (req: any, res) => {
       'Last Name': emp.lastName,
       'Email': emp.email,
       'Phone': emp.phoneNumber || '',
+      'Work Phone': emp.workPhone || '',
       'Job Title': emp.jobTitle,
       'Department': emp.department || '',
       'Employee Type': emp.employeeType,
+      'Date of Birth': emp.dateOfBirth ? new Date(emp.dateOfBirth).toLocaleDateString() : '',
       'NI Number': emp.niNumber || '',
       'Start Date': emp.startDate ? new Date(emp.startDate).toLocaleDateString() : '',
+      'Probation End Date': emp.probationEndDate ? new Date(emp.probationEndDate).toLocaleDateString() : '',
+      'Address 1': emp.address1 || '',
+      'Address 2': emp.address2 || '',
+      'Town/City': emp.townCity || '',
+      'Postcode': emp.postcode || '',
+      'Account Name': emp.accountName || '',
       'Bank Name': emp.bankName || '',
+      'Bank Branch': emp.bankBranch || '',
       'Sort Code': emp.sortCode || '',
       'Account Number': emp.accountNumber || '',
+      'Salary': emp.salary ?? '',
+      'Payment Frequency': emp.paymentFrequency || '',
+      'Payroll Number': emp.payrollNumber || '',
       'Emergency Contact Name': emp.emergencyContactName || '',
       'Emergency Contact Phone': emp.emergencyContactPhone || '',
       'Emergency Contact Relation': emp.emergencyContactRelation || '',
