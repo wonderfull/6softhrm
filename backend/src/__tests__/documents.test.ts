@@ -305,6 +305,9 @@ describe('Documents API', () => {
   describe('GET /documents/:id/file', () => {
     it('should allow an authenticated admin to fetch a document file', async () => {
       const uploadsDir = path.join(process.cwd(), 'uploads')
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true })
+      }
       const testFilePath = path.join(uploadsDir, 'test-open.pdf')
       fs.writeFileSync(testFilePath, 'Open content')
 
@@ -328,8 +331,41 @@ describe('Documents API', () => {
       fs.unlinkSync(testFilePath)
     })
 
+    it('serves previewable documents inline when requested', async () => {
+      const uploadsDir = path.join(process.cwd(), 'uploads')
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true })
+      }
+      const testFilePath = path.join(uploadsDir, 'test-preview.pdf')
+      fs.writeFileSync(testFilePath, 'Preview content')
+
+      const doc = await prisma.document.create({
+        data: {
+          employeeId: testEmployeeId,
+          name: 'Preview Test.pdf',
+          path: '/uploads/test-preview.pdf',
+          type: 'CONTRACT'
+        }
+      })
+
+      const response = await request(app)
+        .get(`/api/documents/${doc.id}/file?disposition=inline`)
+        .set('Authorization', userToken)
+
+      expect(response.status).toBe(200)
+      expect(response.headers['content-type']).toContain('application/pdf')
+      expect(response.headers['content-disposition']).toContain('inline')
+      expect(response.headers['content-disposition']).toContain('Preview Test.pdf')
+
+      await prisma.document.delete({ where: { id: doc.id } })
+      fs.unlinkSync(testFilePath)
+    })
+
     it('allows office assistants to download employee documents', async () => {
       const uploadsDir = path.join(process.cwd(), 'uploads')
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true })
+      }
       const testFilePath = path.join(uploadsDir, 'test-office-download.pdf')
       fs.writeFileSync(testFilePath, 'Office download content')
 

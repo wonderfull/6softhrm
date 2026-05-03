@@ -33,6 +33,18 @@ function buildSharedUrl(shareToken?: string | null) {
   return `${base}/documents/share/${shareToken}`
 }
 
+function getDocumentExtension(documentName: string, documentPath?: string | null) {
+  const source = documentName || documentPath || ''
+  return source.split('.').pop()?.toLowerCase() || ''
+}
+
+function getPreviewKind(documentName: string, documentPath?: string | null) {
+  const extension = getDocumentExtension(documentName, documentPath)
+  if (extension === 'pdf') return 'pdf'
+  if (['png', 'jpg', 'jpeg'].includes(extension)) return 'image'
+  return 'unsupported'
+}
+
 export default function Documents() {
   const [items, setItems] = React.useState<any[]>([])
   const [file, setFile] = React.useState<File | null>(null)
@@ -50,6 +62,11 @@ export default function Documents() {
   const [openDocumentId, setOpenDocumentId] = React.useState<number | null>(null)
   const [shareDocumentId, setShareDocumentId] = React.useState<number | null>(null)
   const [uploadingPayslips, setUploadingPayslips] = React.useState(false)
+  const [preview, setPreview] = React.useState<{
+    document: any
+    url: string | null
+    kind: 'pdf' | 'image' | 'unsupported'
+  } | null>(null)
 
   const user = getCurrentUser()
   const isElevated = hasRole(user, 'ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT')
@@ -112,33 +129,62 @@ export default function Documents() {
     }
   }
 
-  async function handleOpenDocument(documentId: number, documentName: string) {
-    try {
-      setOpenDocumentId(documentId)
-      const token = localStorage.getItem('token')
-      const res = await fetch(`${API_BASE_URL}/documents/${documentId}/file`, {
-        method: 'GET',
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        return alert(`Open failed: ${res.status} ${text}`)
-      }
+  function closePreview() {
+    if (preview?.url) {
+      window.URL.revokeObjectURL(preview.url)
+    }
+    setPreview(null)
+  }
 
-      const blob = await res.blob()
+  async function fetchDocumentBlob(documentId: number, disposition: 'inline' | 'attachment') {
+    const token = localStorage.getItem('token')
+    const suffix = disposition === 'inline' ? '?disposition=inline' : ''
+    const res = await fetch(`${API_BASE_URL}/documents/${documentId}/file${suffix}`, {
+      method: 'GET',
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(`${res.status} ${text}`)
+    }
+
+    return res.blob()
+  }
+
+  async function handlePreviewDocument(document: any) {
+    const kind = getPreviewKind(document.name, document.path)
+    if (kind === 'unsupported') {
+      setPreview({ document, url: null, kind })
+      return
+    }
+
+    try {
+      setOpenDocumentId(document.id)
+      const blob = await fetchDocumentBlob(document.id, 'inline')
       const url = window.URL.createObjectURL(blob)
-      const opened = window.open(url, '_blank', 'noopener,noreferrer')
-      if (!opened) {
-        const a = document.createElement('a')
-        a.href = url
-        a.download = documentName
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-      }
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+      setPreview({ document, url, kind })
     } catch (e: any) {
-      alert('Open failed: ' + (e.message || e))
+      alert('Preview failed: ' + (e.message || e))
+    } finally {
+      setOpenDocumentId(null)
+    }
+  }
+
+  async function handleDownloadDocument(document: any) {
+    try {
+      setOpenDocumentId(document.id)
+      const blob = await fetchDocumentBlob(document.id, 'attachment')
+      const url = window.URL.createObjectURL(blob)
+      const a = window.document.createElement('a')
+      a.href = url
+      a.download = document.name
+      window.document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e: any) {
+      alert('Download failed: ' + (e.message || e))
     } finally {
       setOpenDocumentId(null)
     }
@@ -250,6 +296,45 @@ export default function Documents() {
   return (
     <div>
       <h2 className="text-2xl font-semibold mb-4">{isElevated ? 'Documents' : 'My Documents'}</h2>
+
+      {preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-label={`Preview ${preview.document.name}`}>
+          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-700">
+              <div>
+                <div className="text-lg font-semibold text-slate-900 dark:text-white">{preview.document.name}</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  {preview.kind === 'unsupported' ? 'Preview unavailable' : 'Secure document preview'}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700" onClick={() => handleDownloadDocument(preview.document)}>
+                  Download {preview.document.name}
+                </button>
+                <button type="button" className="rounded bg-slate-200 px-3 py-2 text-sm text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600" onClick={closePreview}>
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="min-h-[420px] overflow-auto bg-slate-100 p-4 dark:bg-slate-950">
+              {preview.kind === 'pdf' && preview.url && (
+                <iframe title={preview.document.name} src={preview.url} className="h-[70vh] w-full rounded border border-slate-200 bg-white dark:border-slate-700" />
+              )}
+              {preview.kind === 'image' && preview.url && (
+                <img src={preview.url} alt={preview.document.name} className="mx-auto max-h-[70vh] max-w-full rounded bg-white object-contain" />
+              )}
+              {preview.kind === 'unsupported' && (
+                <div className="flex min-h-[360px] flex-col items-center justify-center rounded border border-dashed border-slate-300 bg-white p-8 text-center dark:border-slate-700 dark:bg-slate-900">
+                  <div className="text-lg font-semibold text-slate-900 dark:text-white">Preview is not available for this file type</div>
+                  <p className="mt-2 max-w-md text-sm text-slate-600 dark:text-slate-400">
+                    Word documents need to be opened in a compatible desktop or browser application. Download the original file to view it.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isElevated && (
         <section className="mb-8 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-5">
@@ -585,10 +670,20 @@ export default function Documents() {
                   <button
                     type="button"
                     className="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                    onClick={() => handleOpenDocument(d.id, d.name)}
+                    onClick={() => handlePreviewDocument(d)}
                     disabled={openDocumentId === d.id}
+                    aria-label={`Preview ${d.name}`}
                   >
-                    {openDocumentId === d.id ? 'Opening...' : 'Open'}
+                    {openDocumentId === d.id ? 'Loading...' : 'Preview'}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-sm px-3 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded transition-colors"
+                    onClick={() => handleDownloadDocument(d)}
+                    disabled={openDocumentId === d.id}
+                    aria-label={`Download ${d.name}`}
+                  >
+                    Download
                   </button>
                   {canManageDocumentLinks && (
                     <button

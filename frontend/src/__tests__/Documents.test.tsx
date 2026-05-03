@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Documents from '../pages/Documents'
 import * as api from '../lib/api'
@@ -311,6 +311,71 @@ describe('Documents Page', () => {
     })
   })
 
+  it('previews a PDF document inline', async () => {
+    mockedUser = { role: 'USER', email: 'john@test.com', employeeId: 1 }
+    localStorage.setItem('token', makeToken({ role: 'USER', email: 'john@test.com', employeeId: 1 }))
+    const mockRes = { ok: true, blob: async () => new Blob(['pdf content'], { type: 'application/pdf' }) }
+    const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockResolvedValue(mockRes as any)
+    const objectUrlSpy = vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:preview-url')
+
+    renderDocuments()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Preview Contract.pdf/i }))
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/documents\/1\/file\?disposition=inline$/),
+        expect.objectContaining({ method: 'GET' }),
+      )
+      expect(screen.getByTitle('Contract.pdf')).toHaveAttribute('src', 'blob:preview-url')
+    })
+
+    fetchSpy.mockRestore()
+    objectUrlSpy.mockRestore()
+  })
+
+  it('downloads a document with the original file name', async () => {
+    mockedUser = { role: 'USER', email: 'john@test.com', employeeId: 1 }
+    localStorage.setItem('token', makeToken({ role: 'USER', email: 'john@test.com', employeeId: 1 }))
+    const mockRes = { ok: true, blob: async () => new Blob(['pdf content'], { type: 'application/pdf' }) }
+    const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockResolvedValue(mockRes as any)
+    const objectUrlSpy = vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:download-url')
+
+    renderDocuments()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Download Contract.pdf/i }))
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/documents\/1\/file$/),
+        expect.objectContaining({ method: 'GET' }),
+      )
+    })
+
+    fetchSpy.mockRestore()
+    objectUrlSpy.mockRestore()
+  })
+
+  it('shows a download-only state for Word documents', async () => {
+    mockedUser = { role: 'USER', email: 'john@test.com', employeeId: 1 }
+    localStorage.setItem('token', makeToken({ role: 'USER', email: 'john@test.com', employeeId: 1 }))
+    ;(api.apiGet as any).mockImplementation((endpoint: string) => {
+      if (endpoint === '/documents') {
+        return Promise.resolve([{ ...mockDocuments[0], id: 4, name: 'Policy.docx', path: '/uploads/policy.docx' }])
+      }
+      if (endpoint === '/employees') return Promise.resolve(mockEmployees)
+      return Promise.resolve([])
+    })
+
+    renderDocuments()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Preview Policy.docx/i }))
+
+    const dialog = await screen.findByRole('dialog', { name: /Preview Policy.docx/i })
+    expect(within(dialog).getByText(/Preview is not available for this file type/i)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /Download Policy.docx/i })).toBeInTheDocument()
+  })
+
   it('hides share and delete controls from office assistants', async () => {
     mockedUser = { role: 'OFFICE_ASSISTANT', email: 'assistant@example.com' }
     localStorage.setItem('token', makeToken({ role: 'OFFICE_ASSISTANT', email: 'assistant@example.com' }))
@@ -322,7 +387,8 @@ describe('Documents Page', () => {
       expect(screen.getByText(/Contract.pdf/i)).toBeInTheDocument()
     })
 
-    expect(screen.getAllByRole('button', { name: /Open/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /Preview/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /Download/i }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /Create Share Link/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Copy Share Link/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Delete/i })).not.toBeInTheDocument()

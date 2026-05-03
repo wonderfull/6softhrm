@@ -124,6 +124,12 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
       return res.status(404).json({ error: 'File not found' })
     }
 
+    if (req.query.disposition === 'inline') {
+      res.type(path.extname(filePath))
+      res.setHeader('Content-Disposition', `inline; filename="${document.name}"`)
+      return res.sendFile(filePath)
+    }
+
     res.download(filePath, document.name)
   } catch (e: any) {
     res.status(400).json({ error: e.message })
