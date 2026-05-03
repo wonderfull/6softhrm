@@ -334,6 +334,43 @@ describe('Documents Page', () => {
     objectUrlSpy.mockRestore()
   })
 
+  it('previews a PDF when the display name has no extension but the stored path does', async () => {
+    mockedUser = { role: 'USER', email: 'john@test.com', employeeId: 1 }
+    localStorage.setItem('token', makeToken({ role: 'USER', email: 'john@test.com', employeeId: 1 }))
+    ;(api.apiGet as any).mockImplementation((endpoint: string) => {
+      if (endpoint === '/documents') {
+        return Promise.resolve([{
+          ...mockDocuments[0],
+          id: 5,
+          name: '6 SOFT LIMITED - Employee Payslip for Mar-2026 for YESUBABU DANDABATHINA',
+          path: '/uploads/1710000000000-6-soft-limited-payslip-mar-2026.pdf',
+          type: 'PAYSLIP',
+        }])
+      }
+      if (endpoint === '/employees') return Promise.resolve(mockEmployees)
+      return Promise.resolve([])
+    })
+    const mockRes = { ok: true, blob: async () => new Blob(['pdf content'], { type: 'application/pdf' }) }
+    const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockResolvedValue(mockRes as any)
+    const objectUrlSpy = vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:payslip-preview-url')
+
+    renderDocuments()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Preview 6 SOFT LIMITED/i }))
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/documents\/5\/file\?disposition=inline$/),
+        expect.objectContaining({ method: 'GET' }),
+      )
+      expect(screen.getByTitle(/6 SOFT LIMITED - Employee Payslip/i)).toHaveAttribute('src', 'blob:payslip-preview-url')
+    })
+    expect(screen.queryByText(/Preview is not available for this file type/i)).not.toBeInTheDocument()
+
+    fetchSpy.mockRestore()
+    objectUrlSpy.mockRestore()
+  })
+
   it('downloads a document with the original file name', async () => {
     mockedUser = { role: 'USER', email: 'john@test.com', employeeId: 1 }
     localStorage.setItem('token', makeToken({ role: 'USER', email: 'john@test.com', employeeId: 1 }))
@@ -356,7 +393,7 @@ describe('Documents Page', () => {
     objectUrlSpy.mockRestore()
   })
 
-  it('shows a download-only state for Word documents', async () => {
+  it('opens Word documents in the preview frame instead of showing unsupported file type', async () => {
     mockedUser = { role: 'USER', email: 'john@test.com', employeeId: 1 }
     localStorage.setItem('token', makeToken({ role: 'USER', email: 'john@test.com', employeeId: 1 }))
     ;(api.apiGet as any).mockImplementation((endpoint: string) => {
@@ -366,14 +403,21 @@ describe('Documents Page', () => {
       if (endpoint === '/employees') return Promise.resolve(mockEmployees)
       return Promise.resolve([])
     })
+    const mockRes = { ok: true, blob: async () => new Blob(['docx content'], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }) }
+    const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockResolvedValue(mockRes as any)
+    const objectUrlSpy = vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:docx-preview-url')
 
     renderDocuments()
 
     fireEvent.click(await screen.findByRole('button', { name: /Preview Policy.docx/i }))
 
     const dialog = await screen.findByRole('dialog', { name: /Preview Policy.docx/i })
-    expect(within(dialog).getByText(/Preview is not available for this file type/i)).toBeInTheDocument()
+    expect(within(dialog).getByTitle('Policy.docx')).toHaveAttribute('src', 'blob:docx-preview-url')
+    expect(within(dialog).queryByText(/Preview is not available for this file type/i)).not.toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: /Download Policy.docx/i })).toBeInTheDocument()
+
+    fetchSpy.mockRestore()
+    objectUrlSpy.mockRestore()
   })
 
   it('hides share and delete controls from office assistants', async () => {

@@ -33,15 +33,20 @@ function buildSharedUrl(shareToken?: string | null) {
   return `${base}/documents/share/${shareToken}`
 }
 
-function getDocumentExtension(documentName: string, documentPath?: string | null) {
-  const source = documentName || documentPath || ''
-  return source.split('.').pop()?.toLowerCase() || ''
+function getDocumentExtension(documentName?: string | null, documentPath?: string | null) {
+  for (const source of [documentName, documentPath]) {
+    const fileName = (source || '').split('/').pop() || ''
+    const match = fileName.match(/\.([a-z0-9]+)$/i)
+    if (match) return match[1].toLowerCase()
+  }
+  return ''
 }
 
-function getPreviewKind(documentName: string, documentPath?: string | null) {
+function getPreviewKind(documentName?: string | null, documentPath?: string | null) {
   const extension = getDocumentExtension(documentName, documentPath)
   if (extension === 'pdf') return 'pdf'
   if (['png', 'jpg', 'jpeg'].includes(extension)) return 'image'
+  if (['doc', 'docx'].includes(extension)) return 'document'
   return 'unsupported'
 }
 
@@ -65,7 +70,7 @@ export default function Documents() {
   const [preview, setPreview] = React.useState<{
     document: any
     url: string | null
-    kind: 'pdf' | 'image' | 'unsupported'
+    kind: 'pdf' | 'image' | 'document' | 'unsupported'
   } | null>(null)
 
   const user = getCurrentUser()
@@ -317,7 +322,7 @@ export default function Documents() {
               </div>
             </div>
             <div className="min-h-[420px] overflow-auto bg-slate-100 p-4 dark:bg-slate-950">
-              {preview.kind === 'pdf' && preview.url && (
+              {(preview.kind === 'pdf' || preview.kind === 'document') && preview.url && (
                 <iframe title={preview.document.name} src={preview.url} className="h-[70vh] w-full rounded border border-slate-200 bg-white dark:border-slate-700" />
               )}
               {preview.kind === 'image' && preview.url && (
@@ -327,7 +332,7 @@ export default function Documents() {
                 <div className="flex min-h-[360px] flex-col items-center justify-center rounded border border-dashed border-slate-300 bg-white p-8 text-center dark:border-slate-700 dark:bg-slate-900">
                   <div className="text-lg font-semibold text-slate-900 dark:text-white">Preview is not available for this file type</div>
                   <p className="mt-2 max-w-md text-sm text-slate-600 dark:text-slate-400">
-                    Word documents need to be opened in a compatible desktop or browser application. Download the original file to view it.
+                    Download the original file to view it in a compatible desktop or browser application.
                   </p>
                 </div>
               )}
