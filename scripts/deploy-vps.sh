@@ -29,24 +29,26 @@ rm -rf "${HRM_FRONTEND_ROOT:?}"/*
 cp -r dist/* "$HRM_FRONTEND_ROOT/"
 chown -R www-data:www-data "$HRM_FRONTEND_ROOT"
 
-echo "[deploy] updating main website repo"
-cd "$MAIN_REPO_DIR"
-git fetch origin
-git checkout main
-git pull --ff-only origin main
+if [ "${DEPLOY_MAIN_SITE:-1}" = "1" ]; then
+  echo "[deploy] updating main website repo"
+  cd "$MAIN_REPO_DIR"
+  git fetch origin
+  git checkout main
+  git pull --ff-only origin main
 
-# The website repo currently contains Linux case-sensitive import mismatches.
-sed -i 's|"\./pages/about"|"./pages/About"|g' src/App.tsx
-sed -i 's|"\./pages/Contact"|"./pages/contact"|g' src/App.tsx
+  # The website repo currently contains Linux case-sensitive import mismatches.
+  sed -i 's|"\./pages/about"|"./pages/About"|g' src/App.tsx
+  sed -i 's|"\./pages/Contact"|"./pages/contact"|g' src/App.tsx
 
-rm -rf node_modules package-lock.json
-npm install
-npm install -D @rollup/rollup-linux-x64-gnu
-npm run build
+  rm -rf node_modules package-lock.json
+  npm install
+  npm install -D @rollup/rollup-linux-x64-gnu
+  npm run build
 
-rm -rf "${MAIN_SITE_ROOT:?}"/*
-cp -r dist/* "$MAIN_SITE_ROOT/"
-chown -R www-data:www-data "$MAIN_SITE_ROOT"
+  rm -rf "${MAIN_SITE_ROOT:?}"/*
+  cp -r dist/* "$MAIN_SITE_ROOT/"
+  chown -R www-data:www-data "$MAIN_SITE_ROOT"
+fi
 
 echo "[deploy] reloading nginx"
 nginx -t
