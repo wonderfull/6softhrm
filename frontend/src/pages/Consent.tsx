@@ -66,6 +66,14 @@ const CONSENT_TYPES: ConsentType[] = [
   }
 ]
 
+function getArrayPayload<T>(payload: T[] | { data?: T[] } | unknown): T[] {
+  if (Array.isArray(payload)) return payload
+  if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: T[] }).data)) {
+    return (payload as { data: T[] }).data
+  }
+  return []
+}
+
 const Consent: React.FC = () => {
   const [consents, setConsents] = useState<ConsentRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -88,7 +96,8 @@ const Consent: React.FC = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       )
 
-      const employee = employeesResponse.data.find((e: any) => e.email === userEmail)
+      const employees = getArrayPayload<any>(employeesResponse.data)
+      const employee = employees.find((e: any) => e.email === userEmail)
       if (!employee) {
         alert('Employee record not found')
         return
@@ -102,7 +111,7 @@ const Consent: React.FC = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       )
 
-      setConsents(consentsResponse.data)
+      setConsents(getArrayPayload<ConsentRecord>(consentsResponse.data))
     } catch (err: any) {
       console.error('Error fetching consents:', err)
       alert('Failed to load consent data: ' + (err.response?.data?.error || err.message))
