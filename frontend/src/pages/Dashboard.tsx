@@ -1,7 +1,51 @@
 import React from 'react'
 import Card from '../components/Card'
-import { apiGet } from '../lib/api'
+import { apiGet, getCurrentUser, hasRole } from '../lib/api'
 import { Link } from 'react-router-dom'
+
+const ANNUAL_LEAVE_ALLOWANCE_DAYS = 28
+
+function formatDashboardDate(date = new Date()) {
+  return date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function dayCountInclusive(startDate: string, endDate: string) {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  const millisecondsPerDay = 1000 * 60 * 60 * 24
+  return Math.max(1, Math.floor((end.getTime() - start.getTime()) / millisecondsPerDay) + 1)
+}
+
+function formatNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1)
+}
+
+function isAnnualLeave(leave: any) {
+  return String(leave.type || '').toLowerCase().includes('annual')
+}
+
+function calculateMonthlyOvertime(timesheets: any[], now = new Date()) {
+  const currentMonthEntries = timesheets.filter((entry) => {
+    const entryDate = new Date(entry.date)
+    return entryDate.getFullYear() === now.getFullYear() && entryDate.getMonth() === now.getMonth()
+  })
+
+  const hoursByDay = currentMonthEntries.reduce((acc: Record<string, number>, entry) => {
+    const key = new Date(entry.date).toISOString().slice(0, 10)
+    acc[key] = (acc[key] || 0) + Number(entry.hours || 0)
+    return acc
+  }, {})
+
+  const overtimeHours = Object.values(hoursByDay).reduce((sum, hours) => sum + Math.max(0, hours - 8), 0)
+  const totalHours = currentMonthEntries.reduce((sum, entry) => sum + Number(entry.hours || 0), 0)
+
+  return { overtimeHours, totalHours }
+}
 
 export default function Dashboard() {
   const [stats, setStats] = React.useState({
@@ -12,10 +56,14 @@ export default function Dashboard() {
   })
   const [expiringDocs, setExpiringDocs] = React.useState<any[]>([])
   const [expiringSponsorships, setExpiringSponsorships] = React.useState<any[]>([])
+  const [leaveRequests, setLeaveRequests] = React.useState<any[]>([])
+  const [timesheets, setTimesheets] = React.useState<any[]>([])
+  const [summaryTab, setSummaryTab] = React.useState<'leave' | 'overtime'>('leave')
 
-  const token = localStorage.getItem('token')
-  const user = token ? JSON.parse(atob(token.split('.')[1])) : null
-  const isAdmin = user?.role === 'ADMIN'
+  const user = getCurrentUser()
+  const isAdmin = hasRole(user, 'ADMIN')
+  const isEmployee = hasRole(user, 'EMPLOYEE')
+  const today = formatDashboardDate()
 
   React.useEffect(() => {
     // Load dashboard statistics
@@ -24,28 +72,44 @@ export default function Dashboard() {
       apiGet('/projects').catch(() => []),
       apiGet('/documents').catch(() => []),
       apiGet('/leave').catch(() => []),
+      apiGet('/timesheets').catch(() => []),
       apiGet('/documents/expiring').catch(() => []),
       apiGet('/sponsorships/expiring').catch(() => [])
-    ]).then(([employees, projects, documents, leave, expiringDocs, expiringSponsorships]) => {
+    ]).then(([employees, projects, documents, leave, timesheets, expiringDocs, expiringSponsorships]) => {
       setStats({
         totalEmployees: employees.length,
         totalProjects: projects.filter((p: any) => p.active).length,
         totalDocuments: documents.length,
         pendingLeave: leave.filter((l: any) => l.status === 'PENDING').length
       })
+      setLeaveRequests(leave)
+      setTimesheets(timesheets)
       setExpiringDocs(expiringDocs)
       setExpiringSponsorships(expiringSponsorships)
     })
   }, [])
 
+  const approvedAnnualLeaveDays = leaveRequests
+    .filter((leave) => leave.status === 'APPROVED' && isAnnualLeave(leave))
+    .reduce((sum, leave) => sum + dayCountInclusive(leave.startDate, leave.endDate), 0)
+  const remainingAnnualLeaveDays = Math.max(0, ANNUAL_LEAVE_ALLOWANCE_DAYS - approvedAnnualLeaveDays)
+  const pendingLeaveCount = leaveRequests.filter((leave) => leave.status === 'PENDING').length
+  const nextLeave = leaveRequests
+    .filter((leave) => leave.status === 'APPROVED' && new Date(leave.startDate) >= new Date())
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())[0]
+  const monthlyOvertime = calculateMonthlyOvertime(timesheets)
+
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-          Welcome to 6Soft HRM
-        </h1>
-        <p className="text-slate-600 dark:text-slate-300">Your complete HR management solution</p>
+      <div className="mb-8 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+            Welcome to 6Soft HRM
+          </h1>
+          <p className="text-slate-600 dark:text-slate-300">Your complete HR management solution</p>
+        </div>
+        <div className="text-lg font-medium text-slate-700 dark:text-slate-200">{today}</div>
       </div>
 
       {/* Statistics Cards */}
@@ -87,6 +151,86 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {isEmployee && (
+        <Card className="p-6 mb-8 border border-blue-200 dark:border-blue-800">
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">My summary</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Your leave and overtime at a glance.</p>
+            </div>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
+              <button
+                type="button"
+                onClick={() => setSummaryTab('leave')}
+                className={`rounded-md px-4 py-2 text-sm font-semibold ${summaryTab === 'leave' ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-700'}`}
+              >
+                Leave
+              </button>
+              <button
+                type="button"
+                onClick={() => setSummaryTab('overtime')}
+                className={`rounded-md px-4 py-2 text-sm font-semibold ${summaryTab === 'overtime' ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-700'}`}
+              >
+                Overtime
+              </button>
+            </div>
+          </div>
+
+          {summaryTab === 'leave' ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">Annual leave</div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{remainingAnnualLeaveDays} days remaining</div>
+                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">{approvedAnnualLeaveDays} days approved</div>
+                <div className="mt-3 h-2 rounded-full bg-blue-100 dark:bg-blue-950">
+                  <div
+                    className="h-2 rounded-full bg-blue-600"
+                    style={{ width: `${Math.min(100, (remainingAnnualLeaveDays / ANNUAL_LEAVE_ALLOWANCE_DAYS) * 100)}%` }}
+                  />
+                </div>
+                <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">{ANNUAL_LEAVE_ALLOWANCE_DAYS} days allowance</div>
+              </div>
+              <div className="rounded-lg bg-orange-50 p-4 dark:bg-orange-900/20">
+                <div className="text-sm font-medium text-orange-700 dark:text-orange-300">Pending leave</div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {pendingLeaveCount} pending request{pendingLeaveCount === 1 ? '' : 's'}
+                </div>
+                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">Awaiting approval</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Next up</div>
+                <div className="mt-2 text-lg font-bold text-slate-900 dark:text-white">
+                  {nextLeave ? `${nextLeave.type} - ${new Date(nextLeave.startDate).toLocaleDateString('en-GB')}` : 'No absences coming up'}
+                </div>
+                <Link to="/leave" className="mt-3 inline-flex text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-300">
+                  View leave requests
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20">
+                <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Overtime this month</div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{formatNumber(monthlyOvertime.overtimeHours)} overtime hours this month</div>
+                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">Hours over 8 per day</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Recorded hours</div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{formatNumber(monthlyOvertime.totalHours)} total hours recorded</div>
+                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">Current calendar month</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Timesheet</div>
+                <div className="mt-2 text-lg font-bold text-slate-900 dark:text-white">Keep your hours up to date</div>
+                <Link to="/time" className="mt-3 inline-flex text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-300">
+                  Open timesheet
+                </Link>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Critical Alerts Section */}
       {expiringDocs.length > 0 && (
@@ -420,7 +564,7 @@ export default function Dashboard() {
                 <div className="font-bold text-blue-900 dark:text-blue-100 group-hover:text-blue-600 dark:group-hover:text-blue-300">My Profile</div>
                 <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">View and update your info</div>
               </Link>
-              <Link to="/timesheets" className="group block p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg hover:shadow-md transition-all border border-purple-200 dark:border-purple-800">
+              <Link to="/time" className="group block p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg hover:shadow-md transition-all border border-purple-200 dark:border-purple-800">
                 <div className="text-3xl mb-2">⏰</div>
                 <div className="font-bold text-purple-900 dark:text-purple-100 group-hover:text-purple-600 dark:group-hover:text-purple-300">Timesheet</div>
                 <div className="text-sm text-purple-700 dark:text-purple-300 mt-1">Track your work hours</div>
