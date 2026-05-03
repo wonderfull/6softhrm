@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import Card from '../components/Card'
-import { getCurrentUser } from '../lib/api'
+import { API_BASE_URL, getCurrentUser } from '../lib/api'
 
 interface ConsentRecord {
   id: number
@@ -95,7 +95,7 @@ const Consent: React.FC = () => {
 
       // Get employee record to find ID
       const employeesResponse = await axios.get(
-        `${import.meta.env.VITE_API_URL}/employees`,
+        `${API_BASE_URL}/employees`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
 
@@ -113,7 +113,7 @@ const Consent: React.FC = () => {
 
       // Fetch consent history
       const consentsResponse = await axios.get(
-        `${import.meta.env.VITE_API_URL}/gdpr/consent/${employee.id}`,
+        `${API_BASE_URL}/gdpr/consent/${employee.id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
 
@@ -145,7 +145,7 @@ const Consent: React.FC = () => {
       const token = localStorage.getItem('token')
 
       await axios.post(
-        `${import.meta.env.VITE_API_URL}/gdpr/consent`,
+        `${API_BASE_URL}/gdpr/consent`,
         {
           employeeId,
           consentType,
