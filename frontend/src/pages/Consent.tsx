@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import Card from '../components/Card'
+import { getCurrentUser } from '../lib/api'
 
 interface ConsentRecord {
   id: number
@@ -88,7 +89,9 @@ const Consent: React.FC = () => {
   const fetchEmployeeAndConsents = async () => {
     try {
       const token = localStorage.getItem('token')
-      const userEmail = getUserEmail()
+      const currentUser = getCurrentUser()
+      const userEmail = currentUser?.email
+      const userEmployeeId = currentUser?.employeeId ? Number(currentUser.employeeId) : null
 
       // Get employee record to find ID
       const employeesResponse = await axios.get(
@@ -97,7 +100,10 @@ const Consent: React.FC = () => {
       )
 
       const employees = getArrayPayload<any>(employeesResponse.data)
-      const employee = employees.find((e: any) => e.email === userEmail)
+      const employee = employees.find((e: any) => {
+        if (userEmployeeId) return Number(e.id) === userEmployeeId
+        return e.email === userEmail
+      })
       if (!employee) {
         alert('Employee record not found')
         return
@@ -117,17 +123,6 @@ const Consent: React.FC = () => {
       alert('Failed to load consent data: ' + (err.response?.data?.error || err.message))
     } finally {
       setLoading(false)
-    }
-  }
-
-  const getUserEmail = () => {
-    const token = localStorage.getItem('token')
-    if (!token) return null
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      return payload.email
-    } catch {
-      return null
     }
   }
 

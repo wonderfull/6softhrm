@@ -51,4 +51,28 @@ describe('Consent Page', () => {
       expect(window.alert).not.toHaveBeenCalledWith(expect.stringContaining('Failed to load consent data'))
     })
   })
+
+  it('finds the employee record from the JWT employee id when email is unavailable', async () => {
+    const token = makeToken({ role: 'EMPLOYEE', employeeId: 42 })
+    ;(localStorage.getItem as any).mockImplementation((key: string) => (key === 'token' ? token : null))
+    ;(axios.get as any)
+      .mockResolvedValueOnce({
+        data: [
+          { id: 42, firstName: 'Employee', lastName: 'User', email: 'employee@test.com' },
+        ],
+      })
+      .mockResolvedValueOnce({ data: [] })
+
+    render(<Consent />)
+
+    await screen.findAllByRole('button', { name: 'Grant Consent' })
+
+    await waitFor(() => {
+      expect(axios.get).toHaveBeenLastCalledWith(
+        expect.stringContaining('/gdpr/consent/42'),
+        expect.any(Object),
+      )
+    })
+    expect(window.alert).not.toHaveBeenCalledWith('Employee record not found')
+  })
 })
