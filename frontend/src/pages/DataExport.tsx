@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Card from '../components/Card'
+import { API_BASE_URL, apiGet } from '../lib/api'
 
 interface Employee {
   id: number
@@ -11,6 +12,7 @@ interface Employee {
 const DataExport: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState<number | null>(null)
 
   useEffect(() => {
@@ -19,14 +21,13 @@ const DataExport: React.FC = () => {
 
   const fetchEmployees = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/employees`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const data = await response.json()
-      setEmployees(data)
-    } catch (error) {
+      setError(null)
+      const data = await apiGet('/employees')
+      setEmployees(getArrayPayload<Employee>(data))
+    } catch (error: any) {
       console.error('Error fetching employees:', error)
+      setEmployees([])
+      setError(error.message || 'Failed to load employees')
     } finally {
       setLoading(false)
     }
@@ -37,7 +38,7 @@ const DataExport: React.FC = () => {
       setExporting(employeeId)
       const token = localStorage.getItem('token')
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/gdpr/subject-access-request/${employeeId}`,
+        `${API_BASE_URL}/gdpr/subject-access-request/${employeeId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       
@@ -68,7 +69,7 @@ const DataExport: React.FC = () => {
       setExporting(employeeId)
       const token = localStorage.getItem('token')
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/gdpr/export-employee-data/${employeeId}`,
+        `${API_BASE_URL}/gdpr/export-employee-data/${employeeId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       
@@ -132,36 +133,54 @@ const DataExport: React.FC = () => {
       ) : (
         <Card>
           <h2 className="text-xl font-semibold mb-4">Export Employee Data</h2>
-          <div className="space-y-3">
-            {employees.map(emp => (
-              <div key={emp.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div>
-                  <div className="font-medium">{emp.firstName} {emp.lastName}</div>
-                  <div className="text-sm text-gray-600">{emp.email}</div>
+          {error ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              Failed to load employees: {error}
+            </div>
+          ) : employees.length === 0 ? (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-600">
+              No employee records are available to export.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {employees.map(emp => (
+                <div key={emp.id} className="flex flex-col gap-3 rounded-lg bg-gray-50 p-4 transition-colors hover:bg-gray-100 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="font-medium">{emp.firstName} {emp.lastName}</div>
+                    <div className="text-sm text-gray-600">{emp.email}</div>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      onClick={() => exportEmployeeDataJSON(emp.id)}
+                      disabled={exporting === emp.id}
+                      className="rounded-md bg-blue-500 px-4 py-2 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    >
+                      {exporting === emp.id ? 'Exporting...' : 'Export JSON'}
+                    </button>
+                    <button
+                      onClick={() => exportEmployeeDataExcel(emp.id)}
+                      disabled={exporting === emp.id}
+                      className="rounded-md bg-green-500 px-4 py-2 text-white transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    >
+                      {exporting === emp.id ? 'Exporting...' : 'Export Excel'}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => exportEmployeeDataJSON(emp.id)}
-                    disabled={exporting === emp.id}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {exporting === emp.id ? 'Exporting...' : 'Export JSON'}
-                  </button>
-                  <button
-                    onClick={() => exportEmployeeDataExcel(emp.id)}
-                    disabled={exporting === emp.id}
-                    className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {exporting === emp.id ? 'Exporting...' : 'Export Excel'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
     </div>
   )
+}
+
+function getArrayPayload<T>(payload: T[] | { data?: T[] } | unknown): T[] {
+  if (Array.isArray(payload)) return payload
+  if (payload && typeof payload === 'object' && 'data' in payload && Array.isArray((payload as { data?: T[] }).data)) {
+    return (payload as { data: T[] }).data
+  }
+  return []
 }
 
 export default DataExport
