@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import axios from 'axios'
 import Card from '../components/Card'
+import { apiGet } from '../lib/api'
 
 interface AuditLog {
   id: number
@@ -19,6 +19,7 @@ const AuditLogs: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
+  const [error, setError] = useState('')
   const [filters, setFilters] = useState({
     entity: '',
     action: '',
@@ -32,22 +33,20 @@ const AuditLogs: React.FC = () => {
   const fetchLogs = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem('token')
-      const params = new URLSearchParams()
-      if (filters.entity) params.append('entity', filters.entity)
-      if (filters.action) params.append('action', filters.action)
-      params.append('limit', filters.limit.toString())
-      params.append('offset', filters.offset.toString())
-
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/gdpr/audit-logs?${params}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      setLogs(response.data.logs)
-      setTotal(response.data.total)
+      setError('')
+      const response = await apiGet('/gdpr/audit-logs', {
+        ...(filters.entity ? { entity: filters.entity } : {}),
+        ...(filters.action ? { action: filters.action } : {}),
+        limit: filters.limit,
+        offset: filters.offset,
+      })
+      setLogs(Array.isArray(response?.logs) ? response.logs : [])
+      setTotal(typeof response?.total === 'number' ? response.total : 0)
     } catch (err: any) {
       console.error('Error fetching audit logs:', err)
-      alert('Failed to fetch audit logs: ' + (err.response?.data?.error || err.message))
+      setLogs([])
+      setTotal(0)
+      setError(err.message || 'Failed to fetch audit logs')
     } finally {
       setLoading(false)
     }
@@ -157,9 +156,15 @@ const AuditLogs: React.FC = () => {
         </div>
 
         <div className="mt-4 text-sm text-gray-600">
-          Showing {logs.length} of {total} logs (page {Math.floor(filters.offset / filters.limit) + 1} of {Math.ceil(total / filters.limit)})
+          Showing {logs.length} of {total} logs (page {Math.floor(filters.offset / filters.limit) + 1} of {Math.max(1, Math.ceil(total / filters.limit))})
         </div>
       </Card>
+
+      {error && (
+        <Card className="mb-6">
+          <div className="text-center py-4 text-red-600">{error}</div>
+        </Card>
+      )}
 
       {loading ? (
         <Card>
