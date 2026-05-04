@@ -74,6 +74,26 @@ describe('Employees authorization', () => {
     expect(response.status).toBe(403)
   })
 
+  it('allows employees to update only their own self-service profile fields', async () => {
+    const response = await request(app)
+      .put(`/api/employees/${employeeId}`)
+      .set('Authorization', authHeader({ id: 94, email: 'employees-security@test.com', role: 'EMPLOYEE', employeeId }))
+      .send({
+        phoneNumber: '07123456789',
+        address1: '10 Updated Street',
+        emergencyContactName: 'Trusted Contact',
+        jobTitle: 'Mutated',
+        salary: 999999,
+      })
+
+    expect(response.status).toBe(200)
+    expect(response.body.phoneNumber).toBe('07123456789')
+    expect(response.body.address1).toBe('10 Updated Street')
+    expect(response.body.emergencyContactName).toBe('Trusted Contact')
+    expect(response.body.jobTitle).toBe('Tester')
+    expect(response.body.salary).toBeNull()
+  })
+
   it('rejects employee deletion for non-admin users', async () => {
     const response = await request(app)
       .delete(`/api/employees/${employeeId}`)

@@ -317,6 +317,7 @@ export default function Employees() {
   const canManageEmployees = isElevated
   const canManageAccounts = isElevated
   const canViewSensitive = isElevated || currentRole === 'EMPLOYEE'
+  const isEmployeeLogin = currentRole === 'EMPLOYEE'
 
   const [employees, setEmployees] = React.useState<Employee[]>([])
   const [users, setUsers] = React.useState<UserAccount[]>([])
@@ -379,6 +380,11 @@ export default function Employees() {
     return visibleEmployees.find((employee) => employee.id === selectedId) || visibleEmployees[0] || null
   }, [selectedId, visibleEmployees])
 
+  const canEditOwnProfile = React.useCallback((employee?: Employee | null) => {
+    return !!employee && isEmployeeLogin && (employee.id === currentUser?.employeeId || employee.email === currentUser?.email)
+  }, [currentUser?.email, currentUser?.employeeId, isEmployeeLogin])
+
+  const isSelfProfileEdit = isEmployeeLogin && editingEmployeeId !== null
   const selectedAccount = selectedEmployee ? accountForEmployee(selectedEmployee, users) : undefined
   const missingAccountCount = employees.filter((employee) => !accountForEmployee(employee, users)).length
   const activeLoginCount = users.filter((user) => !!user.employeeId || employees.some((employee) => employee.email === user.email)).length
@@ -392,11 +398,13 @@ export default function Employees() {
 
   const openEmployeeForm = (employee?: Employee) => {
     if (!employee) {
+      if (!canManageEmployees) return
       setEmployeeForm(emptyEmployeeForm)
       setEditingEmployeeId(null)
       setShowEmployeeForm(true)
       return
     }
+    if (!canManageEmployees && !canEditOwnProfile(employee)) return
 
     setEditingEmployeeId(employee.id)
     setEmployeeForm({
@@ -654,6 +662,12 @@ export default function Employees() {
               Add Person
             </button>
           )}
+          {!canManageEmployees && selectedEmployee && canEditOwnProfile(selectedEmployee) && (
+            <button type="button" onClick={() => openEmployeeForm(selectedEmployee)} className="btn-primary min-h-10">
+              <HiPencilSquare size={18} />
+              Update Profile
+            </button>
+          )}
         </div>
       </div>
 
@@ -900,15 +914,17 @@ export default function Employees() {
         </>
       )}
 
-      {showEmployeeForm && canManageEmployees && (
+      {showEmployeeForm && (canManageEmployees || isSelfProfileEdit) && (
         <section className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
           <div className="mb-4 flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-slate-700 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="text-xl font-semibold text-slate-950 dark:text-white">
-                {editingEmployeeId ? 'Edit Employee Record' : 'Add Employee'}
+                {isSelfProfileEdit ? 'Update Profile' : editingEmployeeId ? 'Edit Employee Record' : 'Add Employee'}
               </h3>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Complete the employment record once. Required fields are marked and the same sections are used for future edits.
+                {isSelfProfileEdit
+                  ? 'Update your contact, address, emergency contact, and bank details.'
+                  : 'Complete the employment record once. Required fields are marked and the same sections are used for future edits.'}
               </p>
             </div>
             <button type="button" onClick={resetEmployeeForm} aria-label="Close employee form" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:hover:bg-slate-700">
@@ -947,17 +963,21 @@ export default function Employees() {
                 { value: 'Prefer not to say', label: 'Prefer not to say' },
               ]} />
               <EmployeeInput id="dateOfBirth" label="Date of birth" value={employeeForm.dateOfBirth} onChange={updateEmployeeField} type="date" />
-              <EmployeeInput id="email" label="Email address" value={employeeForm.email} onChange={updateEmployeeField} type="email" required placeholder="name@example.com" />
+              {!isSelfProfileEdit && <EmployeeInput id="email" label="Email address" value={employeeForm.email} onChange={updateEmployeeField} type="email" required placeholder="name@example.com" />}
               <EmployeeInput id="phoneNumber" label="Mobile number" value={employeeForm.phoneNumber} onChange={updateEmployeeField} type="tel" inputMode="tel" placeholder="Mobile number" />
               <EmployeeInput id="workPhone" label="Work phone" value={employeeForm.workPhone} onChange={updateEmployeeField} type="tel" inputMode="tel" placeholder="Work phone" />
-              <EmployeeInput id="jobTitle" label="Job title" value={employeeForm.jobTitle} onChange={updateEmployeeField} required placeholder="Job title" />
-              <EmployeeInput id="employeeType" label="Employee type" value={employeeForm.employeeType} onChange={updateEmployeeField} options={[
-                { value: 'EMPLOYEE', label: 'Employee' },
-                { value: 'DIRECTOR', label: 'Director' },
-              ]} />
-              <EmployeeInput id="department" label="Department" value={employeeForm.department} onChange={updateEmployeeField} placeholder="Department" />
-              <EmployeeInput id="startDate" label="Employment start date" value={employeeForm.startDate} onChange={updateEmployeeField} type="date" required />
-              <EmployeeInput id="probationEndDate" label="Probation end date" value={employeeForm.probationEndDate} onChange={updateEmployeeField} type="date" />
+              {!isSelfProfileEdit && (
+                <>
+                  <EmployeeInput id="jobTitle" label="Job title" value={employeeForm.jobTitle} onChange={updateEmployeeField} required placeholder="Job title" />
+                  <EmployeeInput id="employeeType" label="Employee type" value={employeeForm.employeeType} onChange={updateEmployeeField} options={[
+                    { value: 'EMPLOYEE', label: 'Employee' },
+                    { value: 'DIRECTOR', label: 'Director' },
+                  ]} />
+                  <EmployeeInput id="department" label="Department" value={employeeForm.department} onChange={updateEmployeeField} placeholder="Department" />
+                  <EmployeeInput id="startDate" label="Employment start date" value={employeeForm.startDate} onChange={updateEmployeeField} type="date" required />
+                  <EmployeeInput id="probationEndDate" label="Probation end date" value={employeeForm.probationEndDate} onChange={updateEmployeeField} type="date" />
+                </>
+              )}
             </FormSection>
 
             <FormSection title="Address details">
@@ -984,33 +1004,35 @@ export default function Employees() {
               <EmployeeInput id="sortCode" label="Sort code" value={employeeForm.sortCode} onChange={updateEmployeeField} placeholder="00-00-00" helper="Example: 00-00-00." maxLength={8} />
             </FormSection>
 
-            <FormSection title="Salary details">
-              <EmployeeInput id="salary" label="Salary" value={employeeForm.salary} onChange={updateEmployeeField} type="number" inputMode="decimal" placeholder="0" />
-              <EmployeeInput id="salaryRate" label="Rate" value={employeeForm.salaryRate} onChange={updateEmployeeField} options={[
-                { value: '', label: 'Select rate' },
-                { value: 'Annual', label: 'Annual' },
-                { value: 'Monthly', label: 'Monthly' },
-                { value: 'Daily', label: 'Daily' },
-                { value: 'Hourly', label: 'Hourly' },
-              ]} />
-              <EmployeeInput id="paymentFrequency" label="Payment frequency" value={employeeForm.paymentFrequency} onChange={updateEmployeeField} options={[
-                { value: '', label: 'Select frequency' },
-                { value: 'Weekly', label: 'Weekly' },
-                { value: 'Fortnightly', label: 'Fortnightly' },
-                { value: 'Monthly', label: 'Monthly' },
-              ]} />
-              <EmployeeInput id="salaryEffectiveFrom" label="Effective from" value={employeeForm.salaryEffectiveFrom} onChange={updateEmployeeField} type="date" />
-              <EmployeeInput id="salaryReason" label="Reason" value={employeeForm.salaryReason} onChange={updateEmployeeField} options={[
-                { value: '', label: 'Select reason' },
-                { value: 'New starter', label: 'New starter' },
-                { value: 'Promotion', label: 'Promotion' },
-                { value: 'Annual review', label: 'Annual review' },
-                { value: 'Contract change', label: 'Contract change' },
-              ]} />
-              <EmployeeInput id="payrollNumber" label="Payroll number" value={employeeForm.payrollNumber} onChange={updateEmployeeField} placeholder="ABC123" />
-            </FormSection>
+            {!isSelfProfileEdit && (
+              <FormSection title="Salary details">
+                <EmployeeInput id="salary" label="Salary" value={employeeForm.salary} onChange={updateEmployeeField} type="number" inputMode="decimal" placeholder="0" />
+                <EmployeeInput id="salaryRate" label="Rate" value={employeeForm.salaryRate} onChange={updateEmployeeField} options={[
+                  { value: '', label: 'Select rate' },
+                  { value: 'Annual', label: 'Annual' },
+                  { value: 'Monthly', label: 'Monthly' },
+                  { value: 'Daily', label: 'Daily' },
+                  { value: 'Hourly', label: 'Hourly' },
+                ]} />
+                <EmployeeInput id="paymentFrequency" label="Payment frequency" value={employeeForm.paymentFrequency} onChange={updateEmployeeField} options={[
+                  { value: '', label: 'Select frequency' },
+                  { value: 'Weekly', label: 'Weekly' },
+                  { value: 'Fortnightly', label: 'Fortnightly' },
+                  { value: 'Monthly', label: 'Monthly' },
+                ]} />
+                <EmployeeInput id="salaryEffectiveFrom" label="Effective from" value={employeeForm.salaryEffectiveFrom} onChange={updateEmployeeField} type="date" />
+                <EmployeeInput id="salaryReason" label="Reason" value={employeeForm.salaryReason} onChange={updateEmployeeField} options={[
+                  { value: '', label: 'Select reason' },
+                  { value: 'New starter', label: 'New starter' },
+                  { value: 'Promotion', label: 'Promotion' },
+                  { value: 'Annual review', label: 'Annual review' },
+                  { value: 'Contract change', label: 'Contract change' },
+                ]} />
+                <EmployeeInput id="payrollNumber" label="Payroll number" value={employeeForm.payrollNumber} onChange={updateEmployeeField} placeholder="ABC123" />
+              </FormSection>
+            )}
 
-            <FormSection title="Sensitive details" description="Tax, identity, licence, and right-to-work information. Access is restricted.">
+            {!isSelfProfileEdit && <FormSection title="Sensitive details" description="Tax, identity, licence, and right-to-work information. Access is restricted.">
               <div className="md:col-span-2">
                 <h5 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Tax, NI and eligibility information</h5>
               </div>
@@ -1034,10 +1056,10 @@ export default function Employees() {
               </div>
               <EmployeeInput id="visaNumber" label="Visa number" value={employeeForm.visaNumber} onChange={updateEmployeeField} placeholder="Visa number" />
               <EmployeeInput id="visaExpiryDate" label="Visa expiry date" value={employeeForm.visaExpiryDate} onChange={updateEmployeeField} type="date" />
-            </FormSection>
+            </FormSection>}
 
             <div className="sticky bottom-0 z-10 -mx-4 -mb-4 flex flex-col gap-2 border-t border-slate-200 bg-white/95 p-4 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:flex-row">
-              <button type="submit" className="btn-primary min-h-11 flex-1 justify-center">{editingEmployeeId ? 'Update Employee' : 'Add Employee'}</button>
+              <button type="submit" className="btn-primary min-h-11 flex-1 justify-center">{isSelfProfileEdit ? 'Save Profile' : editingEmployeeId ? 'Update Employee' : 'Add Employee'}</button>
               <button type="button" onClick={resetEmployeeForm} className="btn-ghost min-h-11 justify-center">Cancel</button>
             </div>
           </form>

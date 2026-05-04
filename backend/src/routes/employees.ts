@@ -85,6 +85,41 @@ function normalizeEmployeePayload(data: any) {
   return data
 }
 
+const employeeSelfUpdateFields = [
+  'title',
+  'firstName',
+  'middleName',
+  'lastName',
+  'gender',
+  'ethnicity',
+  'dateOfBirth',
+  'phoneNumber',
+  'workPhone',
+  'address1',
+  'address2',
+  'address3',
+  'townCity',
+  'county',
+  'postcode',
+  'emergencyContactName',
+  'emergencyContactPhone',
+  'emergencyContactRelation',
+  'emergencyContactAddress',
+  'accountName',
+  'bankName',
+  'bankBranch',
+  'accountNumber',
+  'sortCode',
+] as const
+
+function pickEmployeeSelfUpdatePayload(data: any) {
+  const picked: Record<string, any> = {}
+  for (const field of employeeSelfUpdateFields) {
+    if (data[field] !== undefined) picked[field] = data[field]
+  }
+  return picked
+}
+
 router.get('/', requireAuth, async (req: any, res) => {
   const userRole = normalizeRole(req.user?.role)
   const userEmail = req.user?.email
@@ -175,16 +210,30 @@ router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any,
   }
 })
 
-router.put('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
+router.put('/:id', requireAuth, async (req: any, res) => {
   const { id } = req.params
-  const data = normalizeEmployeePayload(req.body)
+  const employeeId = parseInt(id)
+  const role = normalizeRole(req.user?.role)
   try {
+    let data: any
+    if (role === ROLES.ADMIN || role === ROLES.DIRECTOR) {
+      data = normalizeEmployeePayload(req.body)
+    } else if (role === ROLES.EMPLOYEE) {
+      const existing = await prisma.employee.findUnique({ where: { id: employeeId } })
+      const ownsRecord = !!existing && (existing.id === req.user?.employeeId || existing.email === req.user?.email)
+      if (!ownsRecord) return res.status(403).json({ error: 'Unauthorized' })
+      data = normalizeEmployeePayload(pickEmployeeSelfUpdatePayload(req.body))
+    } else {
+      return res.status(403).json({ error: 'Unauthorized' })
+    }
+
     const emp = await prisma.employee.update({
-      where: { id: parseInt(id) },
+      where: { id: employeeId },
       data
     })
     await auditLog(req, 'UPDATE', 'Employee', emp.id, {
-      updatedFields: Object.keys(data).filter(k => data[k] !== undefined)
+      updatedFields: Object.keys(data).filter(k => data[k] !== undefined),
+      selfService: role === ROLES.EMPLOYEE,
     })
     res.json(emp)
   } catch (e: any) {

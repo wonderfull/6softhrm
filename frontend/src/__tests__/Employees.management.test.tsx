@@ -147,6 +147,41 @@ describe('Unified user and employee management', () => {
     expect(screen.getByRole('button', { name: /create account for Owen Reed/i })).toBeInTheDocument()
   })
 
+  it('lets employees update their own profile details', async () => {
+    mockedUser = { role: 'EMPLOYEE', email: 'sarah@6soft.co.uk', employeeId: 1 }
+    ;(api.apiPut as any).mockResolvedValue({ ok: true })
+
+    render(
+      <MemoryRouter>
+        <Employees />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'My Profile' })).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: /update profile/i }))
+
+    expect(screen.getByRole('heading', { name: 'Update Profile' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Basic details' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Address details' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Emergency contact' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Bank details' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Salary details' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Sensitive details' })).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/Mobile number/i), { target: { value: '07123456789' } })
+    fireEvent.change(screen.getByLabelText(/Address 1/i), { target: { value: '10 Updated Street' } })
+    fireEvent.change(screen.getByLabelText(/Contact name/i), { target: { value: 'Trusted Contact' } })
+    fireEvent.click(screen.getByRole('button', { name: /save profile/i }))
+
+    await waitFor(() => {
+      expect(api.apiPut).toHaveBeenCalledWith('/employees/1', expect.objectContaining({
+        phoneNumber: '07123456789',
+        address1: '10 Updated Street',
+        emergencyContactName: 'Trusted Contact',
+      }))
+    })
+  })
+
   it('creates and links an employee account from the unified screen', async () => {
     mockedUser = { role: 'ADMIN', email: 'admin@6soft.co.uk' }
     ;(api.apiPost as any).mockResolvedValue({ ok: true })
