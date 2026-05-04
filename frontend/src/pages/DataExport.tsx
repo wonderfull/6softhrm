@@ -14,6 +14,7 @@ const DataExport: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState<number | null>(null)
+  const [exportingAll, setExportingAll] = useState(false)
 
   useEffect(() => {
     fetchEmployees()
@@ -94,6 +95,35 @@ const DataExport: React.FC = () => {
     }
   }
 
+  const exportAllData = async () => {
+    try {
+      setExportingAll(true)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/gdpr/export-all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error || 'Export failed')
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `6soft-hrm-full-backup-${new Date().toISOString().split('T')[0]}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error: any) {
+      alert('Export all failed: ' + error.message)
+    } finally {
+      setExportingAll(false)
+    }
+  }
+
   return (
     <div className="p-6">
       <h1 className="text-3xl font-bold mb-6">Data Export (GDPR)</h1>
@@ -123,6 +153,25 @@ const DataExport: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      </Card>
+
+      <Card className="mb-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Export All Data</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Downloads one ZIP with the database backup, document manifest, and uploaded document files.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={exportAllData}
+            disabled={exportingAll}
+            className="rounded-md bg-slate-900 px-4 py-2 font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {exportingAll ? 'Exporting...' : 'Export All Data'}
+          </button>
         </div>
       </Card>
 

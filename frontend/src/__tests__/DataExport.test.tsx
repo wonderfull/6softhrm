@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DataExport from '../pages/DataExport'
 import * as api from '../lib/api'
 
@@ -39,6 +39,35 @@ describe('Data Export page', () => {
 
     await waitFor(() => {
       expect(api.apiGet).toHaveBeenCalledWith('/employees')
+    })
+  })
+
+  it('shows one button to export all data and document files', async () => {
+    ;(api.apiGet as any).mockResolvedValue([])
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:backup')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(['backup'], { type: 'application/zip' })),
+    } as any)
+
+    render(<DataExport />)
+    const click = vi.fn()
+    const link = document.createElement('a')
+    link.click = click
+    const appendChild = vi.spyOn(document.body, 'appendChild')
+    const removeChild = vi.spyOn(document.body, 'removeChild')
+    vi.spyOn(document, 'createElement').mockReturnValue(link)
+
+    fireEvent.click(await screen.findByRole('button', { name: /export all data/i }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/gdpr/export-all'), expect.objectContaining({
+        headers: { Authorization: 'Bearer token' },
+      }))
+      expect(click).toHaveBeenCalled()
+      expect(appendChild).toHaveBeenCalled()
+      expect(removeChild).toHaveBeenCalled()
     })
   })
 })

@@ -3,10 +3,21 @@ import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
 import { auditLog } from '../middleware/audit'
 import * as XLSX from 'xlsx'
+import archiver from 'archiver'
+import fs from 'fs'
+import path from 'path'
 import type { Document, LeaveRequest, Timesheet } from '@prisma/client'
 import { isHrAdminRole, normalizeRole, ROLES } from '../lib/roles'
 
 const router = Router()
+
+function getAbsoluteFilePath(documentPath: string) {
+  return path.join(process.cwd(), documentPath.replace(/^\//, ''))
+}
+
+function safeArchiveName(value: string) {
+  return value.replace(/[<>:"/\\|?*\x00-\x1F]/g, '-').replace(/\s+/g, ' ').trim() || 'document'
+}
 
 // Get audit logs (admin only)
 router.get('/audit-logs', requireAuth, async (req: any, res) => {
@@ -223,6 +234,126 @@ router.get('/export-employee-data/:employeeId', requireAuth, async (req: any, re
   } catch (error: any) {
     console.error('Error exporting employee data:', error)
     res.status(500).json({ error: 'Failed to export data' })
+  }
+})
+
+// Export all HRM data and uploaded document files as a single ZIP backup.
+router.get('/export-all', requireAuth, async (req: any, res) => {
+  try {
+    const userRole = normalizeRole(req.user?.role)
+    if (userRole !== ROLES.ADMIN) {
+      return res.status(403).json({ error: 'Admin access required' })
+    }
+
+    const [
+      users,
+      employees,
+      projects,
+      documents,
+      timesheets,
+      leaveRequests,
+      sponsorships,
+      sponsorshipComplianceEvidence,
+      sponsorshipReportableEvents,
+      dataConsents,
+      auditLogs,
+      googleAccounts,
+    ] = await Promise.all([
+      prisma.user.findMany(),
+      prisma.employee.findMany(),
+      prisma.project.findMany(),
+      prisma.document.findMany({ include: { employee: true } }),
+      prisma.timesheet.findMany(),
+      prisma.leaveRequest.findMany(),
+      prisma.sponsorship.findMany(),
+      prisma.sponsorshipComplianceEvidence.findMany(),
+      prisma.sponsorshipReportableEvent.findMany(),
+      prisma.dataConsent.findMany(),
+      prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' } }),
+      prisma.googleAccount.findMany(),
+    ])
+
+    const documentManifest = documents.map((document) => {
+      const filePath = getAbsoluteFilePath(document.path)
+      return {
+        id: document.id,
+        employeeId: document.employeeId,
+        employeeName: document.employee ? `${document.employee.firstName} ${document.employee.lastName}` : null,
+        name: document.name,
+        type: document.type,
+        path: document.path,
+        uploadedAt: document.uploadedAt,
+        expiryDate: document.expiryDate,
+        includedInZip: fs.existsSync(filePath),
+      }
+    })
+
+    const backup = {
+      exportDate: new Date().toISOString(),
+      requestedBy: req.user?.email,
+      version: '2.0',
+      includes: {
+        databaseJson: true,
+        documentMetadata: true,
+        documentFiles: true,
+      },
+      data: {
+        users: users.map((user: any) => ({ ...user, password: '[REDACTED]' })),
+        employees,
+        projects,
+        documents: documentManifest,
+        timesheets,
+        leaveRequests,
+        sponsorships,
+        sponsorshipComplianceEvidence,
+        sponsorshipReportableEvents,
+        dataConsents,
+        auditLogs,
+        googleAccounts: googleAccounts.map((account: any) => ({
+          ...account,
+          refreshToken: account.refreshToken ? '[REDACTED]' : account.refreshToken,
+          accessToken: account.accessToken ? '[REDACTED]' : account.accessToken,
+        })),
+      },
+    }
+
+    const filename = `6soft-hrm-full-backup-${new Date().toISOString().split('T')[0]}.zip`
+    res.setHeader('Content-Type', 'application/zip')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+
+    const archive = archiver('zip', { zlib: { level: 9 } })
+    archive.on('error', (error) => {
+      throw error
+    })
+    archive.pipe(res)
+
+    archive.append(JSON.stringify(backup, null, 2), { name: 'data/backup.json' })
+    archive.append(JSON.stringify(documentManifest, null, 2), { name: 'data/documents-manifest.json' })
+
+    for (const document of documents) {
+      const filePath = getAbsoluteFilePath(document.path)
+      if (!fs.existsSync(filePath)) continue
+
+      const employeeFolder = document.employee
+        ? `${document.employeeId}-${safeArchiveName(`${document.employee.firstName} ${document.employee.lastName}`)}`
+        : `${document.employeeId}-employee`
+      const extension = path.extname(document.path)
+      const archiveName = `documents/${employeeFolder}/${document.id}-${safeArchiveName(document.name)}${extension && !document.name.endsWith(extension) ? extension : ''}`
+      archive.file(filePath, { name: archiveName })
+    }
+
+    await auditLog(req, 'DATA_EXPORT', 'System', undefined, {
+      type: 'Full backup',
+      documentCount: documents.length,
+      includedDocumentFiles: documentManifest.filter((document) => document.includedInZip).length,
+    })
+
+    await archive.finalize()
+  } catch (error: any) {
+    console.error('Error exporting all data:', error)
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to export all data' })
+    }
   }
 })
 
