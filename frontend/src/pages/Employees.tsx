@@ -1066,6 +1066,9 @@ export default function Employees() {
                   <option key={role} value={role}>{roleLabel(role)}</option>
                 ))}
               </select>
+              <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                This account stays linked to the employee record. Choose Director for admin access while keeping employee self-service.
+              </p>
             </div>
             <div className="flex gap-2 md:col-span-2">
               <button type="submit" className="btn-primary min-h-10 flex-1 justify-center">{accountForm.id ? 'Update Account' : 'Add Account'}</button>

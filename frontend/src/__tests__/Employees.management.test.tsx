@@ -117,6 +117,18 @@ describe('Unified user and employee management', () => {
     expect(screen.getByRole('link', { name: /user\/employee management/i })).toHaveAttribute('href', '/employees')
   })
 
+  it('shows employee self-service consent for linked directors', () => {
+    mockedUser = { role: 'DIRECTOR', email: 'director@6soft.co.uk', employeeId: 1 }
+
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: /my consent/i })).toHaveAttribute('href', '/consent')
+  })
+
   it('loads employees and user accounts together for admins', async () => {
     mockedUser = { role: 'ADMIN', email: 'admin@6soft.co.uk' }
 
@@ -241,6 +253,7 @@ describe('Unified user and employee management', () => {
     expect(within(roleSelect).getByRole('option', { name: /Director/i })).toBeInTheDocument()
     expect(within(roleSelect).getByRole('option', { name: /Office Assistant/i })).toBeInTheDocument()
     expect(within(roleSelect).getByRole('option', { name: /Employee/i })).toBeInTheDocument()
+    expect(screen.getByText(/Choose Director for admin access while keeping employee self-service/i)).toBeInTheDocument()
   })
 
   it('keeps office assistant view read-only and hides sensitive fields', async () => {

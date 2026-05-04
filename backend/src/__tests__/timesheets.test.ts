@@ -12,6 +12,7 @@ app.use('/api/timesheets', timesheetsRouter)
 describe('Timesheets API', () => {
   let authToken: string
   let employeeToken: string
+  let linkedDirectorToken: string
   let unlinkedEmployeeToken: string
   let officeAssistantToken: string
   let testEmployeeId: number
@@ -63,6 +64,7 @@ describe('Timesheets API', () => {
 
     authToken = 'Bearer ' + jwt.sign({ email: employee.email, role: 'ADMIN' }, process.env.JWT_SECRET || 'test-secret-key')
     employeeToken = 'Bearer ' + jwt.sign({ email: employee.email, role: 'EMPLOYEE', employeeId: employee.id }, process.env.JWT_SECRET || 'test-secret-key')
+    linkedDirectorToken = 'Bearer ' + jwt.sign({ email: 'director@timesheets.com', role: 'DIRECTOR', employeeId: employee.id }, process.env.JWT_SECRET || 'test-secret-key')
     unlinkedEmployeeToken = 'Bearer ' + jwt.sign({ email: 'unlinked@timesheets.com', role: 'EMPLOYEE' }, process.env.JWT_SECRET || 'test-secret-key')
     officeAssistantToken = 'Bearer ' + jwt.sign({ email: 'office@timesheets.com', role: 'OFFICE_ASSISTANT' }, process.env.JWT_SECRET || 'test-secret-key')
   })
@@ -122,6 +124,20 @@ describe('Timesheets API', () => {
         })
 
       expect(response.status).toBe(400)
+    })
+
+    it('allows linked directors to record their own timesheet without choosing an employee', async () => {
+      const response = await request(app)
+        .post('/api/timesheets')
+        .set('Authorization', linkedDirectorToken)
+        .send({
+          date: '2025-11-21',
+          hours: 7,
+          notes: 'Director self-service time',
+        })
+
+      expect(response.status).toBe(200)
+      expect(response.body.employeeId).toBe(testEmployeeId)
     })
   })
 

@@ -62,7 +62,8 @@ export default function Dashboard() {
 
   const user = getCurrentUser()
   const isAdmin = hasRole(user, 'ADMIN')
-  const isEmployee = hasRole(user, 'EMPLOYEE')
+  const linkedEmployeeId = user?.employeeId ? Number(user.employeeId) : null
+  const hasEmployeeProfile = linkedEmployeeId !== null
   const today = formatDashboardDate()
 
   React.useEffect(() => {
@@ -89,15 +90,22 @@ export default function Dashboard() {
     })
   }, [])
 
-  const approvedAnnualLeaveDays = leaveRequests
+  const ownLeaveRequests = hasEmployeeProfile
+    ? leaveRequests.filter((leave) => Number(leave.employeeId) === linkedEmployeeId)
+    : []
+  const ownTimesheets = hasEmployeeProfile
+    ? timesheets.filter((timesheet) => Number(timesheet.employeeId) === linkedEmployeeId)
+    : []
+
+  const approvedAnnualLeaveDays = ownLeaveRequests
     .filter((leave) => leave.status === 'APPROVED' && isAnnualLeave(leave))
     .reduce((sum, leave) => sum + dayCountInclusive(leave.startDate, leave.endDate), 0)
   const remainingAnnualLeaveDays = Math.max(0, ANNUAL_LEAVE_ALLOWANCE_DAYS - approvedAnnualLeaveDays)
-  const pendingLeaveCount = leaveRequests.filter((leave) => leave.status === 'PENDING').length
-  const nextLeave = leaveRequests
+  const pendingLeaveCount = ownLeaveRequests.filter((leave) => leave.status === 'PENDING').length
+  const nextLeave = ownLeaveRequests
     .filter((leave) => leave.status === 'APPROVED' && new Date(leave.startDate) >= new Date())
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())[0]
-  const monthlyOvertime = calculateMonthlyOvertime(timesheets)
+  const monthlyOvertime = calculateMonthlyOvertime(ownTimesheets)
 
   return (
     <div>
@@ -152,7 +160,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {isEmployee && (
+      {hasEmployeeProfile && (
         <Card className="p-6 mb-8 border border-blue-200 dark:border-blue-800">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>

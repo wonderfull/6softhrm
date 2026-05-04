@@ -38,6 +38,10 @@ router.post('/', requireAuth, async (req: any, res) => {
       return res.status(403).json({ error: 'User account is not linked to an employee record' })
     }
     employeeId = user.employeeId
+  } else if (!canReviewLeaveAndTime(role)) {
+    return res.status(403).json({ error: 'Unauthorized' })
+  } else if (!employeeId && user.employeeId) {
+    employeeId = user.employeeId
   }
 
   if (!employeeId || !type || !startDate || !endDate) return res.status(400).json({ error: 'missing fields' })

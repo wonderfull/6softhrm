@@ -38,6 +38,8 @@ router.post('/', requireAuth, async (req: any, res) => {
     employeeId = user.employeeId
   } else if (!canReviewLeaveAndTime(role)) {
     return res.status(403).json({ error: 'Unauthorized' })
+  } else if (!employeeId && user.employeeId) {
+    employeeId = user.employeeId
   }
   
   if (!employeeId || !date || !hours) return res.status(400).json({ error: 'missing fields' })

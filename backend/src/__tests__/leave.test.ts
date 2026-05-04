@@ -14,6 +14,7 @@ describe('Leave API permissions', () => {
   let secondEmployeeId: number
   let officeAssistantToken: string
   let employeeToken: string
+  let linkedDirectorToken: string
 
   beforeAll(async () => {
     await prisma.leaveRequest.deleteMany({})
@@ -51,6 +52,10 @@ describe('Leave API permissions', () => {
     )}`
     employeeToken = `Bearer ${jwt.sign(
       { email: employee.email, role: 'EMPLOYEE', employeeId },
+      process.env.JWT_SECRET || 'test-secret-key',
+    )}`
+    linkedDirectorToken = `Bearer ${jwt.sign(
+      { email: 'director@leave-permissions.test', role: 'DIRECTOR', employeeId },
       process.env.JWT_SECRET || 'test-secret-key',
     )}`
   })
@@ -107,5 +112,20 @@ describe('Leave API permissions', () => {
 
     expect(response.status).toBe(200)
     expect(response.body.every((leave: any) => leave.employeeId === employeeId)).toBe(true)
+  })
+
+  it('allows linked directors to request leave for their own employee profile without choosing an employee', async () => {
+    const response = await request(app)
+      .post('/api/leave')
+      .set('Authorization', linkedDirectorToken)
+      .send({
+        type: 'ANNUAL',
+        startDate: '2026-08-01',
+        endDate: '2026-08-02',
+        reason: 'Director self-service leave',
+      })
+
+    expect(response.status).toBe(200)
+    expect(response.body.employeeId).toBe(employeeId)
   })
 })

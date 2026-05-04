@@ -81,4 +81,48 @@ describe('Dashboard Page', () => {
     expect(screen.getByText('1.5 overtime hours this month')).toBeInTheDocument()
     expect(screen.getByText('17.5 total hours recorded')).toBeInTheDocument()
   })
+
+  it('shows a linked director their own employee summary without counting other employees', async () => {
+    const token = makeToken({ role: 'DIRECTOR', email: 'director@example.com', employeeId: 42 })
+    ;(localStorage.getItem as any).mockImplementation((key: string) => (key === 'token' ? token : null))
+    ;(api.apiGet as any).mockImplementation((endpoint: string) => {
+      if (endpoint === '/employees') return Promise.resolve([{ id: 42 }, { id: 99 }])
+      if (endpoint === '/projects') return Promise.resolve([])
+      if (endpoint === '/documents') return Promise.resolve([])
+      if (endpoint === '/documents/expiring') return Promise.resolve([])
+      if (endpoint === '/sponsorships/expiring') return Promise.resolve([])
+      if (endpoint === '/leave') return Promise.resolve([
+        {
+          id: 1,
+          employeeId: 42,
+          type: 'Annual Leave',
+          startDate: '2026-05-10T00:00:00.000Z',
+          endDate: '2026-05-11T00:00:00.000Z',
+          status: 'APPROVED',
+        },
+        {
+          id: 2,
+          employeeId: 99,
+          type: 'Annual Leave',
+          startDate: '2026-05-12T00:00:00.000Z',
+          endDate: '2026-05-16T00:00:00.000Z',
+          status: 'APPROVED',
+        },
+      ])
+      if (endpoint === '/timesheets') return Promise.resolve([
+        { id: 1, employeeId: 42, date: '2026-05-01T00:00:00.000Z', hours: 10 },
+        { id: 2, employeeId: 99, date: '2026-05-01T00:00:00.000Z', hours: 12 },
+      ])
+      return Promise.resolve([])
+    })
+
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
+
+    expect(await screen.findByText('My summary')).toBeInTheDocument()
+    expect(screen.getByText('26 days remaining')).toBeInTheDocument()
+    expect(screen.getByText('2 days approved')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Overtime' }))
+    expect(screen.getByText('2 overtime hours this month')).toBeInTheDocument()
+    expect(screen.getByText('10 total hours recorded')).toBeInTheDocument()
+  })
 })

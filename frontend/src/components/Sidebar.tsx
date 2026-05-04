@@ -53,15 +53,20 @@ const userMenu = [
 export default function Sidebar() {
   const loc = useLocation()
   
-  const userRole = React.useMemo(() => normalizeRole(getCurrentUser()?.role), [])
+  const currentUser = React.useMemo(() => getCurrentUser(), [])
+  const userRole = React.useMemo(() => normalizeRole(currentUser?.role), [currentUser?.role])
+  const hasEmployeeProfile = !!currentUser?.employeeId
 
-  const menu = userRole === 'ADMIN'
-    ? adminMenu
-    : userRole === 'DIRECTOR'
-      ? managerMenu
-      : userRole === 'OFFICE_ASSISTANT'
-        ? assistantMenu
-      : userMenu
+  const menu = React.useMemo(() => {
+    if (userRole === 'ADMIN') return adminMenu
+    if (userRole === 'DIRECTOR') {
+      return hasEmployeeProfile
+        ? [...managerMenu, { to: '/consent', label: 'My Consent', icon: <HiShieldCheck size={18} /> }]
+        : managerMenu
+    }
+    if (userRole === 'OFFICE_ASSISTANT') return assistantMenu
+    return userMenu
+  }, [hasEmployeeProfile, userRole])
 
   return (
     <aside className="w-64 hidden md:block border-r border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 h-screen sticky top-0">
