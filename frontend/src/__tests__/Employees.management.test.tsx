@@ -250,10 +250,21 @@ describe('Unified user and employee management', () => {
 
     const roleSelect = await screen.findByLabelText(/Access Role/i)
     expect(within(roleSelect).queryByRole('option', { name: /Administrator/i })).not.toBeInTheDocument()
-    expect(within(roleSelect).getByRole('option', { name: /Director/i })).toBeInTheDocument()
-    expect(within(roleSelect).getByRole('option', { name: /Office Assistant/i })).toBeInTheDocument()
-    expect(within(roleSelect).getByRole('option', { name: /Employee/i })).toBeInTheDocument()
-    expect(screen.getByText(/Choose Director for admin access while keeping employee self-service/i)).toBeInTheDocument()
+    expect(within(roleSelect).getByRole('option', { name: /Director \+ Employee/i })).toBeInTheDocument()
+    expect(within(roleSelect).getByRole('option', { name: /Office Assistant \+ Employee/i })).toBeInTheDocument()
+    expect(within(roleSelect).getByRole('option', { name: /^Employee$/i })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /employee self-service/i })).toBeChecked()
+    expect(screen.getByText(/Leave unchecked for Director access only/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /employee self-service/i }))
+    fireEvent.click(screen.getByRole('button', { name: /update account/i }))
+
+    await waitFor(() => {
+      expect(api.apiPut).toHaveBeenCalledWith('/auth/users/10', expect.objectContaining({
+        role: 'DIRECTOR',
+        employeeId: null,
+      }))
+    })
   })
 
   it('keeps office assistant view read-only and hides sensitive fields', async () => {

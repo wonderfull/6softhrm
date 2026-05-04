@@ -117,6 +117,7 @@ type EmployeeFormData = {
 type AccountFormData = {
   id: number | null
   employeeId: number | null
+  linkedEmployeeId: number | null
   email: string
   name: string
   role: AppRole
@@ -176,6 +177,7 @@ const emptyEmployeeForm: EmployeeFormData = {
 const emptyAccountForm: AccountFormData = {
   id: null,
   employeeId: null,
+  linkedEmployeeId: null,
   email: '',
   name: '',
   role: 'EMPLOYEE',
@@ -453,7 +455,8 @@ export default function Employees() {
     setStatus(null)
     setAccountForm({
       id: account?.id ?? null,
-      employeeId: employee.id,
+      employeeId: account ? account.employeeId ?? null : employee.id,
+      linkedEmployeeId: employee.id,
       email: account?.email || employee.email,
       name: account?.name || fullName(employee),
       role: normalizeRole(account?.role || 'EMPLOYEE'),
@@ -534,7 +537,7 @@ export default function Employees() {
             employeeId: accountForm.employeeId,
           })
         }
-        setStatus('Account created and linked.')
+        setStatus(accountForm.employeeId ? 'Account created and linked.' : 'Account created.')
       }
       closeAccountForm()
       await loadUsers()
@@ -1063,12 +1066,31 @@ export default function Employees() {
                 required
               >
                 {assignableRoles(currentRole).map((role) => (
-                  <option key={role} value={role}>{roleLabel(role)}</option>
+                  <option key={role} value={role}>
+                    {accountForm.employeeId && role !== 'EMPLOYEE' ? `${roleLabel(role)} + Employee` : roleLabel(role)}
+                  </option>
                 ))}
               </select>
-              <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                This account stays linked to the employee record. Choose Director for admin access while keeping employee self-service.
-              </p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
+              <label htmlFor="account-employee-link" className="flex items-start gap-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                <input
+                  id="account-employee-link"
+                  type="checkbox"
+                  checked={!!accountForm.employeeId}
+                  onChange={(event) => setAccountForm({
+                    ...accountForm,
+                    employeeId: event.target.checked ? accountForm.linkedEmployeeId : null,
+                  })}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span>
+                  Employee self-service
+                  <span className="mt-1 block text-xs font-normal leading-5 text-slate-500 dark:text-slate-400">
+                    Check this to make the account both {roleLabel(accountForm.role)} and employee-linked. Leave unchecked for {roleLabel(accountForm.role)} access only.
+                  </span>
+                </span>
+              </label>
             </div>
             <div className="flex gap-2 md:col-span-2">
               <button type="submit" className="btn-primary min-h-10 flex-1 justify-center">{accountForm.id ? 'Update Account' : 'Add Account'}</button>
