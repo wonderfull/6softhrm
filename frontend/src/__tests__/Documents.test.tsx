@@ -64,6 +64,12 @@ describe('Documents Page', () => {
     }
   ]
 
+  async function selectJohnDocuments() {
+    const filterSelect = await screen.findByLabelText(/Selected Employee/i)
+    fireEvent.change(filterSelect, { target: { value: '1' } })
+    return filterSelect
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockedUser = null
@@ -103,7 +109,7 @@ describe('Documents Page', () => {
     localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
     renderDocuments()
 
-    const filterSelect = await screen.findByLabelText(/Filter by Employee/i)
+    const filterSelect = await screen.findByLabelText(/Selected Employee/i)
     fireEvent.change(filterSelect, { target: { value: '1' } })
 
     await waitFor(() => {
@@ -119,7 +125,7 @@ describe('Documents Page', () => {
 
     renderDocuments()
 
-    const filterSelect = await screen.findByLabelText(/Filter by Employee/i)
+    const filterSelect = await screen.findByLabelText(/Selected Employee/i)
     fireEvent.change(filterSelect, { target: { value: '1' } })
     fireEvent.click(await screen.findByText(/Download All as ZIP/i))
 
@@ -164,8 +170,12 @@ describe('Documents Page', () => {
     mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
     localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
     renderDocuments()
+    await selectJohnDocuments()
 
     await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Employment Contracts/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /Passports/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /Payslips/i })).toBeInTheDocument()
       expect(screen.getByText('CONTRACT')).toBeInTheDocument()
       expect(screen.getByText('PASSPORT')).toBeInTheDocument()
       expect(screen.getByText('PAYSLIP')).toBeInTheDocument()
@@ -187,6 +197,7 @@ describe('Documents Page', () => {
     mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
     localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
     renderDocuments()
+    await selectJohnDocuments()
 
     await waitFor(() => {
       expect(screen.queryAllByText(/\d{1,2}\/\d{1,2}\/\d{4}/).length).toBeGreaterThan(0)
@@ -208,6 +219,7 @@ describe('Documents Page', () => {
     })
 
     renderDocuments()
+    await selectJohnDocuments()
 
     await waitFor(() => {
       expect(screen.getByText(/Expires in/i)).toBeInTheDocument()
@@ -229,6 +241,7 @@ describe('Documents Page', () => {
     })
 
     renderDocuments()
+    await selectJohnDocuments()
 
     await waitFor(() => {
       expect(screen.getByText(/EXPIRED/i)).toBeInTheDocument()
@@ -278,6 +291,7 @@ describe('Documents Page', () => {
     window.confirm = vi.fn(() => true)
 
     renderDocuments()
+    await selectJohnDocuments()
 
     await waitFor(() => {
       const deleteButtons = screen.queryAllByText(/Delete/i)
@@ -295,6 +309,7 @@ describe('Documents Page', () => {
     window.alert = vi.fn()
 
     renderDocuments()
+    await selectJohnDocuments()
 
     fireEvent.click(await screen.findByText(/Copy Share Link/i))
 
@@ -317,6 +332,7 @@ describe('Documents Page', () => {
     window.alert = vi.fn()
 
     renderDocuments()
+    await selectJohnDocuments()
 
     fireEvent.click(await screen.findByText(/Create Share Link/i))
 
@@ -439,6 +455,7 @@ describe('Documents Page', () => {
     localStorage.setItem('token', makeToken({ role: 'OFFICE_ASSISTANT', email: 'assistant@example.com' }))
 
     renderDocuments()
+    await selectJohnDocuments()
 
     await waitFor(() => {
       expect(screen.getByText('Documents')).toBeInTheDocument()
@@ -457,11 +474,25 @@ describe('Documents Page', () => {
     localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
     renderDocuments()
 
-    fireEvent.change(await screen.findByLabelText(/Filter by Employee/i), { target: { value: '1' } })
+    fireEvent.change(await screen.findByLabelText(/Selected Employee/i), { target: { value: '1' } })
 
     await waitFor(() => {
       expect(screen.getAllByText(/John Doe/i).length).toBeGreaterThan(0)
     })
+  })
+
+  it('requires admins to select an employee before documents are listed', async () => {
+    mockedUser = { role: 'ADMIN', email: 'admin@example.com' }
+    localStorage.setItem('token', makeToken({ role: 'ADMIN', email: 'admin@example.com' }))
+    renderDocuments()
+
+    expect(await screen.findByText(/Select an employee to view their documents/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Contract.pdf/i)).not.toBeInTheDocument()
+
+    await selectJohnDocuments()
+
+    expect(await screen.findByText(/Contract.pdf/i)).toBeInTheDocument()
+    expect(api.apiGet).toHaveBeenCalledWith('/documents', { employeeId: '1' })
   })
 
   it('should have document type dropdown with all options', async () => {

@@ -90,7 +90,11 @@ router.get('/', requireAuth, async (req: any, res) => {
 
   if (!canOperateDocuments(role)) return res.status(403).json({ error: 'Unauthorized' })
 
-  const docs = await prisma.document.findMany({ include: { employee: true } })
+  const employeeId = req.query.employeeId ? Number(req.query.employeeId) : null
+  const docs = await prisma.document.findMany({
+    where: employeeId ? { employeeId } : undefined,
+    include: { employee: true }
+  })
   res.json(docs)
 })
 

@@ -19,6 +19,28 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ]
 
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  CONTRACT: 'Employment Contracts',
+  PASSPORT: 'Passports',
+  VISA: 'Visa Documents',
+  ID: 'ID Documents',
+  CERTIFICATE: 'Certificates',
+  PAYSLIP: 'Payslips',
+  OTHER: 'Other Documents',
+  UNCATEGORISED: 'Uncategorised',
+}
+
+const typeColors: Record<string, string> = {
+  CONTRACT: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  PASSPORT: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+  VISA: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+  ID: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
+  CERTIFICATE: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+  PAYSLIP: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+  OTHER: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-400',
+  UNCATEGORISED: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-400',
+}
+
 type UploadValidationErrors = {
   employeeId?: string
   name?: string
@@ -84,21 +106,25 @@ export default function Documents() {
   const isElevated = hasRole(user, 'ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT')
   const canManageDocumentLinks = hasRole(user, 'ADMIN', 'DIRECTOR')
 
-  async function loadDocuments() {
+  async function loadDocuments(selectedEmployeeId = viewFilterEmployeeId) {
+    if (isElevated && !selectedEmployeeId) {
+      setItems([])
+      return
+    }
+
     try {
-      setItems(await apiGet('/documents'))
+      setItems(await apiGet('/documents', selectedEmployeeId ? { employeeId: selectedEmployeeId } : undefined))
     } catch {
       setItems([])
     }
   }
 
   React.useEffect(() => {
-    loadDocuments()
     apiGet('/employees')
       .then((emps) => {
         setEmployees(emps)
         if (!isElevated && user?.email) {
-          const myEmployee = emps.find((e: any) => e.email === user.email)
+          const myEmployee = emps.find((e: any) => e.id === user.employeeId || e.email === user.email)
           if (myEmployee) {
             setCurrentEmployee(myEmployee)
             setEmployeeId(String(myEmployee.id))
@@ -108,9 +134,26 @@ export default function Documents() {
       .catch(() => setEmployees([]))
   }, [isElevated, user?.email])
 
-  const filteredDocuments = viewFilterEmployeeId
-    ? items.filter((d) => d.employeeId === Number(viewFilterEmployeeId))
-    : items
+  React.useEffect(() => {
+    loadDocuments()
+  }, [isElevated, viewFilterEmployeeId])
+
+  const selectedViewEmployee = viewFilterEmployeeId
+    ? employees.find((employee) => employee.id === Number(viewFilterEmployeeId))
+    : null
+
+  const groupedDocuments = React.useMemo(() => {
+    return items.reduce((groups: Record<string, any[]>, document) => {
+      const key = document.type || 'UNCATEGORISED'
+      groups[key] = groups[key] || []
+      groups[key].push(document)
+      return groups
+    }, {})
+  }, [items])
+
+  const groupedDocumentEntries = Object.entries(groupedDocuments).sort(([a], [b]) => {
+    return (DOCUMENT_TYPE_LABELS[a] || a).localeCompare(DOCUMENT_TYPE_LABELS[b] || b)
+  })
 
   async function handleDownloadAll(empId: string) {
     if (!empId) return alert('No employee selected')
@@ -402,6 +445,7 @@ export default function Documents() {
                 value={employeeId}
                 onChange={(e) => {
                   setEmployeeId(e.target.value)
+                  setViewFilterEmployeeId(e.target.value)
                   if (e.target.value) clearUploadValidationError('employeeId')
                 }}
                 className="form-input w-full"
@@ -599,14 +643,17 @@ export default function Documents() {
       {isElevated && (
         <div className="mb-4 flex items-end gap-4">
           <div className="flex-1">
-            <label htmlFor="document-filter-employee" className="block text-sm font-medium mb-2">Filter by Employee:</label>
+            <label htmlFor="document-filter-employee" className="block text-sm font-medium mb-2">Selected Employee:</label>
             <select
               id="document-filter-employee"
               value={viewFilterEmployeeId}
-              onChange={(e) => setViewFilterEmployeeId(e.target.value)}
+              onChange={(e) => {
+                setViewFilterEmployeeId(e.target.value)
+                setEmployeeId(e.target.value)
+              }}
               className="form-input"
             >
-              <option value="">All Employees</option>
+              <option value="">Select an employee to view documents</option>
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
               ))}
@@ -637,138 +684,136 @@ export default function Documents() {
       )}
 
       <div className="space-y-3">
-        {filteredDocuments.length === 0 && items.length > 0 && (
+        {isElevated && !viewFilterEmployeeId && (
           <div className="p-4 bg-slate-100 dark:bg-slate-700 rounded text-center text-slate-600 dark:text-slate-300">
-            No documents found for this employee
+            Select an employee to view their documents.
           </div>
         )}
-        {filteredDocuments.length === 0 && items.length === 0 && (
+        {(!isElevated || viewFilterEmployeeId) && items.length === 0 && (
           <div className="p-4 bg-slate-100 dark:bg-slate-700 rounded text-center text-slate-600 dark:text-slate-300">
-            No documents uploaded yet
+            {selectedViewEmployee ? `No documents uploaded yet for ${selectedViewEmployee.firstName} ${selectedViewEmployee.lastName}` : 'No documents uploaded yet'}
           </div>
         )}
-        {filteredDocuments.map((d) => {
-          let daysUntilExpiry: number | null = null
-          let expiryClass = ''
-          if (d.expiryDate) {
-            const now = new Date()
-            const expiry = new Date(d.expiryDate)
-            daysUntilExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        {groupedDocumentEntries.map(([documentType, documents]) => (
+          <section key={documentType} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">{DOCUMENT_TYPE_LABELS[documentType] || documentType}</h3>
+              <span className={`rounded px-2 py-0.5 text-xs font-semibold ${typeColors[documentType] || typeColors.OTHER}`}>{documents.length}</span>
+            </div>
+            {documents.map((d) => {
+              let daysUntilExpiry: number | null = null
+              let expiryClass = ''
+              if (d.expiryDate) {
+                const now = new Date()
+                const expiry = new Date(d.expiryDate)
+                daysUntilExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
-            if (daysUntilExpiry < 0) {
-              expiryClass = 'bg-red-100 dark:bg-red-900/30 border-red-500 text-red-700 dark:text-red-400'
-            } else if (daysUntilExpiry < 7) {
-              expiryClass = 'bg-red-50 dark:bg-red-900/20 border-red-400 text-red-600 dark:text-red-400'
-            } else if (daysUntilExpiry < 30) {
-              expiryClass = 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400 text-yellow-700 dark:text-yellow-400'
-            }
-          }
+                if (daysUntilExpiry < 0) {
+                  expiryClass = 'bg-red-100 dark:bg-red-900/30 border-red-500 text-red-700 dark:text-red-400'
+                } else if (daysUntilExpiry < 7) {
+                  expiryClass = 'bg-red-50 dark:bg-red-900/20 border-red-400 text-red-600 dark:text-red-400'
+                } else if (daysUntilExpiry < 30) {
+                  expiryClass = 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400 text-yellow-700 dark:text-yellow-400'
+                }
+              }
 
-          const typeColors: Record<string, string> = {
-            CONTRACT: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
-            PASSPORT: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
-            VISA: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
-            ID: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
-            CERTIFICATE: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
-            PAYSLIP: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
-            OTHER: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-400'
-          }
+              const shareUrl = buildSharedUrl(d.shareToken)
 
-          const shareUrl = buildSharedUrl(d.shareToken)
-
-          return (
-            <div key={d.id} className={`p-4 border-2 rounded-lg bg-white dark:bg-slate-800 ${expiryClass || 'border-slate-200 dark:border-slate-700'}`}>
-              <div className="flex justify-between items-start gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="font-bold text-lg">{d.name}</div>
-                    {d.type && (
-                      <span className={`px-2 py-0.5 text-xs font-semibold rounded ${typeColors[d.type] || typeColors.OTHER}`}>
-                        {d.type}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                    {d.employee ? `${d.employee.firstName} ${d.employee.lastName}` : `Employee ID: ${d.employeeId}`}
-                  </div>
-                  {d.shareToken && (
-                    <div className="mb-2 text-xs text-slate-500 dark:text-slate-400 break-all">
-                      Share link ready: {shareUrl}
-                    </div>
-                  )}
-                  {d.expiryDate && (
-                    <div className="text-sm font-medium">
-                      {daysUntilExpiry !== null && daysUntilExpiry < 0 ? (
-                        <span className="text-red-600 dark:text-red-400 font-bold">
-                          EXPIRED {Math.abs(daysUntilExpiry)} days ago ({new Date(d.expiryDate).toLocaleDateString('en-GB')})
-                        </span>
-                      ) : daysUntilExpiry !== null && daysUntilExpiry < 7 ? (
-                        <span className="text-red-600 dark:text-red-400 font-bold">
-                          Expires in {daysUntilExpiry} days ({new Date(d.expiryDate).toLocaleDateString('en-GB')})
-                        </span>
-                      ) : daysUntilExpiry !== null && daysUntilExpiry < 30 ? (
-                        <span className="text-yellow-700 dark:text-yellow-400 font-semibold">
-                          Expires in {daysUntilExpiry} days ({new Date(d.expiryDate).toLocaleDateString('en-GB')})
-                        </span>
-                      ) : (
-                        <span className="text-green-600 dark:text-green-400">
-                          Expires: {new Date(d.expiryDate).toLocaleDateString('en-GB')}
-                        </span>
+              return (
+                <div key={d.id} className={`p-4 border-2 rounded-lg bg-white dark:bg-slate-800 ${expiryClass || 'border-slate-200 dark:border-slate-700'}`}>
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="font-bold text-lg">{d.name}</div>
+                        {d.type && (
+                          <span className={`px-2 py-0.5 text-xs font-semibold rounded ${typeColors[d.type] || typeColors.OTHER}`}>
+                            {d.type}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                        {d.employee ? `${d.employee.firstName} ${d.employee.lastName}` : `Employee ID: ${d.employeeId}`}
+                      </div>
+                      {d.shareToken && (
+                        <div className="mb-2 text-xs text-slate-500 dark:text-slate-400 break-all">
+                          Share link ready: {shareUrl}
+                        </div>
+                      )}
+                      {d.expiryDate && (
+                        <div className="text-sm font-medium">
+                          {daysUntilExpiry !== null && daysUntilExpiry < 0 ? (
+                            <span className="text-red-600 dark:text-red-400 font-bold">
+                              EXPIRED {Math.abs(daysUntilExpiry)} days ago ({new Date(d.expiryDate).toLocaleDateString('en-GB')})
+                            </span>
+                          ) : daysUntilExpiry !== null && daysUntilExpiry < 7 ? (
+                            <span className="text-red-600 dark:text-red-400 font-bold">
+                              Expires in {daysUntilExpiry} days ({new Date(d.expiryDate).toLocaleDateString('en-GB')})
+                            </span>
+                          ) : daysUntilExpiry !== null && daysUntilExpiry < 30 ? (
+                            <span className="text-yellow-700 dark:text-yellow-400 font-semibold">
+                              Expires in {daysUntilExpiry} days ({new Date(d.expiryDate).toLocaleDateString('en-GB')})
+                            </span>
+                          ) : (
+                            <span className="text-green-600 dark:text-green-400">
+                              Expires: {new Date(d.expiryDate).toLocaleDateString('en-GB')}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                    <div className="flex flex-wrap gap-2 justify-end">
+                      <button
+                        type="button"
+                        className="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                        onClick={() => handlePreviewDocument(d)}
+                        disabled={openDocumentId === d.id}
+                        aria-label={`Preview ${d.name}`}
+                      >
+                        {openDocumentId === d.id ? 'Loading...' : 'Preview'}
+                      </button>
+                      <button
+                        type="button"
+                        className="text-sm px-3 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded transition-colors"
+                        onClick={() => handleDownloadDocument(d)}
+                        disabled={openDocumentId === d.id}
+                        aria-label={`Download ${d.name}`}
+                      >
+                        Download
+                      </button>
+                      {canManageDocumentLinks && (
+                        <button
+                          type="button"
+                          className="text-sm px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors"
+                          onClick={() => handleCreateShareLink(d.id, d.shareToken)}
+                          disabled={shareDocumentId === d.id}
+                        >
+                          {shareDocumentId === d.id ? 'Preparing...' : d.shareToken ? 'Copy Share Link' : 'Create Share Link'}
+                        </button>
+                      )}
+                      {canManageDocumentLinks && (
+                        <button
+                          onClick={async () => {
+                            if (!confirm('Are you sure you want to delete this document?')) return
+                            try {
+                              await apiDelete(`/documents/${d.id}`)
+                              await loadDocuments()
+                              alert('Document deleted successfully!')
+                            } catch (err: any) {
+                              alert(`Delete error: ${err.message}`)
+                            }
+                          }}
+                          className="text-sm px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2 justify-end">
-                  <button
-                    type="button"
-                    className="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                    onClick={() => handlePreviewDocument(d)}
-                    disabled={openDocumentId === d.id}
-                    aria-label={`Preview ${d.name}`}
-                  >
-                    {openDocumentId === d.id ? 'Loading...' : 'Preview'}
-                  </button>
-                  <button
-                    type="button"
-                    className="text-sm px-3 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded transition-colors"
-                    onClick={() => handleDownloadDocument(d)}
-                    disabled={openDocumentId === d.id}
-                    aria-label={`Download ${d.name}`}
-                  >
-                    Download
-                  </button>
-                  {canManageDocumentLinks && (
-                    <button
-                      type="button"
-                      className="text-sm px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors"
-                      onClick={() => handleCreateShareLink(d.id, d.shareToken)}
-                      disabled={shareDocumentId === d.id}
-                    >
-                      {shareDocumentId === d.id ? 'Preparing...' : d.shareToken ? 'Copy Share Link' : 'Create Share Link'}
-                    </button>
-                  )}
-                  {canManageDocumentLinks && (
-                    <button
-                      onClick={async () => {
-                        if (!confirm('Are you sure you want to delete this document?')) return
-                        try {
-                          await apiDelete(`/documents/${d.id}`)
-                          await loadDocuments()
-                          alert('Document deleted successfully!')
-                        } catch (err: any) {
-                          alert(`Delete error: ${err.message}`)
-                        }
-                      }}
-                      className="text-sm px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        })}
+              )
+            })}
+          </section>
+        ))}
       </div>
     </div>
   )

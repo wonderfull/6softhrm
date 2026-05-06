@@ -17,6 +17,7 @@ describe('Documents API', () => {
   let unlinkedUserToken: string
   let officeAssistantToken: string
   let testEmployeeId: number
+  let secondEmployeeId: number
   let testDocumentId: number
 
   beforeAll(async () => {
@@ -39,6 +40,17 @@ describe('Documents API', () => {
     })
     testEmployeeId = employee.id
 
+    const secondEmployee = await prisma.employee.create({
+      data: {
+        firstName: 'Other',
+        lastName: 'User',
+        email: 'other@documents.com',
+        jobTitle: 'Tester',
+        employeeType: 'EMPLOYEE'
+      }
+    })
+    secondEmployeeId = secondEmployee.id
+
     // Mock auth token (valid JWT signed with test secret)
     authToken = 'Bearer ' + jwt.sign({ email: employee.email, role: 'ADMIN' }, process.env.JWT_SECRET || 'test-secret-key')
     userToken = 'Bearer ' + jwt.sign({ email: employee.email, role: 'USER', employeeId: employee.id }, process.env.JWT_SECRET || 'test-secret-key')
@@ -52,6 +64,7 @@ describe('Documents API', () => {
       await prisma.document.delete({ where: { id: testDocumentId } }).catch(() => {})
     }
     await prisma.employee.delete({ where: { id: testEmployeeId } }).catch(() => {})
+    await prisma.employee.delete({ where: { id: secondEmployeeId } }).catch(() => {})
     await prisma.$disconnect()
   })
 
@@ -132,6 +145,64 @@ describe('Documents API', () => {
 
       expect(response.status).toBe(200)
       expect(Array.isArray(response.body)).toBe(true)
+    })
+
+    it('allows elevated users to list documents for a selected employee only', async () => {
+      const ownDoc = await prisma.document.create({
+        data: {
+          employeeId: testEmployeeId,
+          name: 'Selected Employee Doc',
+          path: '/uploads/selected-employee.pdf',
+          type: 'CONTRACT'
+        }
+      })
+      const otherDoc = await prisma.document.create({
+        data: {
+          employeeId: secondEmployeeId,
+          name: 'Other Employee Doc',
+          path: '/uploads/other-employee.pdf',
+          type: 'PASSPORT'
+        }
+      })
+
+      const response = await request(app)
+        .get(`/api/documents?employeeId=${testEmployeeId}`)
+        .set('Authorization', authToken)
+
+      expect(response.status).toBe(200)
+      expect(response.body.some((document: any) => document.id === ownDoc.id)).toBe(true)
+      expect(response.body.some((document: any) => document.id === otherDoc.id)).toBe(false)
+
+      await prisma.document.deleteMany({ where: { id: { in: [ownDoc.id, otherDoc.id] } } })
+    })
+
+    it('keeps employee document lists scoped to their own employee record', async () => {
+      const ownDoc = await prisma.document.create({
+        data: {
+          employeeId: testEmployeeId,
+          name: 'Own Employee Doc',
+          path: '/uploads/own-employee.pdf',
+          type: 'CONTRACT'
+        }
+      })
+      const otherDoc = await prisma.document.create({
+        data: {
+          employeeId: secondEmployeeId,
+          name: 'Blocked Other Employee Doc',
+          path: '/uploads/blocked-other-employee.pdf',
+          type: 'PASSPORT'
+        }
+      })
+
+      const response = await request(app)
+        .get('/api/documents')
+        .set('Authorization', userToken)
+
+      expect(response.status).toBe(200)
+      expect(response.body.some((document: any) => document.id === ownDoc.id)).toBe(true)
+      expect(response.body.some((document: any) => document.id === otherDoc.id)).toBe(false)
+
+      await prisma.document.deleteMany({ where: { id: { in: [ownDoc.id, otherDoc.id] } } })
     })
   })
 
