@@ -329,6 +329,7 @@ export default function Employees() {
   const [employeeForm, setEmployeeForm] = React.useState<EmployeeFormData>(emptyEmployeeForm)
   const [accountForm, setAccountForm] = React.useState<AccountFormData>(emptyAccountForm)
   const [busyAccountId, setBusyAccountId] = React.useState<number | null>(null)
+  const accountFormRef = React.useRef<HTMLElement | null>(null)
 
   const loadEmployees = React.useCallback(async () => {
     try {
@@ -470,6 +471,9 @@ export default function Employees() {
       role: normalizeRole(account?.role || 'EMPLOYEE'),
       password: '',
     })
+    window.setTimeout(() => {
+      accountFormRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    }, 0)
   }
 
   const closeAccountForm = () => setAccountForm(emptyAccountForm)
@@ -516,6 +520,10 @@ export default function Employees() {
   const handleAccountSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!canAssignRole(currentRole, accountForm.role)) return
+    if (!accountForm.id && !accountForm.password.trim()) {
+      alert('Temporary password is required for a new account.')
+      return
+    }
 
     try {
       if (accountForm.id) {
@@ -533,7 +541,7 @@ export default function Employees() {
           email: accountForm.email,
           name: accountForm.name,
           role: accountForm.role,
-          password: accountForm.password || generateTemporaryPassword(),
+          password: accountForm.password.trim(),
         })
         const updatedUsers = await apiGet('/auth/users')
         const created = updatedUsers.find((user: UserAccount) => user.email.toLowerCase() === accountForm.email.toLowerCase())
@@ -551,36 +559,6 @@ export default function Employees() {
       await loadUsers()
     } catch (err: any) {
       alert('Failed to save account: ' + (err.message || JSON.stringify(err)))
-    }
-  }
-
-  const handleCreateAccountForEmployee = async (employee: Employee) => {
-    const suggestedPassword = generateTemporaryPassword()
-    const password = prompt(`Temporary password for ${fullName(employee)}`, suggestedPassword)?.trim() || suggestedPassword
-
-    try {
-      await apiPost('/auth/register', {
-        email: employee.email,
-        password,
-        name: fullName(employee),
-        role: 'EMPLOYEE',
-      })
-
-      const updatedUsers = await apiGet('/auth/users')
-      const created = updatedUsers.find((user: UserAccount) => user.email.toLowerCase() === employee.email.toLowerCase())
-      if (created) {
-        await apiPut(`/auth/users/${created.id}`, {
-          email: created.email,
-          name: created.name,
-          role: normalizeRole(created.role),
-          employeeId: employee.id,
-        })
-      }
-
-      setStatus('Account created and linked.')
-      await loadUsers()
-    } catch (err: any) {
-      alert('Failed to create account: ' + (err.message || JSON.stringify(err)))
     }
   }
 
@@ -786,7 +764,7 @@ export default function Employees() {
                             <button
                               type="button"
                               aria-label={`Create account for ${fullName(employee)}`}
-                              onClick={() => handleCreateAccountForEmployee(employee)}
+                              onClick={() => openAccountForm(employee)}
                               className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
                             >
                               <HiUserPlus size={17} />
@@ -888,7 +866,7 @@ export default function Employees() {
                     )}
                   </div>
                 ) : canManageAccounts ? (
-                  <button type="button" onClick={() => handleCreateAccountForEmployee(selectedEmployee)} className="btn-primary min-h-10 w-full justify-center">
+                  <button type="button" onClick={() => openAccountForm(selectedEmployee)} className="btn-primary min-h-10 w-full justify-center">
                     <HiUserPlus size={17} />
                     Create Account
                   </button>
@@ -1067,17 +1045,34 @@ export default function Employees() {
       )}
 
       {!showEmployeeForm && accountForm.email && canManageAccounts && (
-        <section className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
+        <section ref={accountFormRef} className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold">{accountForm.id ? 'Edit Account' : 'New Account'}</h3>
             <button type="button" onClick={closeAccountForm} aria-label="Close account form" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:hover:bg-slate-700">
               <HiXMark size={20} />
             </button>
           </div>
+          <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
+            {accountForm.id
+              ? 'Use this to update login access, role, employee self-service, or reset the password.'
+              : 'Create the login account for this employee. The temporary password is used for their first login and can be reset later.'}
+          </p>
           <form onSubmit={handleAccountSubmit} className="grid gap-4 md:grid-cols-2">
-            <input value={accountForm.email} onChange={(event) => setAccountForm({ ...accountForm, email: event.target.value })} placeholder="Email *" type="email" required className="form-input" />
-            <input value={accountForm.name} onChange={(event) => setAccountForm({ ...accountForm, name: event.target.value })} placeholder="Name" className="form-input" />
-            <input value={accountForm.password} onChange={(event) => setAccountForm({ ...accountForm, password: event.target.value })} placeholder={accountForm.id ? 'Password (leave blank to keep)' : 'Password'} type="password" className="form-input" />
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Email *
+              <input value={accountForm.email} onChange={(event) => setAccountForm({ ...accountForm, email: event.target.value })} type="email" required className="form-input mt-1" />
+            </label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Name
+              <input value={accountForm.name} onChange={(event) => setAccountForm({ ...accountForm, name: event.target.value })} className="form-input mt-1" />
+            </label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              {accountForm.id ? 'New password' : 'Temporary password *'}
+              <input value={accountForm.password} onChange={(event) => setAccountForm({ ...accountForm, password: event.target.value })} placeholder={accountForm.id ? 'Leave blank to keep current password' : 'Temporary password for first login'} type="password" required={!accountForm.id} className="form-input mt-1" />
+              <span className="mt-1 block text-xs font-normal text-slate-500 dark:text-slate-400">
+                {accountForm.id ? 'Leave blank unless you need to reset it.' : 'Give this to the employee securely. They can use forgot password later.'}
+              </span>
+            </label>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="account-role">Access Role</label>
               <select

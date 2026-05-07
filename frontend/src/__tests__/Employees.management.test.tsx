@@ -86,6 +86,7 @@ describe('Unified user and employee management', () => {
     mockedUser = null
     localStorage.clear()
     ;(localStorage.getItem as any).mockReturnValue(null)
+    window.HTMLElement.prototype.scrollIntoView = vi.fn()
     mockApiLists()
   })
 
@@ -196,8 +197,6 @@ describe('Unified user and employee management', () => {
       }
       return Promise.resolve([])
     })
-    vi.spyOn(window, 'prompt').mockReturnValue('Temp-123abc!456')
-
     render(
       <MemoryRouter>
         <Employees />
@@ -205,6 +204,12 @@ describe('Unified user and employee management', () => {
     )
 
     fireEvent.click(await screen.findByRole('button', { name: /create account for Owen Reed/i }))
+    expect(await screen.findByRole('heading', { name: 'New Account' })).toBeInTheDocument()
+    expect(screen.getByText(/temporary password is used for their first login/i)).toBeInTheDocument()
+    expect(api.apiPost).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText(/Temporary password/i), { target: { value: 'Temp-123abc!456' } })
+    fireEvent.click(screen.getByRole('button', { name: /add account/i }))
 
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith('/auth/register', expect.objectContaining({
@@ -218,6 +223,22 @@ describe('Unified user and employee management', () => {
         role: 'EMPLOYEE',
       }))
     })
+  })
+
+  it('opens the visible account form when editing an existing login from the row icon', async () => {
+    mockedUser = { role: 'ADMIN', email: 'admin@6soft.co.uk' }
+
+    render(
+      <MemoryRouter>
+        <Employees />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: /edit account for Sarah Patel/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Edit Account' })).toBeInTheDocument()
+    expect(screen.getByDisplayValue('sarah@6soft.co.uk')).toBeInTheDocument()
+    expect(screen.getByText(/update login access, role, employee self-service/i)).toBeInTheDocument()
   })
 
   it('uses the same sectioned HR details flow for adding employees', async () => {
