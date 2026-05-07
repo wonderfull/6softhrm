@@ -11,6 +11,7 @@ vi.mock('../lib/api', () => ({
   apiPost: vi.fn(),
   apiPut: vi.fn(),
   apiDelete: vi.fn(),
+  apiUpload: vi.fn(),
   getCurrentUser: vi.fn(() => mockedUser)
 }))
 
@@ -216,6 +217,38 @@ describe('Sponsorships Page', () => {
       expect(screen.getAllByText(/4 missing/i).length).toBeGreaterThan(0)
       expect(screen.getAllByText(/Delayed start/i).length).toBeGreaterThan(0)
       expect(screen.getByText(/Right-to-work check/i)).toBeInTheDocument()
+    })
+  })
+
+  it('uploads and links missing compliance evidence for the sponsored employee', async () => {
+    ;(api.apiUpload as any).mockResolvedValue({ id: 88 })
+    ;(api.apiPost as any).mockResolvedValue({ id: 99 })
+    window.alert = vi.fn()
+
+    render(<Sponsorships />)
+
+    await screen.findByText(/Recruitment evidence/i)
+    expect(screen.getByText(/Sponsor licence evidence/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Add evidence for Recruitment evidence/i }))
+
+    fireEvent.change(screen.getByLabelText(/Evidence file/i), {
+      target: {
+        files: [new File(['evidence'], 'recruitment.pdf', { type: 'application/pdf' })],
+      },
+    })
+    fireEvent.change(screen.getByLabelText(/Evidence notes/i), {
+      target: { value: 'Recruitment advert and selection record retained.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Upload and link evidence/i }))
+
+    await waitFor(() => {
+      expect(api.apiUpload).toHaveBeenCalledWith('/documents/upload', expect.any(FormData))
+      expect(api.apiPost).toHaveBeenCalledWith('/sponsorships/1/compliance/evidence', {
+        evidenceType: 'RECRUITMENT_EVIDENCE',
+        documentId: 88,
+        notes: 'Recruitment advert and selection record retained.',
+      })
     })
   })
 

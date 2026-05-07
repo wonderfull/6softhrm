@@ -1,6 +1,6 @@
 import React from 'react'
-import { HiArrowDownTray, HiCheckCircle, HiClipboardDocumentList, HiPencilSquare, HiPlus, HiTrash } from 'react-icons/hi2'
-import { apiDelete, apiGet, apiPost, apiPut, getCurrentUser } from '../lib/api'
+import { HiArrowDownTray, HiCheckCircle, HiClipboardDocumentList, HiPaperClip, HiPencilSquare, HiPlus, HiTrash } from 'react-icons/hi2'
+import { apiDelete, apiGet, apiPost, apiPut, apiUpload, getCurrentUser } from '../lib/api'
 import { isElevatedRole, normalizeRole } from '../lib/roles'
 import * as XLSX from 'xlsx'
 
@@ -11,6 +11,23 @@ const EVENT_TYPES = [
   'WORK_LOCATION_CHANGED',
   'UNPAID_LEAVE_OVER_4_WEEKS',
 ]
+
+const MAX_EVIDENCE_FILE_SIZE = 5 * 1024 * 1024
+const ALLOWED_EVIDENCE_TYPES = [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+
+const EVIDENCE_DOCUMENT_TYPES: Record<string, string> = {
+  RIGHT_TO_WORK_CHECK: 'ID',
+  EMPLOYMENT_RIGHTS_NOTIFICATION: 'CONTRACT',
+  RECRUITMENT_EVIDENCE: 'OTHER',
+  SALARY_EVIDENCE: 'OTHER',
+  SKILL_LEVEL_EVIDENCE: 'CERTIFICATE',
+}
 
 function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleDateString('en-GB') : ''
@@ -36,6 +53,16 @@ function statusClass(status: string) {
   return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600'
 }
 
+function getEvidenceFileError(file: File) {
+  if (file.size > MAX_EVIDENCE_FILE_SIZE) return 'File is too large. Maximum size is 5MB.'
+  if (!ALLOWED_EVIDENCE_TYPES.includes(file.type)) return 'Unsupported file type. Use PDF, PNG, JPG, DOC or DOCX.'
+  return null
+}
+
+function defaultEvidenceDocumentName(label: string, sponsorship: any, employees: any[]) {
+  return `${label} - ${employeeName(sponsorship, employees)}`
+}
+
 export default function Sponsorships() {
   const currentUser = getCurrentUser()
   const currentRole = normalizeRole(currentUser?.role)
@@ -55,6 +82,25 @@ export default function Sponsorships() {
     dueDate: '',
     notes: '',
   })
+  const [evidenceForm, setEvidenceForm] = React.useState<{
+    sponsorshipId: number | null
+    evidenceType: string
+    label: string
+    documentName: string
+    notes: string
+    file: File | null
+    error: string
+    submitting: boolean
+  }>({
+    sponsorshipId: null,
+    evidenceType: '',
+    label: '',
+    documentName: '',
+    notes: '',
+    file: null,
+    error: '',
+    submitting: false,
+  })
   const [formData, setFormData] = React.useState({
     employeeId: '',
     visaType: '',
@@ -69,6 +115,7 @@ export default function Sponsorships() {
   const selected = items.find((item) => item.id === selectedId) || items[0] || null
   const selectedCompliance = selected ? complianceById[selected.id] : null
   const selectedEvents = selected ? openEvents.filter((event) => event.sponsorshipId === selected.id) : []
+  const canUploadEvidence = canSupportReporting
 
   const loadCompliancePack = React.useCallback(async (id: number) => {
     try {
@@ -240,6 +287,94 @@ export default function Sponsorships() {
       loadOpenEvents()
     } catch (err: any) {
       alert('Failed to mark event reported: ' + (err.message || JSON.stringify(err)))
+    }
+  }
+
+  const openEvidenceForm = (item: any) => {
+    if (!selected) return
+    setEvidenceForm({
+      sponsorshipId: selected.id,
+      evidenceType: item.key,
+      label: item.label,
+      documentName: defaultEvidenceDocumentName(item.label, selected, employees),
+      notes: item.evidence?.notes || '',
+      file: null,
+      error: '',
+      submitting: false,
+    })
+  }
+
+  const closeEvidenceForm = () => {
+    setEvidenceForm({
+      sponsorshipId: null,
+      evidenceType: '',
+      label: '',
+      documentName: '',
+      notes: '',
+      file: null,
+      error: '',
+      submitting: false,
+    })
+  }
+
+  const handleEvidenceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null
+    if (!file) {
+      setEvidenceForm((current) => ({ ...current, file: null, error: '' }))
+      return
+    }
+
+    const error = getEvidenceFileError(file)
+    setEvidenceForm((current) => ({
+      ...current,
+      file: error ? null : file,
+      error: error || '',
+    }))
+  }
+
+  const handleEvidenceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selected || !evidenceForm.sponsorshipId || !evidenceForm.evidenceType) return
+
+    if (!selected.employeeId) {
+      setEvidenceForm((current) => ({ ...current, error: 'Sponsored employee is missing from this record.' }))
+      return
+    }
+
+    if (!evidenceForm.documentName.trim()) {
+      setEvidenceForm((current) => ({ ...current, error: 'Document name is required.' }))
+      return
+    }
+
+    if (!evidenceForm.file) {
+      setEvidenceForm((current) => ({ ...current, error: 'Evidence file is required.' }))
+      return
+    }
+
+    try {
+      setEvidenceForm((current) => ({ ...current, submitting: true, error: '' }))
+      const fd = new FormData()
+      fd.append('file', evidenceForm.file)
+      fd.append('employeeId', String(selected.employeeId))
+      fd.append('name', evidenceForm.documentName.trim())
+      fd.append('type', EVIDENCE_DOCUMENT_TYPES[evidenceForm.evidenceType] || 'OTHER')
+
+      const document = await apiUpload('/documents/upload', fd)
+      await apiPost(`/sponsorships/${evidenceForm.sponsorshipId}/compliance/evidence`, {
+        evidenceType: evidenceForm.evidenceType,
+        documentId: document.id,
+        notes: evidenceForm.notes.trim(),
+      })
+
+      await loadCompliancePack(evidenceForm.sponsorshipId)
+      closeEvidenceForm()
+      alert('Evidence uploaded and linked successfully.')
+    } catch (err: any) {
+      setEvidenceForm((current) => ({
+        ...current,
+        submitting: false,
+        error: err.message || 'Failed to upload and link evidence.',
+      }))
     }
   }
 
@@ -499,20 +634,115 @@ export default function Sponsorships() {
               </span>
             </div>
 
+            <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-100">
+              <div className="font-medium">Sponsor licence evidence</div>
+              <p className="mt-1">
+                These records prove the checks behind a Skilled Worker sponsorship: right to work, employment terms, recruitment, salary level and skill level. Uploading evidence here stores the file against the employee and links it to the compliance checklist for audit review.
+              </p>
+            </div>
+
             <div className="divide-y divide-slate-200 dark:divide-slate-700">
               {(selectedCompliance?.requiredEvidence || []).map((item: any) => (
-                <div key={item.key} className="flex items-center justify-between gap-4 py-3">
-                  <div>
+                <div key={item.key} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
                     <div className="font-medium text-slate-900 dark:text-white">{item.label}</div>
                     <div className="text-sm text-slate-500 dark:text-slate-400">{item.evidence?.notes || 'Evidence not linked'}</div>
                   </div>
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.status === 'COMPLETE' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'}`}>
-                    {item.status === 'COMPLETE' ? 'Complete' : 'Missing'}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.status === 'COMPLETE' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'}`}>
+                      {item.status === 'COMPLETE' ? 'Complete' : 'Missing'}
+                    </span>
+                    {item.status !== 'COMPLETE' && canUploadEvidence && (
+                      <button
+                        type="button"
+                        onClick={() => openEvidenceForm(item)}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-950/40"
+                        aria-label={`Add evidence for ${item.label}`}
+                      >
+                        <HiPaperClip size={16} />
+                        Add evidence
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
               {!selectedCompliance && <div className="py-3 text-sm text-slate-500 dark:text-slate-400">Compliance pack unavailable.</div>}
             </div>
+
+            {evidenceForm.sponsorshipId === selected.id && (
+              <form onSubmit={handleEvidenceSubmit} className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
+                <div className="mb-4">
+                  <h4 className="font-semibold text-slate-900 dark:text-white">Add evidence: {evidenceForm.label}</h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">This file will be stored in {employeeName(selected, employees)}&apos;s documents and linked to this sponsorship checklist.</p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label htmlFor="evidence-document-name" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Document name
+                    </label>
+                    <input
+                      id="evidence-document-name"
+                      value={evidenceForm.documentName}
+                      onChange={(event) => setEvidenceForm((current) => ({ ...current, documentName: event.target.value, error: '' }))}
+                      className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="evidence-file" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Evidence file
+                    </label>
+                    <input
+                      id="evidence-file"
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                      onChange={handleEvidenceFileChange}
+                      className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:font-medium file:text-white hover:file:bg-blue-700 dark:text-slate-200"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label htmlFor="evidence-notes" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Evidence notes
+                    </label>
+                    <textarea
+                      id="evidence-notes"
+                      value={evidenceForm.notes}
+                      onChange={(event) => setEvidenceForm((current) => ({ ...current, notes: event.target.value }))}
+                      rows={3}
+                      placeholder="What was checked, who verified it, or where the proof came from..."
+                      className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {evidenceForm.error && (
+                  <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
+                    {evidenceForm.error}
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    disabled={evidenceForm.submitting}
+                    className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <HiPaperClip size={18} />
+                    {evidenceForm.submitting ? 'Uploading...' : 'Upload and link evidence'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeEvidenceForm}
+                    className="rounded bg-slate-200 px-4 py-2 font-medium text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </section>
 
           <section className="rounded-md border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
