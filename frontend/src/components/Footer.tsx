@@ -5,6 +5,7 @@ import {
   HiOutlinePhone,
   HiOutlineLocationMarker,
 } from 'react-icons/hi';
+import { getCurrentUser, hasRole } from '../lib/api';
 
 const CONTACT_EMAIL = 'info@6soft.co.uk';
 const CONTACT_PHONE = '+44 123 456 7890';
@@ -12,6 +13,8 @@ const CONTACT_PHONE_HREF = 'tel:+441234567890';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const user = getCurrentUser();
+  const isAdmin = hasRole(user, 'ADMIN');
 
   return (
     <footer className="w-full bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 mt-auto">
@@ -105,22 +108,26 @@ export default function Footer() {
               Resources
             </h4>
             <ul className="space-y-2">
-              <li>
-                <Link
-                  to="/audit-logs"
-                  className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  Audit Logs
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/data-export"
-                  className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  Data Export
-                </Link>
-              </li>
+              {isAdmin && (
+                <>
+                  <li>
+                    <Link
+                      to="/audit-logs"
+                      className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    >
+                      Audit Logs
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/data-export"
+                      className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    >
+                      Data Export
+                    </Link>
+                  </li>
+                </>
+              )}
               <li>
                 <Link
                   to="/consent"
@@ -130,14 +137,12 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <a
-                  href="https://github.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  to="/privacy"
                   className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
-                  Documentation
-                </a>
+                  Privacy Policy
+                </Link>
               </li>
             </ul>
           </div>

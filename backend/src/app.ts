@@ -106,4 +106,10 @@ app.use('/api/notifications', notificationsRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// JSON 404 for unknown /api/* routes (avoids leaking Express's HTML
+// "Cannot GET /api/..." default and keeps API clients happy).
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found', path: req.originalUrl });
+});
+
 export default app;

@@ -6,7 +6,6 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import archiver from 'archiver';
-import crypto from 'crypto';
 import {
   canDeleteDocuments,
   canOperateDocuments,
@@ -49,13 +48,12 @@ function getAbsoluteFilePath(documentPath: string) {
   return path.join(process.cwd(), documentPath.replace(/^\//, ''));
 }
 
-async function createSharedDocumentRecord(data: {
+async function createDocumentRecord(data: {
   employeeId: number;
   name: string;
   path: string;
   type?: string;
   expiryDate?: string;
-  shareOnCreate?: boolean;
 }) {
   const documentData: any = {
     employeeId: data.employeeId,
@@ -65,10 +63,6 @@ async function createSharedDocumentRecord(data: {
 
   if (data.type) documentData.type = data.type;
   if (data.expiryDate) documentData.expiryDate = new Date(data.expiryDate);
-  if (data.shareOnCreate) {
-    documentData.shareToken = crypto.randomBytes(24).toString('hex');
-    documentData.sharedAt = new Date();
-  }
 
   return prisma.document.create({ data: documentData });
 }
@@ -97,25 +91,6 @@ router.get('/', requireAuth, async (req: any, res) => {
     include: { employee: true },
   });
   res.json(docs);
-});
-
-router.get('/share/:token', async (req, res) => {
-  try {
-    const document = await prisma.document.findUnique({
-      where: { shareToken: req.params.token },
-    });
-    if (!document)
-      return res.status(404).json({ error: 'Shared document not found' });
-
-    const filePath = getAbsoluteFilePath(document.path);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-
-    res.download(filePath, document.name);
-  } catch (e: any) {
-    res.status(400).json({ error: e.message });
-  }
 });
 
 router.get('/:id/file', requireAuth, async (req: any, res) => {
@@ -167,13 +142,12 @@ router.post(
     if (!emp) return res.status(400).json({ error: 'employee not found' });
     try {
       const pathToSave = `/uploads/${file.filename}`;
-      const d = await createSharedDocumentRecord({
+      const d = await createDocumentRecord({
         employeeId: Number(employeeId),
         name,
         path: pathToSave,
         type,
         expiryDate,
-        shareOnCreate: req.body.shareOnCreate === 'true',
       });
       res.json(d);
     } catch (e: any) {
@@ -208,62 +182,19 @@ router.post(
     try {
       const documents = await Promise.all(
         files.map((file) =>
-          createSharedDocumentRecord({
+          createDocumentRecord({
             employeeId: employee.id,
             name: file.originalname.replace(/\.[^.]+$/, ''),
             path: `/uploads/${file.filename}`,
             type: 'PAYSLIP',
-            shareOnCreate: true,
           }),
         ),
       );
 
-      const shareBaseUrl = `${req.protocol}://${req.get('host')}/api/documents/share`;
       res.json({
         employeeId: employee.id,
         uploadedCount: documents.length,
-        documents: documents.map((document) => ({
-          ...document,
-          shareUrl: document.shareToken
-            ? `${shareBaseUrl}/${document.shareToken}`
-            : null,
-        })),
-      });
-    } catch (e: any) {
-      res.status(400).json({ error: e.message });
-    }
-  },
-);
-
-router.post(
-  '/:id/share-link',
-  requireAuth,
-  requireRole('ADMIN', 'DIRECTOR'),
-  async (req: any, res) => {
-    try {
-      const document = await prisma.document.findUnique({
-        where: { id: Number(req.params.id) },
-      });
-      if (!document)
-        return res.status(404).json({ error: 'Document not found' });
-
-      if (!canAccessDocument(req.user, document.employeeId)) {
-        return res.status(403).json({ error: 'Unauthorized' });
-      }
-
-      const updated = await prisma.document.update({
-        where: { id: document.id },
-        data: {
-          shareToken:
-            document.shareToken || crypto.randomBytes(24).toString('hex'),
-          sharedAt: document.sharedAt || new Date(),
-        },
-      });
-
-      res.json({
-        id: updated.id,
-        shareToken: updated.shareToken,
-        shareUrl: `${req.protocol}://${req.get('host')}/api/documents/share/${updated.shareToken}`,
+        documents,
       });
     } catch (e: any) {
       res.status(400).json({ error: e.message });

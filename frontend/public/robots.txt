@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /
+
+# HRM is an authenticated app — nothing useful for search engines to index.
+Sitemap: https://hrm.6soft.co.uk/sitemap.xml

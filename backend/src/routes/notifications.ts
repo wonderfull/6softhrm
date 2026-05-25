@@ -3,124 +3,30 @@ import prisma from '../prismaClient';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import { sendEmail, EmailTemplates } from '../lib/emailService';
+import { getCronStatus, checkExpiringRecords } from '../lib/cronJobs';
 import type { Employee, Sponsorship, User } from '@prisma/client';
 
 const router = Router();
 
-// Check for upcoming expiries and send notifications
+// Force-run the same logic the cron executes daily at 09:00 UK.
+// Routes share the cron implementation so behaviour stays in sync.
 router.post(
   '/check-expiries',
   requireAuth,
   requireRole('ADMIN', 'DIRECTOR'),
-  async (req, res) => {
+  async (_req, res) => {
     try {
-      const results = {
-        visasChecked: 0,
-        visaNotifications: 0,
-        contractsChecked: 0,
-        contractNotifications: 0,
-      };
-
-      // Check visa expiries (30, 60, 90 days)
-      const sponsorships = await prisma.sponsorship.findMany({
-        where: {
-          active: true,
-          endDate: { not: null },
-        },
-        include: {
-          employee: true,
-        },
-      });
-
-      results.visasChecked = sponsorships.length;
-
-      const today = new Date();
-      const warningThresholds = [30, 60, 90]; // days
-
-      for (const sponsorship of sponsorships) {
-        if (!sponsorship.endDate) continue;
-
-        const daysUntilExpiry = Math.ceil(
-          (sponsorship.endDate.getTime() - today.getTime()) /
-            (1000 * 60 * 60 * 24),
-        );
-
-        // Only notify if within warning thresholds and not expired
-        if (
-          daysUntilExpiry > 0 &&
-          warningThresholds.includes(daysUntilExpiry)
-        ) {
-          const template = EmailTemplates.visaExpiry(
-            `${sponsorship.employee.firstName} ${sponsorship.employee.lastName}`,
-            sponsorship.visaType,
-            sponsorship.endDate.toLocaleDateString('en-GB'),
-            daysUntilExpiry,
-          );
-
-          // Get HR admin emails
-          const admins = await prisma.user.findMany({
-            where: { role: { in: ['ADMIN', 'DIRECTOR'] } },
-            select: { email: true },
-          });
-
-          const sent = await sendEmail({
-            to: admins.map((a: Pick<User, 'email'>) => a.email),
-            subject: template.subject,
-            html: template.html,
-          });
-
-          if (sent) results.visaNotifications++;
-        }
-      }
-
-      // Check contract expiries
-      const employees = await prisma.employee.findMany({
-        where: {
-          endDate: { not: null },
-        },
-      });
-
-      results.contractsChecked = employees.length;
-
-      for (const employee of employees) {
-        if (!employee.endDate) continue;
-
-        const daysUntilExpiry = Math.ceil(
-          (employee.endDate.getTime() - today.getTime()) /
-            (1000 * 60 * 60 * 24),
-        );
-
-        // Only notify if within warning thresholds and not expired
-        if (
-          daysUntilExpiry > 0 &&
-          warningThresholds.includes(daysUntilExpiry)
-        ) {
-          const template = EmailTemplates.contractExpiry(
-            `${employee.firstName} ${employee.lastName}`,
-            employee.endDate.toLocaleDateString('en-GB'),
-            daysUntilExpiry,
-          );
-
-          // Get HR admin emails
-          const admins = await prisma.user.findMany({
-            where: { role: { in: ['ADMIN', 'DIRECTOR'] } },
-            select: { email: true },
-          });
-
-          const sent = await sendEmail({
-            to: admins.map((a: Pick<User, 'email'>) => a.email),
-            subject: template.subject,
-            html: template.html,
-          });
-
-          if (sent) results.contractNotifications++;
-        }
-      }
-
+      await checkExpiringRecords();
+      const status = getCronStatus();
       res.json({
         success: true,
         message: 'Expiry check completed',
-        results,
+        results: {
+          visasChecked: 0, // legacy field, kept for UI compatibility
+          contractsChecked: 0,
+          visaNotifications: status.lastVisaNotifications,
+          contractNotifications: status.lastContractNotifications,
+        },
       });
     } catch (error: any) {
       console.error('Error checking expiries:', error);
@@ -410,6 +316,29 @@ router.post(
     } catch (error: any) {
       console.error('Error sending test email:', error);
       res.status(500).json({ error: 'Failed to send test email' });
+    }
+  },
+);
+
+// In-process cron status — used by the Notifications page to render the
+// "last automated run" badge.
+router.get(
+  '/cron-status',
+  requireAuth,
+  requireRole('ADMIN', 'DIRECTOR'),
+  async (_req, res) => {
+    try {
+      const lastAuditRun = await prisma.auditLog.findFirst({
+        where: { action: 'CRON_EXPIRY_CHECK' },
+        orderBy: { timestamp: 'desc' },
+      });
+      res.json({
+        ...getCronStatus(),
+        lastAuditRunAt: lastAuditRun?.timestamp ?? null,
+      });
+    } catch (error: any) {
+      console.error('Error reading cron status:', error);
+      res.status(500).json({ error: 'Failed to read cron status' });
     }
   },
 );

@@ -28,6 +28,15 @@ const EMPTY: ExpiryData = {
   contractExpiries: [],
 };
 
+interface CronStatus {
+  lastStartedAt: string | null;
+  lastFinishedAt: string | null;
+  lastError: string | null;
+  lastVisaNotifications: number;
+  lastContractNotifications: number;
+  lastAuditRunAt: string | null;
+}
+
 const Notifications: React.FC = () => {
   const [expiries, setExpiries] = useState<ExpiryData>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -35,10 +44,17 @@ const Notifications: React.FC = () => {
   const [testEmail, setTestEmail] = useState('');
   const [testingEmail, setTestingEmail] = useState(false);
   const [days, setDays] = useState(90);
+  const [cronStatus, setCronStatus] = useState<CronStatus | null>(null);
 
   useEffect(() => {
     fetchExpiries();
   }, [days]);
+
+  useEffect(() => {
+    apiGet('/notifications/cron-status')
+      .then(setCronStatus)
+      .catch(() => setCronStatus(null));
+  }, []);
 
   const fetchExpiries = async () => {
     try {
@@ -181,14 +197,27 @@ const Notifications: React.FC = () => {
                   Automated Notifications
                 </h3>
                 <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-                  <li>Visa expiry alerts (30, 60, 90 days before expiry)</li>
                   <li>
-                    Contract end date alerts (30, 60, 90 days before expiry)
+                    Visa &amp; contract expiry alerts at 30, 60 and 90 days
+                    before expiry — and every day once an item is overdue.
                   </li>
-                  <li>Leave request notifications (to managers)</li>
+                  <li>Cron runs daily at 09:00 UK time.</li>
+                  <li>
+                    Leave request notifications (to operational approvers)
+                  </li>
                   <li>Leave approval/rejection notifications (to employees)</li>
                   <li>Document upload notifications</li>
                 </ul>
+                <div className="mt-3 text-xs text-blue-800">
+                  {cronStatus?.lastAuditRunAt
+                    ? `Last automated run: ${new Date(cronStatus.lastAuditRunAt).toLocaleString('en-GB')}`
+                    : 'Last automated run: never (or before this deployment)'}
+                  {cronStatus?.lastError && (
+                    <span className="ml-2 text-red-700">
+                      · last error: {cronStatus.lastError}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-4">
@@ -197,7 +226,7 @@ const Notifications: React.FC = () => {
                   disabled={checking}
                   className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
                 >
-                  {checking ? 'Checking...' : '🔔 Check & Send Notifications'}
+                  {checking ? 'Checking...' : '🔔 Force run now'}
                 </button>
 
                 <div className="flex items-center gap-2 flex-1">

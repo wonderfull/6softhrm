@@ -1,73 +1,120 @@
-import React from 'react'
-import { apiGet, apiPost, apiPut, getCurrentUser } from '../lib/api'
-import Card from '../components/Card'
-import { HiPlus } from 'react-icons/hi'
-import { normalizeRole } from '../lib/roles'
+import React from 'react';
+import { apiGet, apiPost, apiPut, getCurrentUser } from '../lib/api';
+import Card from '../components/Card';
+import { HiPlus } from 'react-icons/hi';
+import { normalizeRole } from '../lib/roles';
+
+// Normalise legacy enum-style values (ANNUAL, SICK, etc.) into the
+// human label the rest of the UI uses ("Annual Leave", "Sick Leave"...).
+const LEAVE_TYPE_LABELS: Record<string, string> = {
+  ANNUAL: 'Annual Leave',
+  SICK: 'Sick Leave',
+  UNPAID: 'Unpaid Leave',
+  MATERNITY: 'Maternity Leave',
+  PATERNITY: 'Paternity Leave',
+  BEREAVEMENT: 'Bereavement Leave',
+  COMPASSIONATE: 'Compassionate Leave',
+  OTHER: 'Other',
+};
+
+function formatLeaveType(raw: string | undefined | null) {
+  if (!raw) return 'Leave';
+  const upper = raw.toUpperCase();
+  return LEAVE_TYPE_LABELS[upper] || raw;
+}
 
 export default function Leave() {
-  const [items, setItems] = React.useState<any[]>([])
-  const [loadingIds, setLoadingIds] = React.useState<number[]>([])
-  const [showForm, setShowForm] = React.useState(false)
+  const [items, setItems] = React.useState<any[]>([]);
+  const [loadingIds, setLoadingIds] = React.useState<number[]>([]);
+  const [showForm, setShowForm] = React.useState(false);
   const [formData, setFormData] = React.useState({
     type: 'ANNUAL',
     startDate: '',
     endDate: '',
-    reason: ''
-  })
+    reason: '',
+  });
 
   const loadLeave = () => {
     apiGet('/leave')
       .then(setItems)
-      .catch(() => setItems([]))
-  }
+      .catch(() => setItems([]));
+  };
 
   React.useEffect(() => {
-    loadLeave()
-  }, [])
+    loadLeave();
+  }, []);
 
-  const user = getCurrentUser()
-  const role = normalizeRole(user?.role)
-  const canApprove = user && (role === 'ADMIN' || role === 'DIRECTOR' || role === 'OFFICE_ASSISTANT')
-  const canRequestLeave = user && user.employeeId
-  const showLinkWarning = role === 'EMPLOYEE' && !user?.employeeId
+  const user = getCurrentUser();
+  const role = normalizeRole(user?.role);
+  const canApprove =
+    user &&
+    (role === 'ADMIN' || role === 'DIRECTOR' || role === 'OFFICE_ASSISTANT');
+  const canRequestLeave = user && user.employeeId;
+  const showLinkWarning = role === 'EMPLOYEE' && !user?.employeeId;
+
+  function employeeNameFor(id: number) {
+    const request = items.find((it: any) => it.id === id);
+    return request?.employee
+      ? `${request.employee.firstName} ${request.employee.lastName}`
+      : 'this employee';
+  }
 
   async function handleApprove(id: number) {
+    if (
+      !confirm(
+        `Approve leave for ${employeeNameFor(id)}? They will be notified by email.`,
+      )
+    )
+      return;
     try {
-      setLoadingIds((s: number[]) => [...s, id])
-      const updated = await apiPut(`/leave/${id}/approve`)
-      setItems((list: any[]) => list.map((it: any) => (it.id === id ? updated : it)))
+      setLoadingIds((s: number[]) => [...s, id]);
+      const updated = await apiPut(`/leave/${id}/approve`);
+      setItems((list: any[]) =>
+        list.map((it: any) => (it.id === id ? updated : it)),
+      );
     } catch (e) {
-      alert('Approve failed')
+      alert('Approve failed');
     } finally {
-      setLoadingIds((s: number[]) => s.filter((i: number) => i !== id))
+      setLoadingIds((s: number[]) => s.filter((i: number) => i !== id));
     }
   }
 
   async function handleReject(id: number) {
+    if (
+      !confirm(
+        `Reject leave for ${employeeNameFor(id)}? They will be notified by email.`,
+      )
+    )
+      return;
     try {
-      setLoadingIds((s: number[]) => [...s, id])
-      const updated = await apiPut(`/leave/${id}/reject`)
-      setItems((list: any[]) => list.map((it: any) => (it.id === id ? updated : it)))
+      setLoadingIds((s: number[]) => [...s, id]);
+      const updated = await apiPut(`/leave/${id}/reject`);
+      setItems((list: any[]) =>
+        list.map((it: any) => (it.id === id ? updated : it)),
+      );
     } catch (e) {
-      alert('Reject failed')
+      alert('Reject failed');
     } finally {
-      setLoadingIds((s: number[]) => s.filter((i: number) => i !== id))
+      setLoadingIds((s: number[]) => s.filter((i: number) => i !== id));
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      await apiPost('/leave', formData)
-      alert('Leave request submitted successfully!')
-      setShowForm(false)
-      setFormData({ type: 'ANNUAL', startDate: '', endDate: '', reason: '' })
-      loadLeave()
+      await apiPost('/leave', formData);
+      alert('Leave request submitted successfully!');
+      setShowForm(false);
+      setFormData({ type: 'ANNUAL', startDate: '', endDate: '', reason: '' });
+      loadLeave();
     } catch (err: any) {
-      console.error('Error submitting leave request:', err)
-      alert('Failed to submit leave request: ' + (err.message || JSON.stringify(err)))
+      console.error('Error submitting leave request:', err);
+      alert(
+        'Failed to submit leave request: ' +
+          (err.message || JSON.stringify(err)),
+      );
     }
-  }
+  };
 
   return (
     <div>
@@ -82,7 +129,8 @@ export default function Leave() {
           </button>
         ) : showLinkWarning ? (
           <div className="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-200 text-sm">
-            ⚠️ Your account is not linked to an employee record. Please contact HR.
+            ⚠️ Your account is not linked to an employee record. Please contact
+            HR.
           </div>
         ) : canApprove ? (
           <div className="text-slate-600 bg-slate-100 px-4 py-2 rounded-lg border border-slate-200 text-sm">
@@ -93,16 +141,23 @@ export default function Leave() {
 
       {showForm && canRequestLeave && (
         <Card className="p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-white">New Leave Request</h3>
+          <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-white">
+            New Leave Request
+          </h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="leave-type" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label
+                htmlFor="leave-type"
+                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+              >
                 Leave Type *
               </label>
               <select
                 id="leave-type"
                 value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, type: e.target.value })
+                }
                 className="form-input"
                 required
               >
@@ -114,41 +169,56 @@ export default function Leave() {
             </div>
 
             <div>
-              <label htmlFor="leave-start-date" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label
+                htmlFor="leave-start-date"
+                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+              >
                 Start Date *
               </label>
               <input
                 id="leave-start-date"
                 type="date"
                 value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, startDate: e.target.value })
+                }
                 className="form-input"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="leave-end-date" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label
+                htmlFor="leave-end-date"
+                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+              >
                 End Date *
               </label>
               <input
                 id="leave-end-date"
                 type="date"
                 value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, endDate: e.target.value })
+                }
                 className="form-input"
                 required
               />
             </div>
 
             <div className="col-span-2">
-              <label htmlFor="leave-reason" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label
+                htmlFor="leave-reason"
+                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+              >
                 Reason
               </label>
               <textarea
                 id="leave-reason"
                 value={formData.reason}
-                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, reason: e.target.value })
+                }
                 className="form-input"
                 rows={3}
                 placeholder="Optional: Provide details about your leave request"
@@ -156,7 +226,10 @@ export default function Leave() {
             </div>
 
             <div className="col-span-2">
-              <button type="submit" className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
+              <button
+                type="submit"
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+              >
                 Submit Leave Request
               </button>
             </div>
@@ -167,7 +240,9 @@ export default function Leave() {
       <div className="space-y-3">
         {items.length === 0 ? (
           <Card className="p-6 text-center text-slate-600 dark:text-slate-400">
-            No leave requests found. {canRequestLeave && 'Click "Request Leave" to submit a new request.'}
+            No leave requests found.{' '}
+            {canRequestLeave &&
+              'Click "Request Leave" to submit a new request.'}
           </Card>
         ) : (
           items.map((l: any) => (
@@ -178,7 +253,11 @@ export default function Leave() {
                     {l.employee?.firstName} {l.employee?.lastName}
                   </div>
                   <div className="text-slate-700 dark:text-slate-300 mt-1">
-                    <span className="font-semibold">{l.type}</span> — {new Date(l.startDate).toLocaleDateString('en-GB')} to {new Date(l.endDate).toLocaleDateString('en-GB')}
+                    <span className="font-semibold">
+                      {formatLeaveType(l.type)}
+                    </span>{' '}
+                    — {new Date(l.startDate).toLocaleDateString('en-GB')} to{' '}
+                    {new Date(l.endDate).toLocaleDateString('en-GB')}
                   </div>
                   {l.reason && (
                     <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
@@ -186,10 +265,15 @@ export default function Leave() {
                     </div>
                   )}
                   <div className="mt-2">
-                    <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${l.status === 'APPROVED' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                        l.status === 'REJECTED' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                      }`}>
+                    <span
+                      className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
+                        l.status === 'APPROVED'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                          : l.status === 'REJECTED'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      }`}
+                    >
                       {l.status}
                     </span>
                   </div>
@@ -218,5 +302,5 @@ export default function Leave() {
         )}
       </div>
     </div>
-  )
+  );
 }

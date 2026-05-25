@@ -28,12 +28,7 @@ Feature: Document lifecycle
     When an admin downloads all documents for that employee
     Then the response is a ZIP download
 
-  Scenario: Admin can generate a share link for a stored document
-    Given an employee with a stored document file
-    When an admin generates a share link for that document
-    Then the share link can be used without authentication
-
   Scenario: Admin can bulk upload payslips for an employee
     Given an existing employee record for document upload
     When an admin bulk uploads payslips for that employee
-    Then the uploaded payslips are stored as shared documents
+    Then the uploaded payslips are stored without public share links

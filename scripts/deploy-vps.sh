@@ -50,6 +50,27 @@ if [ "${DEPLOY_MAIN_SITE:-1}" = "1" ]; then
   chown -R www-data:www-data "$MAIN_SITE_ROOT"
 fi
 
+echo "[deploy] syncing security-headers snippet"
+install -m 644 "$HRM_REPO_DIR/nginx/6soft-security-headers.conf" \
+  /etc/nginx/snippets/6soft-security-headers.conf
+
+echo "[deploy] ensuring nginx server_tokens are disabled"
+if ! grep -q '^[^#]*server_tokens off;' /etc/nginx/nginx.conf; then
+  # Add server_tokens off inside the http{} block (idempotent).
+  sed -i '/^http\s*{/a \\tserver_tokens off;' /etc/nginx/nginx.conf
+fi
+
+# Warn (don't auto-edit) if the live site config hasn't been wired to include
+# the security-headers snippet yet. Manual one-time step on first deploy.
+for SITE in /etc/nginx/sites-enabled/hrm.6soft.co.uk \
+            /etc/nginx/sites-available/hrm.6soft.co.uk; do
+  if [ -f "$SITE" ] && ! grep -q '6soft-security-headers.conf' "$SITE"; then
+    echo "[deploy] WARNING: $SITE is missing"
+    echo "         'include /etc/nginx/snippets/6soft-security-headers.conf;'"
+    echo "         Add it inside each server { ... } block, then reload nginx."
+  fi
+done
+
 echo "[deploy] reloading nginx"
 nginx -t
 systemctl reload nginx

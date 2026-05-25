@@ -1,6 +1,12 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Sponsorships from './pages/Sponsorships';
 import Employees from './pages/Employees';
@@ -26,6 +32,39 @@ import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import './styles/tailwind.css';
+
+// Per-route document.title so browser tabs and screen-reader announcements are
+// disambiguated (test report B13: every page used to read "HRM Starter").
+const ROUTE_TITLES: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/employees': 'People',
+  '/sponsorships': 'Sponsorships',
+  '/time': 'Time',
+  '/projects': 'Projects',
+  '/leave': 'Leave',
+  '/documents': 'Documents',
+  '/settings': 'Settings',
+  '/notifications': 'Notifications',
+  '/audit-logs': 'Audit Logs',
+  '/data-export': 'Data Export',
+  '/consent': 'Data Consent',
+  '/privacy': 'Privacy Policy',
+  '/terms': 'Terms of Service',
+  '/gdpr': 'GDPR',
+  '/login': 'Sign in',
+  '/register': 'Register',
+  '/forgot-password': 'Forgot password',
+  '/reset-password': 'Reset password',
+};
+
+function RouteTitle() {
+  const { pathname } = useLocation();
+  React.useEffect(() => {
+    const title = ROUTE_TITLES[pathname];
+    document.title = title ? `${title} · 6soft HRM` : '6soft HRM';
+  }, [pathname]);
+  return null;
+}
 
 function App() {
   const [dark, setDark] = React.useState(false);
@@ -56,6 +95,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <RouteTitle />
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
@@ -105,7 +145,14 @@ function App() {
                       />
                       <Route path="/leave" element={<Leave />} />
                       <Route path="/documents" element={<Documents />} />
-                      <Route path="/settings" element={<Settings />} />
+                      <Route
+                        path="/settings"
+                        element={
+                          <ProtectedRoute allowedRoles={['ADMIN']}>
+                            <Settings />
+                          </ProtectedRoute>
+                        }
+                      />
                       <Route
                         path="/notifications"
                         element={
@@ -140,6 +187,15 @@ function App() {
                       <Route path="/privacy" element={<Privacy />} />
                       <Route path="/terms" element={<Terms />} />
                       <Route path="/gdpr" element={<Gdpr />} />
+                      {/* B12: canonicalise common alt-paths back to /employees */}
+                      <Route
+                        path="/profile"
+                        element={<Navigate to="/employees" replace />}
+                      />
+                      <Route
+                        path="/my-profile"
+                        element={<Navigate to="/employees" replace />}
+                      />
                       <Route
                         path="/"
                         element={<Navigate to="/dashboard" replace />}
