@@ -101,6 +101,10 @@ export default function Leave() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.endDate < formData.startDate) {
+      alert('End date cannot be before the start date.');
+      return;
+    }
     try {
       await apiPost('/leave', formData);
       alert('Leave request submitted successfully!');
@@ -180,7 +184,14 @@ export default function Leave() {
                 type="date"
                 value={formData.startDate}
                 onChange={(e) =>
-                  setFormData({ ...formData, startDate: e.target.value })
+                  setFormData((prev) => ({
+                    ...prev,
+                    startDate: e.target.value,
+                    endDate:
+                      prev.endDate && prev.endDate < e.target.value
+                        ? ''
+                        : prev.endDate,
+                  }))
                 }
                 className="form-input"
                 required
@@ -198,6 +209,7 @@ export default function Leave() {
                 id="leave-end-date"
                 type="date"
                 value={formData.endDate}
+                min={formData.startDate || undefined}
                 onChange={(e) =>
                   setFormData({ ...formData, endDate: e.target.value })
                 }

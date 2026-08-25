@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import prisma from '../prismaClient';
 import { requireAuth } from '../middleware/auth';
-import { requireRole } from '../middleware/roles';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -128,13 +127,16 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
 router.post(
   '/upload',
   requireAuth,
-  requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'),
   upload.single('file'),
-  async (req, res) => {
+  async (req: any, res) => {
     const file = req.file as Express.Multer.File | undefined;
     const { employeeId, name, type, expiryDate } = req.body;
     if (!file || !employeeId || !name)
       return res.status(400).json({ error: 'missing fields or file' });
+    // Elevated roles can upload for anyone; employees only for their own record
+    if (!canAccessDocument(req.user, Number(employeeId))) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
     // Verify employee exists before writing DB record
     const emp = await prisma.employee.findUnique({
       where: { id: Number(employeeId) },

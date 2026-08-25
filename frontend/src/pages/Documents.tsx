@@ -452,8 +452,7 @@ export default function Documents() {
               <h3 className="text-lg font-semibold">Payslip Drop Zone</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 Select an employee, drag in one or more payslips, and the system
-                stores them in that employee&apos;s documents with share links
-                ready to copy.
+                stores them in that employee&apos;s documents.
               </p>
             </div>
           </div>

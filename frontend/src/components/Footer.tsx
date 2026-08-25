@@ -15,6 +15,8 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
   const user = getCurrentUser();
   const isAdmin = hasRole(user, 'ADMIN');
+  // Data Consent only applies to users with their own employee record.
+  const hasEmployeeProfile = !!user?.employeeId;
 
   return (
     <footer className="w-full bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 mt-auto">
@@ -128,14 +130,16 @@ export default function Footer() {
                   </li>
                 </>
               )}
-              <li>
-                <Link
-                  to="/consent"
-                  className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  Data Consent
-                </Link>
-              </li>
+              {hasEmployeeProfile && (
+                <li>
+                  <Link
+                    to="/consent"
+                    className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    Data Consent
+                  </Link>
+                </li>
+              )}
               <li>
                 <Link
                   to="/privacy"

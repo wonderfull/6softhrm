@@ -1,33 +1,37 @@
-import { afterAll, beforeAll, describe, expect, it } from '@jest/globals'
-import express from 'express'
-import request from 'supertest'
-import authRouter from '../routes/auth'
-import employeesRouter from '../routes/employees'
-import prisma from '../prismaClient'
+import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
+import express from 'express';
+import request from 'supertest';
+import authRouter from '../routes/auth';
+import employeesRouter from '../routes/employees';
+import prisma from '../prismaClient';
 import {
   authHeader,
   cleanupFixturePrefix,
+  createDocument,
   createEmployee,
+  createLeaveRequest,
+  createSponsorship,
+  createTimesheet,
   createUser,
   uniquePrefix,
-} from './bdd/helpers/fixtures'
+} from './bdd/helpers/fixtures';
 
-const app = express()
-app.use(express.json())
-app.use('/api/auth', authRouter)
-app.use('/api/employees', employeesRouter)
+const app = express();
+app.use(express.json());
+app.use('/api/auth', authRouter);
+app.use('/api/employees', employeesRouter);
 
 describe('Employees authorization', () => {
-  let employeeId: number
+  let employeeId: number;
 
   beforeAll(async () => {
-    await prisma.document.deleteMany({})
-    await prisma.timesheet.deleteMany({})
-    await prisma.leaveRequest.deleteMany({})
-    await prisma.sponsorship.deleteMany({})
+    await prisma.document.deleteMany({});
+    await prisma.timesheet.deleteMany({});
+    await prisma.leaveRequest.deleteMany({});
+    await prisma.sponsorship.deleteMany({});
     await prisma.employee.deleteMany({
       where: { email: { contains: 'employees-security@test.com' } },
-    })
+    });
 
     const employee = await prisma.employee.create({
       data: {
@@ -37,184 +41,342 @@ describe('Employees authorization', () => {
         jobTitle: 'Tester',
         employeeType: 'EMPLOYEE',
       },
-    })
+    });
 
-    employeeId = employee.id
-  })
+    employeeId = employee.id;
+  });
 
   afterAll(async () => {
-    await prisma.document.deleteMany({ where: { employeeId } })
-    await prisma.timesheet.deleteMany({ where: { employeeId } })
-    await prisma.leaveRequest.deleteMany({ where: { employeeId } })
-    await prisma.sponsorship.deleteMany({ where: { employeeId } })
-    await prisma.employee.deleteMany({ where: { id: employeeId } })
-    await prisma.$disconnect()
-  })
+    await prisma.document.deleteMany({ where: { employeeId } });
+    await prisma.timesheet.deleteMany({ where: { employeeId } });
+    await prisma.leaveRequest.deleteMany({ where: { employeeId } });
+    await prisma.sponsorship.deleteMany({ where: { employeeId } });
+    await prisma.employee.deleteMany({ where: { id: employeeId } });
+    await prisma.$disconnect();
+  });
 
   it('rejects employee creation for non-admin users', async () => {
     const response = await request(app)
       .post('/api/employees')
-      .set('Authorization', authHeader({ id: 90, email: 'user@test.com', role: 'USER' }))
+      .set(
+        'Authorization',
+        authHeader({ id: 90, email: 'user@test.com', role: 'USER' }),
+      )
       .send({
         firstName: 'Blocked',
         lastName: 'User',
         email: 'blocked-user@test.com',
         employeeType: 'EMPLOYEE',
-      })
+      });
 
-    expect(response.status).toBe(403)
-  })
+    expect(response.status).toBe(403);
+  });
 
   it('rejects employee updates for non-admin users', async () => {
     const response = await request(app)
       .put(`/api/employees/${employeeId}`)
-      .set('Authorization', authHeader({ id: 91, email: 'user@test.com', role: 'USER' }))
-      .send({ jobTitle: 'Mutated' })
+      .set(
+        'Authorization',
+        authHeader({ id: 91, email: 'user@test.com', role: 'USER' }),
+      )
+      .send({ jobTitle: 'Mutated' });
 
-    expect(response.status).toBe(403)
-  })
+    expect(response.status).toBe(403);
+  });
 
   it('allows employees to update only their own self-service profile fields', async () => {
     const response = await request(app)
       .put(`/api/employees/${employeeId}`)
-      .set('Authorization', authHeader({ id: 94, email: 'employees-security@test.com', role: 'EMPLOYEE', employeeId }))
+      .set(
+        'Authorization',
+        authHeader({
+          id: 94,
+          email: 'employees-security@test.com',
+          role: 'EMPLOYEE',
+          employeeId,
+        }),
+      )
       .send({
         phoneNumber: '07123456789',
         address1: '10 Updated Street',
         emergencyContactName: 'Trusted Contact',
         jobTitle: 'Mutated',
         salary: 999999,
-      })
+      });
 
-    expect(response.status).toBe(200)
-    expect(response.body.phoneNumber).toBe('07123456789')
-    expect(response.body.address1).toBe('10 Updated Street')
-    expect(response.body.emergencyContactName).toBe('Trusted Contact')
-    expect(response.body.jobTitle).toBe('Tester')
-    expect(response.body.salary).toBeNull()
-  })
+    expect(response.status).toBe(200);
+    expect(response.body.phoneNumber).toBe('07123456789');
+    expect(response.body.address1).toBe('10 Updated Street');
+    expect(response.body.emergencyContactName).toBe('Trusted Contact');
+    expect(response.body.jobTitle).toBe('Tester');
+    expect(response.body.salary).toBeNull();
+  });
 
   it('rejects employee deletion for non-admin users', async () => {
     const response = await request(app)
       .delete(`/api/employees/${employeeId}`)
-      .set('Authorization', authHeader({ id: 92, email: 'user@test.com', role: 'USER' }))
+      .set(
+        'Authorization',
+        authHeader({ id: 92, email: 'user@test.com', role: 'USER' }),
+      );
 
-    expect(response.status).toBe(403)
-  })
-})
+    expect(response.status).toBe(403);
+  });
+});
 
-describe('user employee management permissions', () => {
-  let prefix: string
+describe('Employee deletion with dependent records', () => {
+  let prefix: string;
 
   beforeAll(() => {
-    prefix = uniquePrefix('employee-management')
-  })
+    prefix = uniquePrefix('employee-delete');
+  });
 
   afterAll(async () => {
-    await cleanupFixturePrefix(prefix)
-  })
+    await cleanupFixturePrefix(prefix);
+  });
+
+  it('lets an admin delete an employee that has dependent records', async () => {
+    const employee = await createEmployee(prefix, {
+      email: `${prefix}@example.com`,
+    });
+    const linkedUser = await createUser(`${prefix}-login`, {
+      email: `${prefix}-login@example.com`,
+      role: 'EMPLOYEE',
+      employeeId: employee.id,
+    });
+    const sponsorship = await createSponsorship(employee.id);
+    // Compliance evidence and reportable events hang off the sponsorship and
+    // must not block the employee deletion (they cascade with the sponsorship).
+    await prisma.sponsorshipComplianceEvidence.create({
+      data: {
+        sponsorshipId: sponsorship.id,
+        evidenceType: 'RIGHT_TO_WORK',
+        notes: 'test evidence',
+      },
+    });
+    await prisma.sponsorshipReportableEvent.create({
+      data: {
+        sponsorshipId: sponsorship.id,
+        eventType: 'CHANGE_OF_ADDRESS',
+        eventDate: new Date(),
+        dueDate: new Date(),
+      },
+    });
+    await createTimesheet(employee.id, null);
+    await createLeaveRequest(employee.id);
+    await createDocument(employee.id, prefix);
+    await prisma.dataConsent.create({
+      data: {
+        employeeId: employee.id,
+        consentType: 'GDPR_PROCESSING',
+        consentGiven: true,
+      },
+    });
+
+    const response = await request(app)
+      .delete(`/api/employees/${employee.id}`)
+      .set(
+        'Authorization',
+        authHeader({
+          id: 200,
+          email: `${prefix}.admin@example.com`,
+          role: 'ADMIN',
+        }),
+      );
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+
+    const deleted = await prisma.employee.findUnique({
+      where: { id: employee.id },
+    });
+    expect(deleted).toBeNull();
+
+    // Sponsorship and its cascaded child records are gone too.
+    const remainingSponsorships = await prisma.sponsorship.count({
+      where: { employeeId: employee.id },
+    });
+    expect(remainingSponsorships).toBe(0);
+    const remainingEvidence = await prisma.sponsorshipComplianceEvidence.count({
+      where: { sponsorshipId: sponsorship.id },
+    });
+    expect(remainingEvidence).toBe(0);
+    const remainingEvents = await prisma.sponsorshipReportableEvent.count({
+      where: { sponsorshipId: sponsorship.id },
+    });
+    expect(remainingEvents).toBe(0);
+
+    // The linked login account is detached, not deleted.
+    const user = await prisma.user.findUnique({ where: { id: linkedUser.id } });
+    expect(user).not.toBeNull();
+    expect(user?.employeeId).toBeNull();
+  });
+});
+
+describe('user employee management permissions', () => {
+  let prefix: string;
+
+  beforeAll(() => {
+    prefix = uniquePrefix('employee-management');
+  });
+
+  afterAll(async () => {
+    await cleanupFixturePrefix(prefix);
+  });
 
   it('allows admins to assign ADMIN, DIRECTOR, OFFICE_ASSISTANT, and EMPLOYEE roles', async () => {
     for (const role of ['ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT', 'EMPLOYEE']) {
       const user = await createUser(`${prefix}-${role.toLowerCase()}`, {
         email: `${prefix}-${role.toLowerCase()}@example.com`,
         role: 'EMPLOYEE',
-      })
+      });
 
       const response = await request(app)
         .put(`/api/auth/users/${user.id}`)
-        .set('Authorization', authHeader({ id: 100, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
-        .send({ role })
+        .set(
+          'Authorization',
+          authHeader({
+            id: 100,
+            email: `${prefix}.admin@example.com`,
+            role: 'ADMIN',
+          }),
+        )
+        .send({ role });
 
-      expect(response.status).toBe(200)
-      expect(response.body.role).toBe(role)
+      expect(response.status).toBe(200);
+      expect(response.body.role).toBe(role);
     }
-  })
+  });
 
   it('allows directors to manage non-admin user roles', async () => {
     for (const role of ['DIRECTOR', 'OFFICE_ASSISTANT', 'EMPLOYEE']) {
-      const user = await createUser(`${prefix}-director-${role.toLowerCase()}`, {
-        email: `${prefix}-director-${role.toLowerCase()}@example.com`,
-        role: 'EMPLOYEE',
-      })
+      const user = await createUser(
+        `${prefix}-director-${role.toLowerCase()}`,
+        {
+          email: `${prefix}-director-${role.toLowerCase()}@example.com`,
+          role: 'EMPLOYEE',
+        },
+      );
 
       const response = await request(app)
         .put(`/api/auth/users/${user.id}`)
-        .set('Authorization', authHeader({ id: 101, email: `${prefix}.director@example.com`, role: 'DIRECTOR' }))
-        .send({ role })
+        .set(
+          'Authorization',
+          authHeader({
+            id: 101,
+            email: `${prefix}.director@example.com`,
+            role: 'DIRECTOR',
+          }),
+        )
+        .send({ role });
 
-      expect(response.status).toBe(200)
-      expect(response.body.role).toBe(role)
+      expect(response.status).toBe(200);
+      expect(response.body.role).toBe(role);
     }
-  })
+  });
 
   it('prevents directors from assigning ADMIN', async () => {
     const user = await createUser(`${prefix}-director-admin`, {
       email: `${prefix}-director-admin@example.com`,
       role: 'EMPLOYEE',
-    })
+    });
 
     const response = await request(app)
       .put(`/api/auth/users/${user.id}`)
-      .set('Authorization', authHeader({ id: 102, email: `${prefix}.director@example.com`, role: 'DIRECTOR' }))
-      .send({ role: 'ADMIN' })
+      .set(
+        'Authorization',
+        authHeader({
+          id: 102,
+          email: `${prefix}.director@example.com`,
+          role: 'DIRECTOR',
+        }),
+      )
+      .send({ role: 'ADMIN' });
 
-    expect(response.status).toBe(403)
-    expect(response.body.error).toMatch(/permission/i)
-  })
+    expect(response.status).toBe(403);
+    expect(response.body.error).toMatch(/permission/i);
+  });
 
   it('prevents directors from mutating or deleting existing admin accounts', async () => {
     const admin = await createUser(`${prefix}-protected-admin`, {
       email: `${prefix}-protected-admin@example.com`,
       role: 'ADMIN',
-    })
+    });
 
     const updateResponse = await request(app)
       .put(`/api/auth/users/${admin.id}`)
-      .set('Authorization', authHeader({ id: 103, email: `${prefix}.director@example.com`, role: 'DIRECTOR' }))
-      .send({ name: 'Director Mutation', role: 'DIRECTOR' })
+      .set(
+        'Authorization',
+        authHeader({
+          id: 103,
+          email: `${prefix}.director@example.com`,
+          role: 'DIRECTOR',
+        }),
+      )
+      .send({ name: 'Director Mutation', role: 'DIRECTOR' });
 
-    expect(updateResponse.status).toBe(403)
+    expect(updateResponse.status).toBe(403);
 
     const deleteResponse = await request(app)
       .delete(`/api/auth/users/${admin.id}`)
-      .set('Authorization', authHeader({ id: 104, email: `${prefix}.director@example.com`, role: 'DIRECTOR' }))
+      .set(
+        'Authorization',
+        authHeader({
+          id: 104,
+          email: `${prefix}.director@example.com`,
+          role: 'DIRECTOR',
+        }),
+      );
 
-    expect(deleteResponse.status).toBe(403)
+    expect(deleteResponse.status).toBe(403);
 
-    const persisted = await prisma.user.findUnique({ where: { id: admin.id } })
-    expect(persisted?.role).toBe('ADMIN')
-  })
+    const persisted = await prisma.user.findUnique({ where: { id: admin.id } });
+    expect(persisted?.role).toBe('ADMIN');
+  });
 
   it('includes linked user account data with normalized roles for elevated employee list access', async () => {
     const employee = await createEmployee(`${prefix}-linked-employee`, {
       email: `${prefix}-linked-employee@example.com`,
-    })
+    });
     await createUser(`${prefix}-linked-user`, {
       email: employee.email,
       employeeId: employee.id,
       role: 'MANAGER',
-    })
+    });
 
     const response = await request(app)
       .get('/api/employees')
-      .set('Authorization', authHeader({ id: 105, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+      .set(
+        'Authorization',
+        authHeader({
+          id: 105,
+          email: `${prefix}.admin@example.com`,
+          role: 'ADMIN',
+        }),
+      );
 
-    expect(response.status).toBe(200)
-    const returned = response.body.find((item: any) => item.id === employee.id)
+    expect(response.status).toBe(200);
+    const returned = response.body.find((item: any) => item.id === employee.id);
     expect(returned.user).toEqual(
       expect.objectContaining({
         email: employee.email,
         role: 'DIRECTOR',
         employeeId: employee.id,
       }),
-    )
-  })
+    );
+  });
 
   it('persists expanded HR employee details from the unified form', async () => {
     const response = await request(app)
       .post('/api/employees')
-      .set('Authorization', authHeader({ id: 108, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+      .set(
+        'Authorization',
+        authHeader({
+          id: 108,
+          email: `${prefix}.admin@example.com`,
+          role: 'ADMIN',
+        }),
+      )
       .send({
         firstName: 'Expanded',
         middleName: 'HR',
@@ -237,9 +399,9 @@ describe('user employee management permissions', () => {
         passportExpiryDate: '2030-05-03',
         visaNumber: 'VISA123',
         visaExpiryDate: '2028-05-03',
-      })
+      });
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(200);
     expect(response.body).toEqual(
       expect.objectContaining({
         middleName: 'HR',
@@ -255,8 +417,8 @@ describe('user employee management permissions', () => {
         passportNumber: '123456789',
         visaNumber: 'VISA123',
       }),
-    )
-  })
+    );
+  });
 
   it('redacts sensitive employee fields for office assistant list access', async () => {
     const employee = await createEmployee(`${prefix}-sensitive-employee`, {
@@ -271,14 +433,21 @@ describe('user employee management permissions', () => {
       passportNumber: '123456789',
       visaNumber: 'VISA123',
       emergencyContactAddress: '1 Sensitive Street',
-    })
+    });
 
     const response = await request(app)
       .get('/api/employees')
-      .set('Authorization', authHeader({ id: 106, email: `${prefix}.office@example.com`, role: 'OFFICE_ASSISTANT' }))
+      .set(
+        'Authorization',
+        authHeader({
+          id: 106,
+          email: `${prefix}.office@example.com`,
+          role: 'OFFICE_ASSISTANT',
+        }),
+      );
 
-    expect(response.status).toBe(200)
-    const returned = response.body.find((item: any) => item.id === employee.id)
+    expect(response.status).toBe(200);
+    const returned = response.body.find((item: any) => item.id === employee.id);
     expect(returned).toEqual(
       expect.objectContaining({
         id: employee.id,
@@ -294,16 +463,20 @@ describe('user employee management permissions', () => {
         visaNumber: null,
         emergencyContactAddress: null,
       }),
-    )
-    expect(returned.consents).toBeUndefined()
-    expect(returned.consentCount).toBeUndefined()
-  })
+    );
+    expect(returned.consents).toBeUndefined();
+    expect(returned.consentCount).toBeUndefined();
+  });
 
   it('prevents office assistants from creating, editing, or deleting employees', async () => {
     const employee = await createEmployee(`${prefix}-office-blocked`, {
       email: `${prefix}-office-blocked@example.com`,
-    })
-    const token = authHeader({ id: 107, email: `${prefix}.office@example.com`, role: 'OFFICE_ASSISTANT' })
+    });
+    const token = authHeader({
+      id: 107,
+      email: `${prefix}.office@example.com`,
+      role: 'OFFICE_ASSISTANT',
+    });
 
     const createResponse = await request(app)
       .post('/api/employees')
@@ -313,21 +486,21 @@ describe('user employee management permissions', () => {
         lastName: 'Assistant',
         email: `${prefix}-blocked-create@example.com`,
         employeeType: 'EMPLOYEE',
-      })
+      });
 
-    expect(createResponse.status).toBe(403)
+    expect(createResponse.status).toBe(403);
 
     const updateResponse = await request(app)
       .put(`/api/employees/${employee.id}`)
       .set('Authorization', token)
-      .send({ jobTitle: 'Blocked Mutation' })
+      .send({ jobTitle: 'Blocked Mutation' });
 
-    expect(updateResponse.status).toBe(403)
+    expect(updateResponse.status).toBe(403);
 
     const deleteResponse = await request(app)
       .delete(`/api/employees/${employee.id}`)
-      .set('Authorization', token)
+      .set('Authorization', token);
 
-    expect(deleteResponse.status).toBe(403)
-  })
-})
+    expect(deleteResponse.status).toBe(403);
+  });
+});

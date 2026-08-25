@@ -1,13 +1,13 @@
-import { Router } from 'express'
-import prisma from '../prismaClient'
-import { requireAuth } from '../middleware/auth'
-import { auditLog } from '../middleware/audit'
-import { requireRole } from '../middleware/roles'
-import * as XLSX from 'xlsx'
-import type { DataConsent, Employee } from '@prisma/client'
-import { normalizeRole, ROLES } from '../lib/roles'
+import { Router } from 'express';
+import prisma from '../prismaClient';
+import { requireAuth } from '../middleware/auth';
+import { auditLog } from '../middleware/audit';
+import { requireRole } from '../middleware/roles';
+import * as XLSX from 'xlsx';
+import type { DataConsent, Employee } from '@prisma/client';
+import { normalizeRole, ROLES } from '../lib/roles';
 
-const router = Router()
+const router = Router();
 
 const employeeListInclude = {
   sponsorships: true,
@@ -22,13 +22,15 @@ const employeeListInclude = {
       createdAt: true,
     },
   },
-}
+};
 
 function normalizeEmployeeUserRole(employee: any) {
   return {
     ...employee,
-    user: employee.user ? { ...employee.user, role: normalizeRole(employee.user.role) } : employee.user,
-  }
+    user: employee.user
+      ? { ...employee.user, role: normalizeRole(employee.user.role) }
+      : employee.user,
+  };
 }
 
 function redactSensitiveEmployeeFields(employee: any) {
@@ -56,7 +58,7 @@ function redactSensitiveEmployeeFields(employee: any) {
     visaNumber: null,
     visaExpiryDate: null,
     emergencyContactAddress: null,
-  }
+  };
 }
 
 function normalizeEmployeePayload(data: any) {
@@ -69,20 +71,21 @@ function normalizeEmployeePayload(data: any) {
     'passportExpiryDate',
     'licenceExpiryDate',
     'visaExpiryDate',
-  ]
+  ];
 
   for (const field of dateFields) {
     if (data[field] && data[field] !== '') {
-      data[field] = new Date(data[field])
+      data[field] = new Date(data[field]);
     } else if (data[field] === '') {
-      data[field] = null
+      data[field] = null;
     }
   }
 
-  if (data.salary === '') data.salary = null
-  if (data.salary !== undefined && data.salary !== null) data.salary = Number(data.salary)
+  if (data.salary === '') data.salary = null;
+  if (data.salary !== undefined && data.salary !== null)
+    data.salary = Number(data.salary);
 
-  return data
+  return data;
 }
 
 const employeeSelfUpdateFields = [
@@ -110,210 +113,276 @@ const employeeSelfUpdateFields = [
   'bankBranch',
   'accountNumber',
   'sortCode',
-] as const
+] as const;
 
 function pickEmployeeSelfUpdatePayload(data: any) {
-  const picked: Record<string, any> = {}
+  const picked: Record<string, any> = {};
   for (const field of employeeSelfUpdateFields) {
-    if (data[field] !== undefined) picked[field] = data[field]
+    if (data[field] !== undefined) picked[field] = data[field];
   }
-  return picked
+  return picked;
 }
 
 router.get('/', requireAuth, async (req: any, res) => {
-  const userRole = normalizeRole(req.user?.role)
-  const userEmail = req.user?.email
+  const userRole = normalizeRole(req.user?.role);
+  const userEmail = req.user?.email;
 
   // If user is not elevated, show only their own employee record
-  if (userRole !== ROLES.ADMIN && userRole !== ROLES.DIRECTOR && userRole !== ROLES.OFFICE_ASSISTANT && userEmail) {
+  if (
+    userRole !== ROLES.ADMIN &&
+    userRole !== ROLES.DIRECTOR &&
+    userRole !== ROLES.OFFICE_ASSISTANT &&
+    userEmail
+  ) {
     const employee = await prisma.employee.findUnique({
       where: { email: userEmail },
-      include: { sponsorships: true, documents: true }
-    })
-    await auditLog(req, 'READ', 'Employee', employee?.id, { selfAccess: true })
-    return res.json(employee ? [employee] : [])
+      include: { sponsorships: true, documents: true },
+    });
+    await auditLog(req, 'READ', 'Employee', employee?.id, { selfAccess: true });
+    return res.json(employee ? [employee] : []);
   }
 
   // Admin, Director, and Office Assistant users see all employees.
-  const employees = await prisma.employee.findMany({ include: employeeListInclude })
+  const employees = await prisma.employee.findMany({
+    include: employeeListInclude,
+  });
 
   if (userRole === ROLES.OFFICE_ASSISTANT) {
-    await auditLog(req, 'READ', 'Employee', undefined, { count: employees.length, redacted: true })
-    return res.json(employees.map(redactSensitiveEmployeeFields))
+    await auditLog(req, 'READ', 'Employee', undefined, {
+      count: employees.length,
+      redacted: true,
+    });
+    return res.json(employees.map(redactSensitiveEmployeeFields));
   }
-  
+
   // Fetch all consents for all employees
   const allConsents = await prisma.dataConsent.findMany({
     where: {
-      employeeId: { in: employees.map((e: Employee) => e.id) }
+      employeeId: { in: employees.map((e: Employee) => e.id) },
     },
-    orderBy: { createdAt: 'desc' }
-  })
+    orderBy: { createdAt: 'desc' },
+  });
 
   // Define consent types
-  const consentTypes = ['data_processing', 'emergency_contact', 'photo_usage', 
-                        'marketing_emails', 'third_party_payroll', 'background_checks', 'references']
-  
+  const consentTypes = [
+    'data_processing',
+    'emergency_contact',
+    'photo_usage',
+    'marketing_emails',
+    'third_party_payroll',
+    'background_checks',
+    'references',
+  ];
+
   // Attach consent summary to each employee
   const employeesWithConsents = employees.map((emp: Employee) => {
-    const normalizedEmployee = normalizeEmployeeUserRole(emp)
-    const empConsents = allConsents.filter((c: DataConsent) => c.employeeId === normalizedEmployee.id)
-    
+    const normalizedEmployee = normalizeEmployeeUserRole(emp);
+    const empConsents = allConsents.filter(
+      (c: DataConsent) => c.employeeId === normalizedEmployee.id,
+    );
+
     // Get latest consent for each type
-    const consentSummary = consentTypes.map(type => {
-      const typeConsents = empConsents.filter((c: DataConsent) => c.consentType === type)
-      if (typeConsents.length === 0) return { type, status: 'not_given' }
-      
-      const latest = typeConsents.reduce((l: DataConsent, c: DataConsent) => 
-        new Date(c.createdAt) > new Date(l.createdAt) ? c : l
-      )
+    const consentSummary = consentTypes.map((type) => {
+      const typeConsents = empConsents.filter(
+        (c: DataConsent) => c.consentType === type,
+      );
+      if (typeConsents.length === 0) return { type, status: 'not_given' };
+
+      const latest = typeConsents.reduce((l: DataConsent, c: DataConsent) =>
+        new Date(c.createdAt) > new Date(l.createdAt) ? c : l,
+      );
       return {
         type,
         status: latest.consentGiven ? 'granted' : 'withdrawn',
-        date: latest.consentDate || latest.withdrawnDate
-      }
-    })
-    
+        date: latest.consentDate || latest.withdrawnDate,
+      };
+    });
+
     return {
       ...normalizedEmployee,
       consents: consentSummary,
-      consentCount: consentSummary.filter((c) => c.status === 'granted').length
+      consentCount: consentSummary.filter((c) => c.status === 'granted').length,
+    };
+  });
+
+  await auditLog(req, 'READ', 'Employee', undefined, {
+    count: employees.length,
+  });
+  res.json(employeesWithConsents);
+});
+
+router.post(
+  '/',
+  requireAuth,
+  requireRole('ADMIN', 'DIRECTOR'),
+  async (req: any, res) => {
+    const data = normalizeEmployeePayload(req.body);
+    try {
+      const emp = await prisma.employee.create({ data });
+      await auditLog(req, 'CREATE', 'Employee', emp.id, {
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        email: emp.email,
+      });
+      // Auto-link to user if email matches
+      const user = await prisma.user.findUnique({
+        where: { email: emp.email },
+      });
+      if (user && !user.employeeId) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { employeeId: emp.id },
+        });
+      }
+
+      res.json(emp);
+    } catch (e: any) {
+      console.error('Error creating employee:', e);
+      res.status(400).json({ error: e.message });
     }
-  })
-
-  await auditLog(req, 'READ', 'Employee', undefined, { count: employees.length })
-  res.json(employeesWithConsents)
-})
-
-router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
-  const data = normalizeEmployeePayload(req.body)
-  try {
-    const emp = await prisma.employee.create({ data })
-    await auditLog(req, 'CREATE', 'Employee', emp.id, {
-      firstName: emp.firstName,
-      lastName: emp.lastName,
-      email: emp.email
-    })
-    // Auto-link to user if email matches
-    const user = await prisma.user.findUnique({ where: { email: emp.email } })
-    if (user && !user.employeeId) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { employeeId: emp.id }
-      })
-    }
-
-    res.json(emp)
-  } catch (e: any) {
-    console.error('Error creating employee:', e)
-    res.status(400).json({ error: e.message })
-  }
-})
+  },
+);
 
 router.put('/:id', requireAuth, async (req: any, res) => {
-  const { id } = req.params
-  const employeeId = parseInt(id)
-  const role = normalizeRole(req.user?.role)
+  const { id } = req.params;
+  const employeeId = parseInt(id);
+  const role = normalizeRole(req.user?.role);
   try {
-    let data: any
+    let data: any;
     if (role === ROLES.ADMIN || role === ROLES.DIRECTOR) {
-      data = normalizeEmployeePayload(req.body)
+      data = normalizeEmployeePayload(req.body);
     } else if (role === ROLES.EMPLOYEE) {
-      const existing = await prisma.employee.findUnique({ where: { id: employeeId } })
-      const ownsRecord = !!existing && (existing.id === req.user?.employeeId || existing.email === req.user?.email)
-      if (!ownsRecord) return res.status(403).json({ error: 'Unauthorized' })
-      data = normalizeEmployeePayload(pickEmployeeSelfUpdatePayload(req.body))
+      const existing = await prisma.employee.findUnique({
+        where: { id: employeeId },
+      });
+      const ownsRecord =
+        !!existing &&
+        (existing.id === req.user?.employeeId ||
+          existing.email === req.user?.email);
+      if (!ownsRecord) return res.status(403).json({ error: 'Unauthorized' });
+      data = normalizeEmployeePayload(pickEmployeeSelfUpdatePayload(req.body));
     } else {
-      return res.status(403).json({ error: 'Unauthorized' })
+      return res.status(403).json({ error: 'Unauthorized' });
     }
 
     const emp = await prisma.employee.update({
       where: { id: employeeId },
-      data
-    })
+      data,
+    });
     await auditLog(req, 'UPDATE', 'Employee', emp.id, {
-      updatedFields: Object.keys(data).filter(k => data[k] !== undefined),
+      updatedFields: Object.keys(data).filter((k) => data[k] !== undefined),
       selfService: role === ROLES.EMPLOYEE,
-    })
-    res.json(emp)
+    });
+    res.json(emp);
   } catch (e: any) {
-    console.error('Error updating employee:', e)
-    res.status(400).json({ error: e.message })
+    console.error('Error updating employee:', e);
+    res.status(400).json({ error: e.message });
   }
-})
+});
 
-router.delete('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
-  const { id } = req.params
-  try {
-    const emp = await prisma.employee.findUnique({ where: { id: parseInt(id) } })
-    await prisma.employee.delete({
-      where: { id: parseInt(id) }
-    })
-    await auditLog(req, 'DELETE', 'Employee', parseInt(id), {
-      deletedEmployee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'
-    })
-    res.json({ success: true })
-  } catch (e: any) {
-    console.error('Error deleting employee:', e)
-    res.status(400).json({ error: e.message })
-  }
-})
+router.delete(
+  '/:id',
+  requireAuth,
+  requireRole('ADMIN', 'DIRECTOR'),
+  async (req: any, res) => {
+    const { id } = req.params;
+    try {
+      const employeeId = parseInt(id);
+      const emp = await prisma.employee.findUnique({
+        where: { id: employeeId },
+      });
+      if (!emp) {
+        return res.status(404).json({ error: 'Employee not found' });
+      }
+      // Remove dependent records first — these relations have no DB-level cascade,
+      // so the employee row cannot be deleted while they exist.
+      await prisma.$transaction([
+        // Detach the linked login account (keep the user, drop the FK reference)
+        prisma.user.updateMany({
+          where: { employeeId },
+          data: { employeeId: null },
+        }),
+        prisma.sponsorship.deleteMany({ where: { employeeId } }),
+        prisma.timesheet.deleteMany({ where: { employeeId } }),
+        prisma.leaveRequest.deleteMany({ where: { employeeId } }),
+        prisma.document.deleteMany({ where: { employeeId } }),
+        prisma.dataConsent.deleteMany({ where: { employeeId } }),
+        prisma.employee.delete({ where: { id: employeeId } }),
+      ]);
+      await auditLog(req, 'DELETE', 'Employee', employeeId, {
+        deletedEmployee: `${emp.firstName} ${emp.lastName}`,
+      });
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('Error deleting employee:', e);
+      res.status(400).json({ error: e.message });
+    }
+  },
+);
 
 // Export employees to Excel
 router.get('/export/excel', requireAuth, async (req: any, res) => {
   try {
-    const userRole = req.user?.role || 'USER'
-    const userEmail = req.user?.email
+    const userRole = req.user?.role || 'USER';
+    const userEmail = req.user?.email;
 
-    let employees
+    let employees;
     // If user is not ADMIN/MANAGER, show only their own employee record
     if (userRole !== 'ADMIN' && userRole !== 'MANAGER' && userEmail) {
-      const employee = await prisma.employee.findUnique({ where: { email: userEmail } })
-      employees = employee ? [employee] : []
+      const employee = await prisma.employee.findUnique({
+        where: { email: userEmail },
+      });
+      employees = employee ? [employee] : [];
     } else {
-      employees = await prisma.employee.findMany()
+      employees = await prisma.employee.findMany();
     }
 
     // Format data for Excel
     const excelData = employees.map((emp: Employee) => ({
-      'ID': emp.id,
+      ID: emp.id,
       'First Name': emp.firstName,
       'Last Name': emp.lastName,
-      'Email': emp.email,
-      'Phone': emp.phoneNumber || '',
+      Email: emp.email,
+      Phone: emp.phoneNumber || '',
       'Work Phone': emp.workPhone || '',
       'Job Title': emp.jobTitle,
-      'Department': emp.department || '',
+      Department: emp.department || '',
       'Employee Type': emp.employeeType,
-      'Date of Birth': emp.dateOfBirth ? new Date(emp.dateOfBirth).toLocaleDateString() : '',
+      'Date of Birth': emp.dateOfBirth
+        ? new Date(emp.dateOfBirth).toLocaleDateString()
+        : '',
       'NI Number': emp.niNumber || '',
-      'Start Date': emp.startDate ? new Date(emp.startDate).toLocaleDateString() : '',
-      'Probation End Date': emp.probationEndDate ? new Date(emp.probationEndDate).toLocaleDateString() : '',
+      'Start Date': emp.startDate
+        ? new Date(emp.startDate).toLocaleDateString()
+        : '',
+      'Probation End Date': emp.probationEndDate
+        ? new Date(emp.probationEndDate).toLocaleDateString()
+        : '',
       'Address 1': emp.address1 || '',
       'Address 2': emp.address2 || '',
       'Town/City': emp.townCity || '',
-      'Postcode': emp.postcode || '',
+      Postcode: emp.postcode || '',
       'Account Name': emp.accountName || '',
       'Bank Name': emp.bankName || '',
       'Bank Branch': emp.bankBranch || '',
       'Sort Code': emp.sortCode || '',
       'Account Number': emp.accountNumber || '',
-      'Salary': emp.salary ?? '',
+      Salary: emp.salary ?? '',
       'Payment Frequency': emp.paymentFrequency || '',
       'Payroll Number': emp.payrollNumber || '',
       'Emergency Contact Name': emp.emergencyContactName || '',
       'Emergency Contact Phone': emp.emergencyContactPhone || '',
       'Emergency Contact Relation': emp.emergencyContactRelation || '',
-      'Emergency Contact Address': emp.emergencyContactAddress || ''
-    }))
+      'Emergency Contact Address': emp.emergencyContactAddress || '',
+    }));
 
     // Create workbook and worksheet
-    const wb = XLSX.utils.book_new()
-    const ws = XLSX.utils.json_to_sheet(excelData)
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
 
     // Set column widths
     ws['!cols'] = [
-      { wch: 5 },  // ID
+      { wch: 5 }, // ID
       { wch: 15 }, // First Name
       { wch: 15 }, // Last Name
       { wch: 25 }, // Email
@@ -329,22 +398,28 @@ router.get('/export/excel', requireAuth, async (req: any, res) => {
       { wch: 20 }, // Emergency Contact Name
       { wch: 15 }, // Emergency Contact Phone
       { wch: 15 }, // Emergency Contact Relation
-      { wch: 30 }  // Emergency Contact Address
-    ]
+      { wch: 30 }, // Emergency Contact Address
+    ];
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Employees')
+    XLSX.utils.book_append_sheet(wb, ws, 'Employees');
 
     // Generate buffer
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
     // Set headers and send file
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    res.setHeader('Content-Disposition', `attachment; filename=employees-${new Date().toISOString().split('T')[0]}.xlsx`)
-    res.send(buffer)
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=employees-${new Date().toISOString().split('T')[0]}.xlsx`,
+    );
+    res.send(buffer);
   } catch (e: any) {
-    console.error('Error exporting employees:', e)
-    res.status(500).json({ error: 'Failed to export employees' })
+    console.error('Error exporting employees:', e);
+    res.status(500).json({ error: 'Failed to export employees' });
   }
-})
+});
 
-export default router
+export default router;

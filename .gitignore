@@ -30,3 +30,7 @@ codexplans/
 CLAUDE.local.md
 # Hook debug output (temporary debugging tool)
 hooks/hook-debug.json
+
+# Browser automation session snapshots and scraped research data
+.playwright-mcp/
+tp-negative.json

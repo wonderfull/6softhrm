@@ -619,13 +619,21 @@ export default function Employees() {
 
     // Inline validation summary — replaces the previous silent-no-op when the
     // form was submitted with required fields blank (test report B6).
-    const requiredFields: Array<[keyof EmployeeFormData, string]> = [
-      ['firstName', 'First name'],
-      ['lastName', 'Last name'],
-      ['email', 'Email'],
-      ['jobTitle', 'Job title'],
-      ['startDate', 'Start date'],
-    ];
+    // Self-service edits hide the HR-only fields (email, job title, start
+    // date), so only validate the fields the employee can actually see.
+    const requiredFields: Array<[keyof EmployeeFormData, string]> =
+      isSelfProfileEdit
+        ? [
+            ['firstName', 'First name'],
+            ['lastName', 'Last name'],
+          ]
+        : [
+            ['firstName', 'First name'],
+            ['lastName', 'Last name'],
+            ['email', 'Email'],
+            ['jobTitle', 'Job title'],
+            ['startDate', 'Start date'],
+          ];
     const missing = requiredFields
       .filter(([key]) => !String(employeeForm[key] ?? '').trim())
       .map(([, label]) => label);

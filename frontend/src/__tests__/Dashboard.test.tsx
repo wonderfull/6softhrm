@@ -14,6 +14,12 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 describe('Dashboard Page', () => {
   const makeToken = (payload: Record<string, unknown>) => `header.${btoa(JSON.stringify(payload))}.signature`
+  // Timesheet fixtures must fall in the current month: the dashboard's
+  // overtime card only counts "this month", so fixed dates rot as time passes.
+  const isoInCurrentMonth = (day: number) => {
+    const now = new Date()
+    return new Date(Date.UTC(now.getFullYear(), now.getMonth(), day)).toISOString()
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -64,8 +70,8 @@ describe('Dashboard Page', () => {
         },
       ])
       if (endpoint === '/timesheets') return Promise.resolve([
-        { id: 1, employeeId: 42, date: '2026-05-01T00:00:00.000Z', hours: 9.5 },
-        { id: 2, employeeId: 42, date: '2026-05-02T00:00:00.000Z', hours: 8 },
+        { id: 1, employeeId: 42, date: isoInCurrentMonth(1), hours: 9.5 },
+        { id: 2, employeeId: 42, date: isoInCurrentMonth(2), hours: 8 },
       ])
       return Promise.resolve([])
     })
@@ -110,8 +116,8 @@ describe('Dashboard Page', () => {
         },
       ])
       if (endpoint === '/timesheets') return Promise.resolve([
-        { id: 1, employeeId: 42, date: '2026-05-01T00:00:00.000Z', hours: 10 },
-        { id: 2, employeeId: 99, date: '2026-05-01T00:00:00.000Z', hours: 12 },
+        { id: 1, employeeId: 42, date: isoInCurrentMonth(1), hours: 10 },
+        { id: 2, employeeId: 99, date: isoInCurrentMonth(1), hours: 12 },
       ])
       return Promise.resolve([])
     })

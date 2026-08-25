@@ -8,7 +8,8 @@ vi.mock('../lib/api', () => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
   apiPut: vi.fn(),
-  apiDelete: vi.fn()
+  apiDelete: vi.fn(),
+  getCurrentUser: vi.fn(() => ({ role: 'ADMIN', email: 'admin@test.com' }))
 }))
 
 describe('Time/Timesheets Page', () => {

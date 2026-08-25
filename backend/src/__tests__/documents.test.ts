@@ -142,13 +142,39 @@ describe('Documents API', () => {
       expect(response.status).toBe(400);
     });
 
-    it('should reject upload for non-admin users', async () => {
+    it('allows employees to upload documents for their own record', async () => {
       const response = await request(app)
         .post('/api/documents/upload')
         .set('Authorization', userToken)
         .field('employeeId', testEmployeeId.toString())
+        .field('name', 'My Own Document')
+        .attach('file', Buffer.from('test'), 'own.pdf');
+
+      expect(response.status).toBe(200);
+      expect(response.body.name).toBe('My Own Document');
+      expect(response.body.employeeId).toBe(testEmployeeId);
+
+      await prisma.document.delete({ where: { id: response.body.id } });
+    });
+
+    it('rejects employees uploading documents for another employee', async () => {
+      const response = await request(app)
+        .post('/api/documents/upload')
+        .set('Authorization', userToken)
+        .field('employeeId', secondEmployeeId.toString())
         .field('name', 'Blocked Document')
         .attach('file', Buffer.from('test'), 'blocked.pdf');
+
+      expect(response.status).toBe(403);
+    });
+
+    it('rejects uploads from users with no linked employee record', async () => {
+      const response = await request(app)
+        .post('/api/documents/upload')
+        .set('Authorization', unlinkedUserToken)
+        .field('employeeId', testEmployeeId.toString())
+        .field('name', 'Unlinked Document')
+        .attach('file', Buffer.from('test'), 'unlinked.pdf');
 
       expect(response.status).toBe(403);
     });

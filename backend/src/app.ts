@@ -22,8 +22,12 @@ if (process.env.VERIFY_SMTP_ON_BOOT === 'true') {
   verifyEmailConfig();
 }
 
-// Initialize scheduled tasks (daily expiry checks)
-initializeCronJobs();
+// Initialize scheduled tasks (daily expiry checks). Skipped under Jest:
+// node-cron's scheduled tasks hold the event loop open (tests never exit)
+// and the expiry sweep would hit the test database mid-run.
+if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+  initializeCronJobs();
+}
 
 const app = express();
 
