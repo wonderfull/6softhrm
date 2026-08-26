@@ -45,10 +45,10 @@ function createPasswordResetPayload(user: { id: number; email: string }) {
 async function sendPasswordResetEmail(email: string, resetLink: string) {
   return sendEmail({
     to: email,
-    subject: 'Reset your 6Soft HRM password',
+    subject: 'Reset your OnsideHR password',
     text: `Use this link to reset your password: ${resetLink}`,
     html: `
-      <p>A password reset was requested for your 6Soft HRM account.</p>
+      <p>A password reset was requested for your OnsideHR account.</p>
       <p><a href="${resetLink}">Reset your password</a></p>
       <p>If you did not request this, you can ignore this email.</p>
     `,

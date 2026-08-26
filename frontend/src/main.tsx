@@ -29,6 +29,7 @@ import PlatformLogin from './pages/PlatformLogin';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Gdpr from './pages/Gdpr';
+import Dpa from './pages/Dpa';
 import NavBar from './components/NavBar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
@@ -52,6 +53,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/consent': 'Data Consent',
   '/privacy': 'Privacy Policy',
   '/terms': 'Terms of Service',
+  '/dpa': 'Data Processing Agreement',
   '/gdpr': 'GDPR',
   '/login': 'Sign in',
   '/platform': 'Platform Console',
@@ -65,7 +67,7 @@ function RouteTitle() {
   const { pathname } = useLocation();
   React.useEffect(() => {
     const title = ROUTE_TITLES[pathname];
-    document.title = title ? `${title} · 6soft HRM` : '6soft HRM';
+    document.title = title ? `${title} · OnsideHR` : 'OnsideHR';
   }, [pathname]);
   return null;
 }
@@ -195,6 +197,7 @@ function App() {
                       <Route path="/consent" element={<Consent />} />
                       <Route path="/privacy" element={<Privacy />} />
                       <Route path="/terms" element={<Terms />} />
+                      <Route path="/dpa" element={<Dpa />} />
                       <Route path="/gdpr" element={<Gdpr />} />
                       {/* B12: canonicalise common alt-paths back to /employees */}
                       <Route

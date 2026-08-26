@@ -40,7 +40,7 @@ export default function NavBar({ darkMode, onToggleDarkMode, onLogout }: NavBarP
     <header className="w-full bg-white dark:bg-slate-900 shadow-sm border-b border-slate-100 dark:border-slate-700">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link to="/" className="text-xl font-bold text-slate-900 dark:text-white">6soft HRM</Link>
+          <Link to="/" className="text-xl font-bold text-slate-900 dark:text-white">OnsideHR</Link>
           {tenantName && (
             <span className="ml-3 hidden sm:inline-block rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
               {tenantName}

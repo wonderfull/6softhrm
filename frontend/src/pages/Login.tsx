@@ -41,7 +41,7 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg mb-4">
             <img
               src="/logo.svg"
-              alt="6soft"
+              alt="OnsideHR"
               className="h-12 w-12 object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
@@ -53,7 +53,7 @@ export default function Login() {
             />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            6soft HRM
+            OnsideHR
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
             Sign in to your account
@@ -164,7 +164,7 @@ export default function Login() {
 
         {/* Footer */}
         <div className="text-center mt-6 text-sm text-slate-600 dark:text-slate-400">
-          <p>© {new Date().getFullYear()} 6soft HRM. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} OnsideHR. All rights reserved.</p>
         </div>
       </div>
     </div>

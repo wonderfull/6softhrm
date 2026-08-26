@@ -139,7 +139,7 @@ export default function Sidebar() {
         <div className="flex items-center justify-center py-4 px-4 border-b border-slate-200 dark:border-slate-700">
           <img
             src="/logo.svg"
-            alt="6soft"
+            alt="OnsideHR"
             className="h-12"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
@@ -161,7 +161,7 @@ export default function Sidebar() {
           </div>
         </nav>
         <div className="p-4 text-xs text-center text-slate-500 border-t border-slate-200 dark:border-slate-700">
-          © {new Date().getFullYear()} 6soft HRM
+          © {new Date().getFullYear()} OnsideHR
         </div>
       </div>
     </aside>

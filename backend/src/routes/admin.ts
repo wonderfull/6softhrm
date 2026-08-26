@@ -59,7 +59,7 @@ router.get('/backup', requireAuth, async (req: any, res) => {
       }
     }
 
-    const filename = `6soft-hrm-backup-${new Date().toISOString().split('T')[0]}.json`
+    const filename = `onsidehr-backup-${new Date().toISOString().split('T')[0]}.json`
     
     res.setHeader('Content-Type', 'application/json')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)

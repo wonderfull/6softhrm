@@ -286,7 +286,7 @@ router.post(
 
       const sent = await sendEmail({
         to,
-        subject: '✅ Test Email from 6Soft HRM',
+        subject: '✅ Test Email from OnsideHR',
         html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: #10b981; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -294,7 +294,7 @@ router.post(
           </div>
           <div style="padding: 20px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
             <p style="font-size: 16px; color: #111827;">
-              This is a test email from your 6Soft HRM system.
+              This is a test email from your OnsideHR system.
             </p>
             <p style="font-size: 16px; color: #111827;">
               If you received this email, your email notifications are configured correctly! ✅

@@ -234,14 +234,7 @@ const Consent: React.FC = () => {
               Data consent settings apply to an individual employee's personal
               data. This account is not linked to an employee record, so there
               are no consent preferences to manage here. If you believe this is
-              a mistake, please contact your HR department at{' '}
-              <a
-                href="mailto:hr@6soft.co.uk"
-                className="text-blue-600 hover:underline"
-              >
-                hr@6soft.co.uk
-              </a>
-              .
+              a mistake, please contact your company's HR administrator.
             </p>
           </div>
         </Card>
@@ -419,7 +412,7 @@ const Consent: React.FC = () => {
           </p>
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>Contact your HR department</li>
-            <li>Email: hr@6soft.co.uk</li>
+            <li>Your company's HR administrator (via the People page)</li>
             <li>
               View our{' '}
               <a

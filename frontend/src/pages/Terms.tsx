@@ -4,52 +4,65 @@ export default function Terms() {
   return (
     <article className="prose prose-slate dark:prose-invert max-w-3xl mx-auto py-8">
       <h1>Terms of Service</h1>
-      <p className="text-sm text-slate-500">
-        Last updated: {new Date().toLocaleDateString('en-GB')}
-      </p>
+      <p className="text-sm text-slate-500">Last updated: 26 August 2026</p>
 
-      <h2>Acceptance</h2>
+      <h2>1. The agreement</h2>
       <p>
-        By accessing 6soft HRM you agree to these terms. If you are using the
-        system on behalf of an employer, you confirm that you have authority to
-        bind that organisation.
+        These terms govern use of OnsideHR, a hosted HR management service
+        provided by 6soft Ltd ("we", "us") to the company named on the order
+        ("the Customer"). Individual users access the service under their
+        employer's subscription and acceptable-use rules.
       </p>
 
-      <h2>Account use</h2>
-      <ul>
-        <li>
-          Keep your credentials confidential — your account is personal to you.
-        </li>
-        <li>Only access employee records you are authorised to view.</li>
-        <li>
-          Report suspected unauthorised access to{' '}
-          <a href="mailto:info@6soft.co.uk">info@6soft.co.uk</a>.
-        </li>
-      </ul>
-
-      <h2>Acceptable use</h2>
+      <h2>2. The service</h2>
       <p>
-        Do not upload unlawful content, attempt to bypass access controls, or
-        use the platform to process data unrelated to your employment
-        relationship.
+        OnsideHR provides employee records, leave and time tracking, document
+        storage and — where subscribed — a UK sponsor-licence compliance
+        module. Compliance tooling supports the Customer's Home Office duties;
+        it does not replace them, and it is not legal or immigration advice.
+        Responsibility for reports to UKVI, and for the accuracy of data
+        entered, remains with the Customer.
       </p>
 
-      <h2>Availability</h2>
+      <h2>3. Accounts and security</h2>
       <p>
-        We aim for high availability but provide the service "as is" without
-        warranty. Scheduled maintenance windows are communicated to
-        administrators in advance where possible.
+        The Customer administers its own users and roles. Credentials are
+        personal and must not be shared. We may suspend access to protect the
+        service or other customers, and will notify the Customer's
+        administrator when we do.
       </p>
 
-      <h2>Liability</h2>
+      <h2>4. Data protection</h2>
       <p>
-        To the extent permitted by law, 6soft Ltd's aggregate liability under
-        these terms is limited to the fees paid in the twelve months preceding
-        the claim.
+        The Customer is the controller of the personal data it records; we
+        process it under the <a href="/dpa">Data Processing Agreement</a>,
+        which forms part of these terms. On termination we return the
+        Customer's data on request and delete it after a 30-day grace period.
       </p>
 
-      <h2>Governing law</h2>
-      <p>These terms are governed by the laws of England and Wales.</p>
+      <h2>5. Fees and term</h2>
+      <p>
+        Fees, plan and any seat limit are as stated on the order. Subscriptions
+        are monthly rolling with no minimum term and no setup fee, unless the
+        order states otherwise. We give at least 30 days' notice of price
+        changes.
+      </p>
+
+      <h2>6. Service standards</h2>
+      <p>
+        We operate the service with reasonable skill and care, take nightly
+        backups, and target availability appropriate to a business system. The
+        service is provided "as is" to the maximum extent permitted by law; our
+        aggregate liability in any 12-month period is limited to the fees paid
+        in that period. Nothing limits liability that cannot lawfully be
+        limited.
+      </p>
+
+      <h2>7. Governing law</h2>
+      <p>
+        These terms are governed by the laws of England and Wales, and the
+        courts of England and Wales have exclusive jurisdiction.
+      </p>
     </article>
   );
 }

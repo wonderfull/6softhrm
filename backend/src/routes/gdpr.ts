@@ -314,7 +314,7 @@ router.get('/export-all', requireAuth, async (req: any, res) => {
       },
     }
 
-    const filename = `6soft-hrm-full-backup-${new Date().toISOString().split('T')[0]}.zip`
+    const filename = `onsidehr-full-backup-${new Date().toISOString().split('T')[0]}.zip`
     res.setHeader('Content-Type', 'application/zip')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
 

@@ -42,12 +42,9 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://localhost:5175',
   'http://localhost:3000',
-  'https://6soft.co.uk',
-  'http://6soft.co.uk',
-  'https://www.6soft.co.uk',
-  'http://www.6soft.co.uk',
-  'https://hrm.6soft.co.uk',
-  'http://hrm.6soft.co.uk',
+  'https://onsidehr.co.uk',
+  'https://www.onsidehr.co.uk',
+  'https://app.onsidehr.co.uk',
 ];
 
 // If FRONTEND_URL is set in environment, use it
@@ -70,11 +67,10 @@ app.use(
       // Allow requests with no origin (mobile apps, Postman, etc)
       if (!origin) return callback(null, true);
 
-      // Allow all subdomains of 6soft.co.uk
+      // Allow onsidehr.co.uk and its subdomains (https only)
       const isAllowedDomain =
-        origin.endsWith('.6soft.co.uk') ||
-        origin === 'https://6soft.co.uk' ||
-        origin === 'http://6soft.co.uk';
+        origin === 'https://onsidehr.co.uk' ||
+        origin.startsWith('https://') && origin.endsWith('.onsidehr.co.uk');
 
       if (
         allowedOrigins.indexOf(origin) !== -1 ||
