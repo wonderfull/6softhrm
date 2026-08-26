@@ -7,20 +7,86 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ---------------------------------------------------------------------------
+// Multi-tenancy
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id           Int       @id @default(autoincrement())
+  slug         String    @unique // "acme-ltd" — used in exports and R2 keys
+  name         String // "Acme Ltd" — display name
+  status       String    @default("TRIAL") // TRIAL | ACTIVE | SUSPENDED | CANCELLED
+  plan         String    @default("CORE") // CORE | CORE_PLUS_COMPLIANCE
+  seatLimit    Int? // null = unlimited
+  features     Json? // { "compliance": true }
+  logoUrl      String?
+  primaryColor String?   @default("#1d4f66")
+  trialEndsAt  DateTime?
+  deletedAt    DateTime? // soft delete → retention window before hard delete
+  createdAt    DateTime  @default(now())
+
+  settings           TenantSettings?
+  users              User[]
+  employees          Employee[]
+  sponsorships       Sponsorship[]
+  complianceEvidence SponsorshipComplianceEvidence[]
+  reportableEvents   SponsorshipReportableEvent[]
+  projects           Project[]
+  timesheets         Timesheet[]
+  leaveRequests      LeaveRequest[]
+  documents          Document[]
+  auditLogs          AuditLog[]
+  dataConsents       DataConsent[]
+}
+
+model TenantSettings {
+  id                Int     @id @default(autoincrement())
+  tenant            Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId          Int     @unique
+  leaveYearStart    String  @default("01-01") // MM-DD
+  defaultLeaveDays  Float   @default(28) // UK statutory minimum incl. bank holidays
+  bankHolidayRegion String  @default("england-and-wales") // | scotland | northern-ireland
+  workingDays       String  @default("1,2,3,4,5") // ISO weekday numbers
+  sponsorLicenceNo  String?
+  companyAddress    String?
+}
+
+// Platform operators (us) — deliberately a separate table, not a tenant role,
+// so no tenant-side bug can ever escalate into cross-tenant access.
+model PlatformAdmin {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  password   String
+  name       String?
+  totpSecret String?
+  createdAt  DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Tenant-scoped models
+// ---------------------------------------------------------------------------
+
 model User {
   id            Int            @id @default(autoincrement())
-  email         String         @unique
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId      Int
+  email         String         @unique // global: email is the tenant resolver at login
   password      String
   name          String?
   role          String         @default("USER")
+  tokenVersion  Int            @default(0) // bumped to revoke outstanding JWTs
   employeeId    Int?           @unique
   employee      Employee?      @relation(fields: [employeeId], references: [id])
   createdAt     DateTime       @default(now())
   googleAccount GoogleAccount?
+
+  @@index([tenantId])
 }
 
 model Employee {
   id           Int       @id @default(autoincrement())
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId     Int
   firstName    String
   middleName   String?
   lastName     String
@@ -28,7 +94,7 @@ model Employee {
   gender       String?
   ethnicity    String?
   dateOfBirth  DateTime?
-  email        String    @unique
+  email        String
   phoneNumber  String?
   workPhone    String?
   niNumber     String? // National Insurance placeholder
@@ -85,10 +151,14 @@ model Employee {
   documents     Document[]
   timesheets    Timesheet[]
   leaveRequests LeaveRequest[]
+
+  @@unique([tenantId, email])
 }
 
 model Sponsorship {
   id                   Int                             @id @default(autoincrement())
+  tenant               Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId             Int
   employee             Employee                        @relation(fields: [employeeId], references: [id])
   employeeId           Int
   visaType             String
@@ -100,23 +170,31 @@ model Sponsorship {
   active               Boolean                         @default(true)
   complianceEvidence   SponsorshipComplianceEvidence[]
   reportableEvents     SponsorshipReportableEvent[]
+
+  @@index([tenantId])
 }
 
 model SponsorshipComplianceEvidence {
-  id             Int          @id @default(autoincrement())
-  sponsorship   Sponsorship  @relation(fields: [sponsorshipId], references: [id], onDelete: Cascade)
+  id            Int         @id @default(autoincrement())
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId      Int
+  sponsorship   Sponsorship @relation(fields: [sponsorshipId], references: [id], onDelete: Cascade)
   sponsorshipId Int
-  document      Document?    @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  document      Document?   @relation(fields: [documentId], references: [id], onDelete: SetNull)
   documentId    Int?
   evidenceType  String
-  notes         String?      @db.Text
+  notes         String?     @db.Text
   verifiedAt    DateTime?
   verifiedBy    Int?
-  createdAt     DateTime     @default(now())
+  createdAt     DateTime    @default(now())
+
+  @@index([tenantId])
 }
 
 model SponsorshipReportableEvent {
   id            Int         @id @default(autoincrement())
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId      Int
   sponsorship   Sponsorship @relation(fields: [sponsorshipId], references: [id], onDelete: Cascade)
   sponsorshipId Int
   eventType     String
@@ -127,20 +205,28 @@ model SponsorshipReportableEvent {
   reportedAt    DateTime?
   reportedBy    Int?
   createdAt     DateTime    @default(now())
+
+  @@index([tenantId])
 }
 
 model Project {
   id          Int         @id @default(autoincrement())
-  code        String      @unique
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    Int
+  code        String
   name        String
   description String?
   active      Boolean     @default(true)
   createdAt   DateTime    @default(now())
   timesheets  Timesheet[]
+
+  @@unique([tenantId, code])
 }
 
 model Timesheet {
   id         Int      @id @default(autoincrement())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId   Int
   employee   Employee @relation(fields: [employeeId], references: [id])
   employeeId Int
   project    Project? @relation(fields: [projectId], references: [id])
@@ -148,10 +234,14 @@ model Timesheet {
   date       DateTime
   hours      Float
   notes      String?
+
+  @@index([tenantId])
 }
 
 model LeaveRequest {
   id         Int      @id @default(autoincrement())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId   Int
   employee   Employee @relation(fields: [employeeId], references: [id])
   employeeId Int
   type       String
@@ -159,10 +249,14 @@ model LeaveRequest {
   endDate    DateTime
   status     String   @default("PENDING")
   reason     String?
+
+  @@index([tenantId])
 }
 
 model Document {
   id                            Int                             @id @default(autoincrement())
+  tenant                        Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId                      Int
   employee                      Employee                        @relation(fields: [employeeId], references: [id])
   employeeId                    Int
   name                          String
@@ -171,6 +265,8 @@ model Document {
   expiryDate                    DateTime? // Optional expiry date for documents
   uploadedAt                    DateTime                        @default(now())
   sponsorshipComplianceEvidence SponsorshipComplianceEvidence[]
+
+  @@index([tenantId])
 }
 
 model GoogleAccount {
@@ -186,6 +282,11 @@ model GoogleAccount {
 
 model AuditLog {
   id        Int      @id @default(autoincrement())
+  // Nullable: platform-level events (failed logins for unknown emails,
+  // platform-admin actions) have no tenant. Tenant reads filter by exact
+  // tenantId, so platform rows never leak into a tenant's audit view.
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId  Int?
   userId    Int?
   userEmail String?
   action    String // CREATE, READ, UPDATE, DELETE, LOGIN, EXPORT, etc.
@@ -195,10 +296,14 @@ model AuditLog {
   ipAddress String?
   userAgent String?
   timestamp DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 model DataConsent {
   id            Int       @id @default(autoincrement())
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId      Int
   employeeId    Int
   consentType   String // GDPR_PROCESSING, PRIVACY_NOTICE, etc.
   consentGiven  Boolean   @default(false)
@@ -208,4 +313,6 @@ model DataConsent {
   version       String? // Version of privacy policy
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId])
 }

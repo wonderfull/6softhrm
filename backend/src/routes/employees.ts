@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import prisma from '../prismaClient';
+import { currentTenantId } from '../lib/tenantContext';
 import { requireAuth } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
 import { requireRole } from '../middleware/roles';
@@ -134,7 +135,7 @@ router.get('/', requireAuth, async (req: any, res) => {
     userRole !== ROLES.OFFICE_ASSISTANT &&
     userEmail
   ) {
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employee.findFirst({
       where: { email: userEmail },
       include: { sponsorships: true, documents: true },
     });
@@ -218,18 +219,20 @@ router.post(
   async (req: any, res) => {
     const data = normalizeEmployeePayload(req.body);
     try {
-      const emp = await prisma.employee.create({ data });
+      const emp = await prisma.employee.create({
+        data: { ...data, tenantId: currentTenantId() },
+      });
       await auditLog(req, 'CREATE', 'Employee', emp.id, {
         firstName: emp.firstName,
         lastName: emp.lastName,
         email: emp.email,
       });
       // Auto-link to user if email matches
-      const user = await prisma.user.findUnique({
+      const user = await prisma.user.findFirst({
         where: { email: emp.email },
       });
       if (user && !user.employeeId) {
-        await prisma.user.update({
+        await prisma.user.updateMany({
           where: { id: user.id },
           data: { employeeId: emp.id },
         });
@@ -252,7 +255,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
     if (role === ROLES.ADMIN || role === ROLES.DIRECTOR) {
       data = normalizeEmployeePayload(req.body);
     } else if (role === ROLES.EMPLOYEE) {
-      const existing = await prisma.employee.findUnique({
+      const existing = await prisma.employee.findFirst({
         where: { id: employeeId },
       });
       const ownsRecord =
@@ -265,10 +268,14 @@ router.put('/:id', requireAuth, async (req: any, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const emp = await prisma.employee.update({
+    const updated = await prisma.employee.updateMany({
       where: { id: employeeId },
       data,
     });
+    if (updated.count === 0)
+      return res.status(404).json({ error: 'Employee not found' });
+    const emp = await prisma.employee.findFirst({ where: { id: employeeId } });
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
     await auditLog(req, 'UPDATE', 'Employee', emp.id, {
       updatedFields: Object.keys(data).filter((k) => data[k] !== undefined),
       selfService: role === ROLES.EMPLOYEE,
@@ -288,7 +295,7 @@ router.delete(
     const { id } = req.params;
     try {
       const employeeId = parseInt(id);
-      const emp = await prisma.employee.findUnique({
+      const emp = await prisma.employee.findFirst({
         where: { id: employeeId },
       });
       if (!emp) {
@@ -307,7 +314,7 @@ router.delete(
         prisma.leaveRequest.deleteMany({ where: { employeeId } }),
         prisma.document.deleteMany({ where: { employeeId } }),
         prisma.dataConsent.deleteMany({ where: { employeeId } }),
-        prisma.employee.delete({ where: { id: employeeId } }),
+        prisma.employee.deleteMany({ where: { id: employeeId } }),
       ]);
       await auditLog(req, 'DELETE', 'Employee', employeeId, {
         deletedEmployee: `${emp.firstName} ${emp.lastName}`,
@@ -329,7 +336,7 @@ router.get('/export/excel', requireAuth, async (req: any, res) => {
     let employees;
     // If user is not ADMIN/MANAGER, show only their own employee record
     if (userRole !== 'ADMIN' && userRole !== 'MANAGER' && userEmail) {
-      const employee = await prisma.employee.findUnique({
+      const employee = await prisma.employee.findFirst({
         where: { email: userEmail },
       });
       employees = employee ? [employee] : [];

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect } from '@jest/globals'
 import request from 'supertest'
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'
-import prisma from '../../prismaClient'
+import { testPrisma as prisma } from '../helpers/tenantTest'
 import { authHeader, cleanupFixturePrefix, createDocument, createEmployee, createProject, createTimesheet, createUser, uniquePrefix } from './helpers/fixtures'
 
 const feature = loadFeature(path.join(__dirname, '../features/gdpr.feature'))

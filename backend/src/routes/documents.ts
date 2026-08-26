@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../prismaClient';
-import { requireAuth } from '../middleware/auth';
+import { currentTenantId } from '../lib/tenantContext';
+import { requireAuth, rebindTenant } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -55,6 +56,7 @@ async function createDocumentRecord(data: {
   expiryDate?: string;
 }) {
   const documentData: any = {
+    tenantId: currentTenantId(),
     employeeId: data.employeeId,
     name: data.name,
     path: data.path,
@@ -94,7 +96,7 @@ router.get('/', requireAuth, async (req: any, res) => {
 
 router.get('/:id/file', requireAuth, async (req: any, res) => {
   try {
-    const document = await prisma.document.findUnique({
+    const document = await prisma.document.findFirst({
       where: { id: Number(req.params.id) },
     });
     if (!document) return res.status(404).json({ error: 'Document not found' });
@@ -128,6 +130,7 @@ router.post(
   '/upload',
   requireAuth,
   upload.single('file'),
+  rebindTenant,
   async (req: any, res) => {
     const file = req.file as Express.Multer.File | undefined;
     const { employeeId, name, type, expiryDate } = req.body;
@@ -138,7 +141,7 @@ router.post(
       return res.status(403).json({ error: 'Unauthorized' });
     }
     // Verify employee exists before writing DB record
-    const emp = await prisma.employee.findUnique({
+    const emp = await prisma.employee.findFirst({
       where: { id: Number(employeeId) },
     });
     if (!emp) return res.status(400).json({ error: 'employee not found' });
@@ -162,6 +165,7 @@ router.post(
   '/upload-payslips',
   requireAuth,
   upload.array('files', 20),
+  rebindTenant,
   async (req: any, res) => {
     const files = (req.files || []) as Express.Multer.File[];
     const { employeeId } = req.body;
@@ -176,7 +180,7 @@ router.post(
         .json({ error: 'employeeId and at least one file are required' });
     }
 
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employee.findFirst({
       where: { id: Number(employeeId) },
     });
     if (!employee) return res.status(400).json({ error: 'employee not found' });
@@ -207,7 +211,7 @@ router.post(
 router.delete('/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
-    const doc = await prisma.document.findUnique({
+    const doc = await prisma.document.findFirst({
       where: { id: parseInt(id) },
     });
     if (!doc) return res.status(404).json({ error: 'Document not found' });
@@ -224,7 +228,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     }
 
     // Delete the database record
-    await prisma.document.delete({ where: { id: parseInt(id) } });
+    await prisma.document.deleteMany({ where: { id: parseInt(id) } });
     res.json({ success: true });
   } catch (e: any) {
     console.error('Error deleting document:', e);
@@ -242,7 +246,7 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employee.findFirst({
       where: { id: parseInt(employeeId) },
       include: { documents: true },
     });

@@ -7,9 +7,17 @@ config({ path: resolve(__dirname, '../.env') })
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
+// The seed uses the raw client deliberately: it runs outside any request, and
+// every row it writes carries an explicit tenantId.
 const prisma = new PrismaClient()
 
-async function upsertBootstrapUser(role: 'ADMIN' | 'MANAGER', email?: string, password?: string, name?: string) {
+async function upsertBootstrapUser(
+  tenantId: number,
+  role: 'ADMIN' | 'MANAGER',
+  email?: string,
+  password?: string,
+  name?: string,
+) {
   if (!email || !password) {
     return null
   }
@@ -24,6 +32,7 @@ async function upsertBootstrapUser(role: 'ADMIN' | 'MANAGER', email?: string, pa
       role,
     },
     create: {
+      tenantId,
       email,
       password: passwordHash,
       name: name || `${role} User`,
@@ -34,13 +43,32 @@ async function upsertBootstrapUser(role: 'ADMIN' | 'MANAGER', email?: string, pa
 
 async function main() {
   console.log('🌱 Seeding database with sample data...')
+
+  // Tenant zero — the demo company everything below belongs to.
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: 'demo' },
+    update: {},
+    create: {
+      slug: 'demo',
+      name: 'Demo Company Ltd',
+      status: 'ACTIVE',
+      plan: 'CORE_PLUS_COMPLIANCE',
+      features: { compliance: true },
+      settings: { create: {} },
+    },
+  })
+  const tenantId = tenant.id
+  console.log(`Created tenant ${tenant.slug} (#${tenantId})`)
+
   const admin = await upsertBootstrapUser(
+    tenantId,
     'ADMIN',
     process.env.BOOTSTRAP_ADMIN_EMAIL,
     process.env.BOOTSTRAP_ADMIN_PASSWORD,
     process.env.BOOTSTRAP_ADMIN_NAME
   )
   const manager = await upsertBootstrapUser(
+    tenantId,
     'MANAGER',
     process.env.BOOTSTRAP_MANAGER_EMAIL,
     process.env.BOOTSTRAP_MANAGER_PASSWORD,
@@ -49,9 +77,10 @@ async function main() {
 
   // Create Employees
   const alice = await prisma.employee.upsert({
-    where: { email: 'alice@example.com' },
+    where: { tenantId_email: { tenantId, email: 'alice@example.com' } },
     update: {},
     create: {
+      tenantId,
       firstName: 'Alice',
       lastName: 'Smith',
       email: 'alice@example.com',
@@ -65,9 +94,10 @@ async function main() {
   })
 
   const bob = await prisma.employee.upsert({
-    where: { email: 'bob@example.com' },
+    where: { tenantId_email: { tenantId, email: 'bob@example.com' } },
     update: {},
     create: {
+      tenantId,
       firstName: 'Bob',
       lastName: 'Johnson',
       email: 'bob@example.com',
@@ -82,9 +112,10 @@ async function main() {
   console.log('Created Bob:', bob.id)
 
   const charlie = await prisma.employee.upsert({
-    where: { email: 'charlie@example.com' },
+    where: { tenantId_email: { tenantId, email: 'charlie@example.com' } },
     update: {},
     create: {
+      tenantId,
       firstName: 'Charlie',
       lastName: 'Davis',
       email: 'charlie@example.com',
@@ -99,9 +130,10 @@ async function main() {
 
   // Create Projects
   const proj1 = await prisma.project.upsert({
-    where: { code: 'AI_QA_01' },
+    where: { tenantId_code: { tenantId, code: 'AI_QA_01' } },
     update: {},
     create: {
+      tenantId,
       code: 'AI_QA_01',
       name: 'AI QA System',
       description: 'Building an automated QA testing system using AI',
@@ -110,9 +142,10 @@ async function main() {
   })
 
   const proj2 = await prisma.project.upsert({
-    where: { code: '02-SAAS' },
+    where: { tenantId_code: { tenantId, code: '02-SAAS' } },
     update: {},
     create: {
+      tenantId,
       code: '02-SAAS',
       name: 'SaaS Platform',
       description: 'Multi-tenant SaaS application',
@@ -121,9 +154,10 @@ async function main() {
   })
 
   const proj3 = await prisma.project.upsert({
-    where: { code: 'INTERNAL' },
+    where: { tenantId_code: { tenantId, code: 'INTERNAL' } },
     update: {},
     create: {
+      tenantId,
       code: 'INTERNAL',
       name: 'Internal Operations',
       description: 'Internal company operations and admin',
@@ -136,6 +170,7 @@ async function main() {
     where: { id: 1 },
     update: {},
     create: {
+      tenantId,
       employeeId: alice.id,
       visaType: 'Skilled Worker',
       casNumber: 'CAS123456789',
@@ -151,6 +186,7 @@ async function main() {
     where: { id: 2 },
     update: {},
     create: {
+      tenantId,
       employeeId: charlie.id,
       visaType: 'Skilled Worker',
       casNumber: 'CAS987654321',
@@ -174,6 +210,7 @@ async function main() {
     // Alice's timesheets
     await prisma.timesheet.create({
       data: {
+        tenantId,
         employeeId: alice.id,
         projectId: proj1.id,
         date,
@@ -184,6 +221,7 @@ async function main() {
 
     await prisma.timesheet.create({
       data: {
+        tenantId,
         employeeId: alice.id,
         projectId: proj3.id,
         date,
@@ -195,6 +233,7 @@ async function main() {
     // Bob's timesheets
     await prisma.timesheet.create({
       data: {
+        tenantId,
         employeeId: bob.id,
         projectId: proj2.id,
         date,
@@ -205,6 +244,7 @@ async function main() {
 
     await prisma.timesheet.create({
       data: {
+        tenantId,
         employeeId: bob.id,
         projectId: proj3.id,
         date,
@@ -216,6 +256,7 @@ async function main() {
     // Charlie's timesheets
     await prisma.timesheet.create({
       data: {
+        tenantId,
         employeeId: charlie.id,
         projectId: proj1.id,
         date,
@@ -226,6 +267,7 @@ async function main() {
 
     await prisma.timesheet.create({
       data: {
+        tenantId,
         employeeId: charlie.id,
         projectId: proj2.id,
         date,
@@ -243,6 +285,7 @@ async function main() {
 
   await prisma.leaveRequest.create({
     data: {
+      tenantId,
       employeeId: alice.id,
       type: 'Annual Leave',
       startDate: nextWeek,
@@ -254,6 +297,7 @@ async function main() {
 
   await prisma.leaveRequest.create({
     data: {
+      tenantId,
       employeeId: bob.id,
       type: 'Sick Leave',
       startDate: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000),
@@ -265,6 +309,7 @@ async function main() {
 
   await prisma.leaveRequest.create({
     data: {
+      tenantId,
       employeeId: charlie.id,
       type: 'Annual Leave',
       startDate: weekAfter,
@@ -277,6 +322,7 @@ async function main() {
   // Create Document records (metadata only - no actual files)
   await prisma.document.create({
     data: {
+      tenantId,
       employeeId: alice.id,
       name: 'Employment Contract',
       path: '/uploads/alice-contract.pdf',
@@ -285,6 +331,7 @@ async function main() {
 
   await prisma.document.create({
     data: {
+      tenantId,
       employeeId: alice.id,
       name: 'Passport Copy',
       path: '/uploads/alice-passport.pdf',
@@ -293,6 +340,7 @@ async function main() {
 
   await prisma.document.create({
     data: {
+      tenantId,
       employeeId: bob.id,
       name: 'Employment Contract',
       path: '/uploads/bob-contract.pdf',
@@ -301,6 +349,7 @@ async function main() {
 
   await prisma.document.create({
     data: {
+      tenantId,
       employeeId: charlie.id,
       name: 'Director Agreement',
       path: '/uploads/charlie-director-agreement.pdf',
@@ -308,6 +357,7 @@ async function main() {
   })
 
   console.log('✅ Seed completed successfully!')
+  console.log(`   - Tenant: ${tenant.slug} (#${tenantId})`)
   if (admin || manager) {
     console.log(`   - Bootstrap Users: ${[admin?.email, manager?.email].filter(Boolean).join(', ')}`)
   } else {

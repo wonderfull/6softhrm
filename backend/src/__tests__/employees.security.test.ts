@@ -3,7 +3,7 @@ import express from 'express';
 import request from 'supertest';
 import authRouter from '../routes/auth';
 import employeesRouter from '../routes/employees';
-import prisma from '../prismaClient';
+import { testPrisma as prisma, signTestToken } from './helpers/tenantTest';
 import {
   authHeader,
   cleanupFixturePrefix,

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import prisma from '../prismaClient'
+import { currentTenantId } from '../lib/tenantContext'
 import { requireAuth } from '../middleware/auth'
 import { auditLog } from '../middleware/audit'
 import * as XLSX from 'xlsx'
@@ -61,14 +62,14 @@ router.get('/subject-access-request/:employeeId', requireAuth, async (req: any, 
 
     // Check permissions - admin or the employee themselves
     if (userRole !== 'ADMIN') {
-      const employee = await prisma.employee.findUnique({ where: { id: parseInt(employeeId) } })
+      const employee = await prisma.employee.findFirst({ where: { id: parseInt(employeeId) } })
       if (!employee || employee.email !== userEmail) {
         return res.status(403).json({ error: 'Access denied' })
       }
     }
 
     // Fetch all data for the employee
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employee.findFirst({
       where: { id: parseInt(employeeId) },
       include: {
         sponsorships: true,
@@ -85,7 +86,7 @@ router.get('/subject-access-request/:employeeId', requireAuth, async (req: any, 
     }
 
     // Get related user account if exists
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: { email: employee.email },
       select: { id: true, email: true, name: true, role: true, createdAt: true }
     })
@@ -144,13 +145,13 @@ router.get('/export-employee-data/:employeeId', requireAuth, async (req: any, re
 
     // Check permissions
     if (userRole !== 'ADMIN') {
-      const employee = await prisma.employee.findUnique({ where: { id: parseInt(employeeId) } })
+      const employee = await prisma.employee.findFirst({ where: { id: parseInt(employeeId) } })
       if (!employee || employee.email !== userEmail) {
         return res.status(403).json({ error: 'Access denied' })
       }
     }
 
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employee.findFirst({
       where: { id: parseInt(employeeId) },
       include: {
         sponsorships: true,
@@ -383,6 +384,7 @@ router.post('/consent', requireAuth, async (req: any, res) => {
 
     const consent = await prisma.dataConsent.create({
       data: {
+        tenantId: currentTenantId(),
         employeeId: targetEmployeeId,
         consentType,
         consentGiven,
@@ -411,7 +413,7 @@ router.get('/consent/:employeeId', requireAuth, async (req: any, res) => {
 
     // Check permissions
     if (userRole !== 'ADMIN') {
-      const employee = await prisma.employee.findUnique({ where: { id: parseInt(employeeId) } })
+      const employee = await prisma.employee.findFirst({ where: { id: parseInt(employeeId) } })
       if (!employee || employee.email !== userEmail) {
         return res.status(403).json({ error: 'Access denied' })
       }

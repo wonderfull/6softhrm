@@ -132,7 +132,7 @@ router.post('/notify-leave-request', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Missing leaveRequestId' });
     }
 
-    const leaveRequest = await prisma.leaveRequest.findUnique({
+    const leaveRequest = await prisma.leaveRequest.findFirst({
       where: { id: parseInt(leaveRequestId) },
       include: {
         employee: true,
@@ -186,7 +186,7 @@ router.post(
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
-      const leaveRequest = await prisma.leaveRequest.findUnique({
+      const leaveRequest = await prisma.leaveRequest.findFirst({
         where: { id: parseInt(leaveRequestId) },
         include: {
           employee: true,
@@ -239,7 +239,7 @@ router.post('/notify-document-upload', requireAuth, async (req: any, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employee.findFirst({
       where: { id: parseInt(employeeId) },
     });
 

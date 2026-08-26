@@ -2,7 +2,7 @@ import app from './app'
 import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
-import prisma from './prismaClient'
+import { platformPrisma } from './prismaClient'
 
 dotenv.config()
 
@@ -25,7 +25,7 @@ app.listen(PORT, () => {
 // Check DB on startup
 ;(async () => {
   try {
-    const count = await prisma.employee.count()
+    const count = await platformPrisma.employee.count()
     console.log(`👥 Employee rows: ${count}`)
   } catch (e) {
     console.error('❌ Failed to access database or Employee table.')

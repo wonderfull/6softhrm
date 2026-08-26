@@ -8,9 +8,14 @@ Feature: Authentication and password recovery
     Then the request is rejected with a 401 response
 
   Scenario: Public registration cannot self-assign admin role
-    Given a public registration payload requesting the ADMIN role
+    Given an existing employee record and a public registration payload requesting the ADMIN role
     When the registration is submitted
     Then the created account is stored with the EMPLOYEE role
+
+  Scenario: Public registration without an employee record is rejected
+    Given a public registration payload for an unknown email
+    When the registration is submitted
+    Then the registration is rejected with a 403 response
 
   Scenario: Valid login returns a JWT and user identity
     Given an existing registered user with a known password

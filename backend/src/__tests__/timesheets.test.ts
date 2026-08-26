@@ -3,7 +3,7 @@ import request from 'supertest'
 import jwt from 'jsonwebtoken'
 import express from 'express'
 import timesheetsRouter from '../routes/timesheets'
-import prisma from '../prismaClient'
+import { testPrisma as prisma, signTestToken } from './helpers/tenantTest'
 
 const app = express()
 app.use(express.json())
@@ -62,11 +62,11 @@ describe('Timesheets API', () => {
     })
     testProjectId = project.id
 
-    authToken = 'Bearer ' + jwt.sign({ email: employee.email, role: 'ADMIN' }, process.env.JWT_SECRET || 'test-secret-key')
-    employeeToken = 'Bearer ' + jwt.sign({ email: employee.email, role: 'EMPLOYEE', employeeId: employee.id }, process.env.JWT_SECRET || 'test-secret-key')
-    linkedDirectorToken = 'Bearer ' + jwt.sign({ email: 'director@timesheets.com', role: 'DIRECTOR', employeeId: employee.id }, process.env.JWT_SECRET || 'test-secret-key')
-    unlinkedEmployeeToken = 'Bearer ' + jwt.sign({ email: 'unlinked@timesheets.com', role: 'EMPLOYEE' }, process.env.JWT_SECRET || 'test-secret-key')
-    officeAssistantToken = 'Bearer ' + jwt.sign({ email: 'office@timesheets.com', role: 'OFFICE_ASSISTANT' }, process.env.JWT_SECRET || 'test-secret-key')
+    authToken = 'Bearer ' + signTestToken({ email: employee.email, role: 'ADMIN' })
+    employeeToken = 'Bearer ' + signTestToken({ email: employee.email, role: 'EMPLOYEE', employeeId: employee.id })
+    linkedDirectorToken = 'Bearer ' + signTestToken({ email: 'director@timesheets.com', role: 'DIRECTOR', employeeId: employee.id })
+    unlinkedEmployeeToken = 'Bearer ' + signTestToken({ email: 'unlinked@timesheets.com', role: 'EMPLOYEE' })
+    officeAssistantToken = 'Bearer ' + signTestToken({ email: 'office@timesheets.com', role: 'OFFICE_ASSISTANT' })
   })
 
   afterAll(async () => {

@@ -1,10 +1,27 @@
 import { Router } from 'express'
 import prisma from '../prismaClient'
+import { currentTenantId } from '../lib/tenantContext'
 import { requireAuth } from '../middleware/auth'
 import fs from 'fs/promises'
 import path from 'path'
 import bcrypt from 'bcryptjs'
 import type { Employee, Project } from '@prisma/client'
+
+
+// Tenant-safe restore: the backup row's id is honoured only when it already
+// belongs to this tenant (updateMany is tenant-scoped); otherwise a create is
+// attempted with the original id so intra-backup FKs stay valid — a PK clash
+// with another tenant's row simply fails and is counted as skipped.
+async function restoreRow(model: any, row: any): Promise<boolean> {
+  const { tenantId: _ignored, ...data } = row
+  const existing = await model.findFirst({ where: { id: row.id } })
+  if (existing) {
+    await model.updateMany({ where: { id: row.id }, data })
+    return true
+  }
+  await model.create({ data: { ...data, tenantId: currentTenantId() } })
+  return true
+}
 
 const router = Router()
 
@@ -109,11 +126,18 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
 
     console.log('[SEED] Creating/updating employees...')
     for (const emp of employees) {
-      const created = await prisma.employee.upsert({
+      const existing = await prisma.employee.findFirst({
         where: { email: emp.email },
-        update: emp,
-        create: emp
       })
+      let created
+      if (existing) {
+        await prisma.employee.updateMany({ where: { id: existing.id }, data: emp })
+        created = existing
+      } else {
+        created = await prisma.employee.create({
+          data: { ...emp, tenantId: currentTenantId() },
+        })
+      }
       results.employees++
       console.log(`[SEED] Employee ${created.id}: ${emp.email}`)
     }
@@ -129,11 +153,18 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
 
     console.log('[SEED] Creating/updating projects...')
     for (const proj of projects) {
-      const created = await prisma.project.upsert({
+      const existingProj = await prisma.project.findFirst({
         where: { code: proj.code },
-        update: proj,
-        create: proj
       })
+      let created
+      if (existingProj) {
+        await prisma.project.updateMany({ where: { id: existingProj.id }, data: proj })
+        created = existingProj
+      } else {
+        created = await prisma.project.create({
+          data: { ...proj, tenantId: currentTenantId() },
+        })
+      }
       results.projects++
       console.log(`[SEED] Project ${created.id}: ${proj.code}`)
     }
@@ -170,7 +201,7 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
     ]
 
     for (const ts of timesheets) {
-      await prisma.timesheet.create({ data: ts })
+      await prisma.timesheet.create({ data: { ...ts, tenantId: currentTenantId() } })
       results.timesheets++
     }
     console.log(`[SEED] Timesheets created: ${results.timesheets}`)
@@ -183,7 +214,7 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
     ]
 
     for (const lr of leaveRequests) {
-      await prisma.leaveRequest.create({ data: lr })
+      await prisma.leaveRequest.create({ data: { ...lr, tenantId: currentTenantId() } })
       results.leaveRequests++
     }
     console.log(`[SEED] Leave requests created: ${results.leaveRequests}`)
@@ -214,7 +245,7 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
     ]
 
     for (const sp of sponsorships) {
-      await prisma.sponsorship.create({ data: sp })
+      await prisma.sponsorship.create({ data: { ...sp, tenantId: currentTenantId() } })
       results.sponsorships++
     }
     console.log(`[SEED] Sponsorships created: ${results.sponsorships}`)
@@ -313,11 +344,7 @@ router.post('/restore', requireAuth, async (req: any, res) => {
     if (data.employees && Array.isArray(data.employees)) {
       for (const emp of data.employees) {
         try {
-          await prisma.employee.upsert({
-            where: { id: emp.id },
-            update: emp,
-            create: emp
-          })
+          await restoreRow(prisma.employee, emp)
           results.employees++
         } catch (e) {
           console.error('Error restoring employee:', e)
@@ -329,11 +356,7 @@ router.post('/restore', requireAuth, async (req: any, res) => {
     if (data.projects && Array.isArray(data.projects)) {
       for (const proj of data.projects) {
         try {
-          await prisma.project.upsert({
-            where: { id: proj.id },
-            update: proj,
-            create: proj
-          })
+          await restoreRow(prisma.project, proj)
           results.projects++
         } catch (e) {
           console.error('Error restoring project:', e)
@@ -345,11 +368,7 @@ router.post('/restore', requireAuth, async (req: any, res) => {
     if (data.documents && Array.isArray(data.documents)) {
       for (const doc of data.documents) {
         try {
-          await prisma.document.upsert({
-            where: { id: doc.id },
-            update: doc,
-            create: doc
-          })
+          await restoreRow(prisma.document, doc)
           results.documents++
         } catch (e) {
           console.error('Error restoring document:', e)
@@ -361,11 +380,7 @@ router.post('/restore', requireAuth, async (req: any, res) => {
     if (data.timesheets && Array.isArray(data.timesheets)) {
       for (const ts of data.timesheets) {
         try {
-          await prisma.timesheet.upsert({
-            where: { id: ts.id },
-            update: ts,
-            create: ts
-          })
+          await restoreRow(prisma.timesheet, ts)
           results.timesheets++
         } catch (e) {
           console.error('Error restoring timesheet:', e)
@@ -377,11 +392,7 @@ router.post('/restore', requireAuth, async (req: any, res) => {
     if (data.leaveRequests && Array.isArray(data.leaveRequests)) {
       for (const l of data.leaveRequests) {
         try {
-          await prisma.leaveRequest.upsert({
-            where: { id: l.id },
-            update: l,
-            create: l
-          })
+          await restoreRow(prisma.leaveRequest, l)
           results.leaveRequests++
         } catch (e) {
           console.error('Error restoring leave request:', e)
@@ -393,11 +404,7 @@ router.post('/restore', requireAuth, async (req: any, res) => {
     if (data.sponsorships && Array.isArray(data.sponsorships)) {
       for (const s of data.sponsorships) {
         try {
-          await prisma.sponsorship.upsert({
-            where: { id: s.id },
-            update: s,
-            create: s
-          })
+          await restoreRow(prisma.sponsorship, s)
           results.sponsorships++
         } catch (e) {
           console.error('Error restoring sponsorship:', e)

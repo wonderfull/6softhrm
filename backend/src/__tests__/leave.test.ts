@@ -3,7 +3,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import express from 'express';
 import leaveRouter from '../routes/leave';
-import prisma from '../prismaClient';
+import { testPrisma as prisma, signTestToken } from './helpers/tenantTest';
 
 const app = express();
 app.use(express.json());
@@ -50,22 +50,13 @@ describe('Leave API permissions', () => {
     });
     secondEmployeeId = secondEmployee.id;
 
-    officeAssistantToken = `Bearer ${jwt.sign(
-      { email: 'office@leave-permissions.test', role: 'OFFICE_ASSISTANT' },
-      process.env.JWT_SECRET || 'test-secret-key',
-    )}`;
-    employeeToken = `Bearer ${jwt.sign(
-      { email: employee.email, role: 'EMPLOYEE', employeeId },
-      process.env.JWT_SECRET || 'test-secret-key',
-    )}`;
-    linkedDirectorToken = `Bearer ${jwt.sign(
-      {
+    officeAssistantToken = `Bearer ${signTestToken({ email: 'office@leave-permissions.test', role: 'OFFICE_ASSISTANT' })}`;
+    employeeToken = `Bearer ${signTestToken({ email: employee.email, role: 'EMPLOYEE', employeeId })}`;
+    linkedDirectorToken = `Bearer ${signTestToken({
         email: 'director@leave-permissions.test',
         role: 'DIRECTOR',
         employeeId,
-      },
-      process.env.JWT_SECRET || 'test-secret-key',
-    )}`;
+      })}`;
   });
 
   afterAll(async () => {

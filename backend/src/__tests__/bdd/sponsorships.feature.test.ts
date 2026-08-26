@@ -3,7 +3,7 @@ import request from 'supertest'
 import { afterEach, beforeEach, expect } from '@jest/globals'
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'
-import prisma from '../../prismaClient'
+import { testPrisma as prisma } from '../helpers/tenantTest'
 import {
   authHeader,
   cleanupFixturePrefix,

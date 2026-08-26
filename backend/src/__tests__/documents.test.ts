@@ -10,7 +10,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import express from 'express';
 import documentsRouter from '../routes/documents';
-import prisma from '../prismaClient';
+import { testPrisma as prisma, signTestToken } from './helpers/tenantTest';
 import fs from 'fs';
 import path from 'path';
 
@@ -61,28 +61,16 @@ describe('Documents API', () => {
     // Mock auth token (valid JWT signed with test secret)
     authToken =
       'Bearer ' +
-      jwt.sign(
-        { email: employee.email, role: 'ADMIN' },
-        process.env.JWT_SECRET || 'test-secret-key',
-      );
+      signTestToken({ email: employee.email, role: 'ADMIN' });
     userToken =
       'Bearer ' +
-      jwt.sign(
-        { email: employee.email, role: 'USER', employeeId: employee.id },
-        process.env.JWT_SECRET || 'test-secret-key',
-      );
+      signTestToken({ email: employee.email, role: 'USER', employeeId: employee.id });
     unlinkedUserToken =
       'Bearer ' +
-      jwt.sign(
-        { email: 'unlinked@documents.com', role: 'USER' },
-        process.env.JWT_SECRET || 'test-secret-key',
-      );
+      signTestToken({ email: 'unlinked@documents.com', role: 'USER' });
     officeAssistantToken =
       'Bearer ' +
-      jwt.sign(
-        { email: 'office@documents.com', role: 'OFFICE_ASSISTANT' },
-        process.env.JWT_SECRET || 'test-secret-key',
-      );
+      signTestToken({ email: 'office@documents.com', role: 'OFFICE_ASSISTANT' });
   });
 
   afterAll(async () => {

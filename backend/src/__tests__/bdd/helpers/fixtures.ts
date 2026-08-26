@@ -2,14 +2,14 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import fs from 'fs'
 import path from 'path'
-import prisma from '../../../prismaClient'
+import { testPrisma as prisma, signTestToken } from '../../helpers/tenantTest'
 
 export function uniquePrefix(label: string) {
   return `bdd-${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 export function makeToken(payload: Record<string, unknown>) {
-  return jwt.sign(payload, process.env.JWT_SECRET || 'test-secret-key')
+  return signTestToken(payload)
 }
 
 export function authHeader(payload: Record<string, unknown>) {
@@ -133,7 +133,7 @@ export async function cleanupFixturePrefix(prefix: string) {
     where: { email: { contains: prefix } },
     select: { id: true },
   })
-  const employeeIds = employees.map((employee) => employee.id)
+  const employeeIds = employees.map((employee: { id: number }) => employee.id)
 
   if (employeeIds.length > 0) {
     await prisma.dataConsent.deleteMany({ where: { employeeId: { in: employeeIds } } })

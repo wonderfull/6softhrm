@@ -3,7 +3,7 @@ import request from 'supertest'
 import jwt from 'jsonwebtoken'
 import express from 'express'
 import sponsorshipsRouter from '../routes/sponsorships'
-import prisma from '../prismaClient'
+import { testPrisma as prisma, signTestToken } from './helpers/tenantTest'
 
 const app = express()
 app.use(express.json())
@@ -33,10 +33,7 @@ describe('Sponsorships API', () => {
       }
     })
     testEmployeeId = employee.id
-    authToken = 'Bearer ' + jwt.sign(
-      { email: employee.email, role: 'ADMIN' },
-      process.env.JWT_SECRET || 'test-secret-key'
-    )
+    authToken = 'Bearer ' + signTestToken({ email: employee.email, role: 'ADMIN' })
   })
 
   afterAll(async () => {

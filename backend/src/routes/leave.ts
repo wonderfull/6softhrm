@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import { sendEmail, EmailTemplates } from '../lib/emailService';
 import { canReviewLeaveAndTime, normalizeRole, ROLES } from '../lib/roles';
+import { currentTenantId } from '../lib/tenantContext';
 
 const router = Router();
 
@@ -58,6 +59,7 @@ router.post('/', requireAuth, async (req: any, res) => {
   try {
     const lr = await prisma.leaveRequest.create({
       data: {
+        tenantId: currentTenantId(),
         employeeId,
         type,
         startDate: new Date(startDate),
@@ -107,11 +109,18 @@ router.put(
   async (req, res) => {
     const id = Number(req.params.id);
     try {
-      const lr = await prisma.leaveRequest.update({
+      const updated = await prisma.leaveRequest.updateMany({
         where: { id },
         data: { status: 'APPROVED' },
+      });
+      if (updated.count === 0)
+        return res.status(404).json({ error: 'Leave request not found' });
+      const lr = await prisma.leaveRequest.findFirst({
+        where: { id },
         include: { employee: true },
       });
+      if (!lr)
+        return res.status(404).json({ error: 'Leave request not found' });
 
       // Send notification to employee
       try {
@@ -146,11 +155,18 @@ router.put(
   async (req, res) => {
     const id = Number(req.params.id);
     try {
-      const lr = await prisma.leaveRequest.update({
+      const updated = await prisma.leaveRequest.updateMany({
         where: { id },
         data: { status: 'REJECTED' },
+      });
+      if (updated.count === 0)
+        return res.status(404).json({ error: 'Leave request not found' });
+      const lr = await prisma.leaveRequest.findFirst({
+        where: { id },
         include: { employee: true },
       });
+      if (!lr)
+        return res.status(404).json({ error: 'Leave request not found' });
 
       // Send notification to employee
       try {
