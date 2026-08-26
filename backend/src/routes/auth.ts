@@ -239,6 +239,7 @@ router.put('/users/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (r
     }
     if (password) {
       data.password = await bcrypt.hash(password, 10)
+      data.tokenVersion = { increment: 1 }
     }
     if (employeeId !== undefined) {
       data.employeeId = employeeId || null
@@ -291,7 +292,8 @@ router.post('/users/:id/reset-password', requireAuth, requireRole('ADMIN', 'DIRE
     const hashedPassword = await bcrypt.hash(newPassword, 10)
     await prisma.user.updateMany({
       where: { id: user.id },
-      data: { password: hashedPassword }
+      // Bump tokenVersion so every outstanding session dies with the old password.
+      data: { password: hashedPassword, tokenVersion: { increment: 1 } }
     })
 
     await createAuditLog(req.user?.id, req.user?.email, 'PASSWORD_RESET_BY_ADMIN', 'User', user.id, null, req)
@@ -361,7 +363,8 @@ router.post('/reset-password', async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10)
     await platformPrisma.user.update({
       where: { id: decoded.id },
-      data: { password: hashedPassword }
+      // Bump tokenVersion so every outstanding session dies with the old password.
+      data: { password: hashedPassword, tokenVersion: { increment: 1 } }
     })
 
     res.json({ message: 'Password reset successful' })

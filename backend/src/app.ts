@@ -12,6 +12,7 @@ import calendarRoutes from './routes/calendar';
 import adminRoutes from './routes/admin';
 import gdprRoutes from './routes/gdpr';
 import notificationsRoutes from './routes/notifications';
+import platformRoutes from './routes/platform';
 import { verifyEmailConfig } from './lib/emailService';
 import { initializeCronJobs } from './lib/cronJobs';
 
@@ -107,6 +108,7 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/gdpr', gdprRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/platform', platformRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

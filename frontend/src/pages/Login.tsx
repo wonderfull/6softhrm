@@ -1,5 +1,6 @@
 import React from 'react';
 import { apiPost } from '../lib/api';
+import { storeTenant } from '../lib/tenant';
 import { useNavigate, Link } from 'react-router-dom';
 import { LockClosedIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 
@@ -20,6 +21,7 @@ export default function Login() {
 
       if (data.token) {
         localStorage.setItem('token', data.token);
+        storeTenant(data.user?.tenant);
         window.location.href = '/dashboard';
       } else {
         setError(data.error || 'Invalid credentials');

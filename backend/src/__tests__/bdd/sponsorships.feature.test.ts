@@ -42,9 +42,7 @@ defineFeature(feature, (test) => {
     when('the linked employee lists sponsorships', async () => {
       response = await request(app)
         .get('/api/sponsorships')
-        .set('Authorization', authHeader({
-          id: 10,
-          email: employee.email,
+        .set('Authorization', authHeader({ email: employee.email,
           role: 'EMPLOYEE',
           employeeId: employee.id,
         }))
@@ -69,9 +67,7 @@ defineFeature(feature, (test) => {
     when('the unlinked employee views expiring sponsorships', async () => {
       response = await request(app)
         .get('/api/sponsorships/expiring')
-        .set('Authorization', authHeader({
-          id: 11,
-          email: `${prefix}.unlinked@example.com`,
+        .set('Authorization', authHeader({ email: `${prefix}.unlinked@example.com`,
           role: 'EMPLOYEE',
         }))
     })
@@ -92,9 +88,7 @@ defineFeature(feature, (test) => {
     when('the director creates a sponsorship for that employee', async () => {
       response = await request(app)
         .post('/api/sponsorships')
-        .set('Authorization', authHeader({
-          id: 12,
-          email: `${prefix}.director@example.com`,
+        .set('Authorization', authHeader({ email: `${prefix}.director@example.com`,
           role: 'DIRECTOR',
         }))
         .send({
@@ -134,9 +128,7 @@ defineFeature(feature, (test) => {
     when('the office assistant updates the sponsorship visa type', async () => {
       response = await request(app)
         .put(`/api/sponsorships/${sponsorship.id}`)
-        .set('Authorization', authHeader({
-          id: 13,
-          email: `${prefix}.assistant@example.com`,
+        .set('Authorization', authHeader({ email: `${prefix}.assistant@example.com`,
           role: 'OFFICE_ASSISTANT',
         }))
         .send({ visaType: 'Changed Worker' })

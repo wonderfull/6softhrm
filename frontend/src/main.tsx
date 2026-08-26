@@ -24,6 +24,8 @@ import DataExport from './pages/DataExport';
 import Consent from './pages/Consent';
 import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
+import Platform from './pages/Platform';
+import PlatformLogin from './pages/PlatformLogin';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Gdpr from './pages/Gdpr';
@@ -52,6 +54,8 @@ const ROUTE_TITLES: Record<string, string> = {
   '/terms': 'Terms of Service',
   '/gdpr': 'GDPR',
   '/login': 'Sign in',
+  '/platform': 'Platform Console',
+  '/platform/login': 'Platform Console',
   '/register': 'Register',
   '/forgot-password': 'Forgot password',
   '/reset-password': 'Reset password',
@@ -78,6 +82,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('tenant');
     setIsLoggedIn(false);
     window.location.href = '/login';
   };
@@ -102,6 +107,10 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Platform console (operator-only; guards itself via platformToken) */}
+        <Route path="/platform/login" element={<PlatformLogin />} />
+        <Route path="/platform" element={<Platform />} />
 
         {/* Protected Routes */}
         <Route

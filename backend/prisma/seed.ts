@@ -60,6 +60,21 @@ async function main() {
   const tenantId = tenant.id
   console.log(`Created tenant ${tenant.slug} (#${tenantId})`)
 
+  // Platform operator (us) — separate table, separate login.
+  if (process.env.PLATFORM_ADMIN_EMAIL && process.env.PLATFORM_ADMIN_PASSWORD) {
+    const platformHash = await bcrypt.hash(process.env.PLATFORM_ADMIN_PASSWORD, 10)
+    await prisma.platformAdmin.upsert({
+      where: { email: process.env.PLATFORM_ADMIN_EMAIL },
+      update: { password: platformHash },
+      create: {
+        email: process.env.PLATFORM_ADMIN_EMAIL,
+        password: platformHash,
+        name: process.env.PLATFORM_ADMIN_NAME || 'Platform Admin',
+      },
+    })
+    console.log(`Platform admin: ${process.env.PLATFORM_ADMIN_EMAIL}`)
+  }
+
   const admin = await upsertBootstrapUser(
     tenantId,
     'ADMIN',

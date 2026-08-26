@@ -1,3 +1,4 @@
+import { getTenant } from '../lib/tenant';
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { HiOutlineBell, HiOutlineUserCircle, HiOutlineLogout, HiOutlineSun, HiOutlineMoon } from 'react-icons/hi'
@@ -11,6 +12,7 @@ interface NavBarProps {
 }
 
 export default function NavBar({ darkMode, onToggleDarkMode, onLogout }: NavBarProps) {
+  const tenantName = getTenant()?.name;
   const [dropdownOpen, setDropdownOpen] = React.useState(false)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
 
@@ -39,6 +41,11 @@ export default function NavBar({ darkMode, onToggleDarkMode, onLogout }: NavBarP
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link to="/" className="text-xl font-bold text-slate-900 dark:text-white">6soft HRM</Link>
+          {tenantName && (
+            <span className="ml-3 hidden sm:inline-block rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+              {tenantName}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <button className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 transition-colors">

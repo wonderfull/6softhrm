@@ -195,7 +195,7 @@ describe('BDD: auth', () => {
       when('an admin generates a password reset link for that user', async () => {
         response = await request(app)
           .post(`/api/auth/users/${userId}/reset-link`)
-          .set('Authorization', authHeader({ id: 60, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+          .set('Authorization', authHeader({ email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
       })
 
       then('the response confirms the reset link was handled without exposing it', () => {
@@ -225,7 +225,7 @@ describe('BDD: auth', () => {
       when('an admin directly resets that user\'s password', async () => {
         response = await request(app)
           .post(`/api/auth/users/${userId}/reset-password`)
-          .set('Authorization', authHeader({ id: 61, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+          .set('Authorization', authHeader({ email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
           .send({ newPassword: 'temporary-password123' })
       })
 

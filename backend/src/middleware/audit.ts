@@ -58,7 +58,9 @@ export async function auditLog(
 ) {
   const userId = req.user?.id || null
   const userEmail = req.user?.email || null
-  const detailsStr = details ? JSON.stringify(details) : null
+  const impersonatedBy = (req.user as any)?.impersonatedBy
+  const merged = impersonatedBy ? { ...(details ?? {}), impersonatedBy } : details
+  const detailsStr = merged ? JSON.stringify(merged) : null
 
   await createAuditLog(userId, userEmail, action, entity, entityId || null, detailsStr, req)
 }

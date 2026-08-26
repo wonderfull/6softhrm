@@ -52,9 +52,7 @@ describe('BDD: documents', () => {
             .post('/api/documents/upload')
             .set(
               'Authorization',
-              authHeader({
-                id: 30,
-                email: `${prefix}.admin@example.com`,
+              authHeader({ email: `${prefix}.admin@example.com`,
                 role: 'ADMIN',
               }),
             )
@@ -109,9 +107,7 @@ describe('BDD: documents', () => {
           .get('/api/documents/expiring')
           .set(
             'Authorization',
-            authHeader({
-              id: 31,
-              email: `${prefix}.admin@example.com`,
+            authHeader({ email: `${prefix}.admin@example.com`,
               role: 'ADMIN',
             }),
           );
@@ -167,9 +163,7 @@ describe('BDD: documents', () => {
           .delete(`/api/documents/${documentId}`)
           .set(
             'Authorization',
-            authHeader({
-              id: 32,
-              email: requesterEmail,
+            authHeader({ email: requesterEmail,
               role: 'USER',
               employeeId: requesterEmployeeId,
             }),
@@ -210,7 +204,7 @@ describe('BDD: documents', () => {
           .delete(`/api/documents/${documentId}`)
           .set(
             'Authorization',
-            authHeader({ id: 33, email, role: 'USER', employeeId }),
+            authHeader({ email, role: 'USER', employeeId }),
           );
       });
 
@@ -249,9 +243,7 @@ describe('BDD: documents', () => {
           .get(`/api/documents/download-all/${employeeId}`)
           .set(
             'Authorization',
-            authHeader({
-              id: 34,
-              email: `${prefix}.admin@example.com`,
+            authHeader({ email: `${prefix}.admin@example.com`,
               role: 'ADMIN',
             }),
           );
@@ -294,9 +286,7 @@ describe('BDD: documents', () => {
           .post('/api/documents/upload-payslips')
           .set(
             'Authorization',
-            authHeader({
-              id: 36,
-              email: `${prefix}.admin@example.com`,
+            authHeader({ email: `${prefix}.admin@example.com`,
               role: 'ADMIN',
             }),
           )
