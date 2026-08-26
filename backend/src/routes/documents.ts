@@ -4,8 +4,8 @@ import { currentTenantId } from '../lib/tenantContext';
 import { requireAuth, rebindTenant } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
 import archiver from 'archiver';
+import { getStorage, buildDocumentKey, assertKeyInTenant } from '../lib/storage';
 import {
   canDeleteDocuments,
   canOperateDocuments,
@@ -15,10 +15,9 @@ import {
 
 const router = Router();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads')),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
-});
+// Files are buffered in memory (5MB cap) then handed to the storage driver
+// under a tenant-prefixed key — never written to a shared local namespace.
+const storage = multer.memoryStorage();
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = [
@@ -42,10 +41,6 @@ function canAccessDocument(user: any, employeeId: number) {
   const role = normalizeRole(user.role);
   if (canOperateDocuments(role)) return true;
   return role === ROLES.EMPLOYEE && user.employeeId === employeeId;
-}
-
-function getAbsoluteFilePath(documentPath: string) {
-  return path.join(process.cwd(), documentPath.replace(/^\//, ''));
 }
 
 async function createDocumentRecord(data: {
@@ -105,21 +100,28 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const filePath = getAbsoluteFilePath(document.path);
-    if (!fs.existsSync(filePath)) {
+    assertKeyInTenant(document.path);
+    const store = getStorage();
+    if (!(await store.exists(document.path))) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    if (req.query.disposition === 'inline') {
-      res.type(path.extname(filePath));
-      res.setHeader(
-        'Content-Disposition',
-        `inline; filename="${document.name}"`,
-      );
-      return res.sendFile(filePath);
-    }
+    const disposition =
+      req.query.disposition === 'inline' ? ('inline' as const) : ('attachment' as const);
 
-    res.download(filePath, document.name);
+    // Object storage serves the bytes itself via a short-lived signed URL;
+    // the local driver streams through the API.
+    const signedUrl = await store.getSignedUrl(document.path, document.name, disposition);
+    if (signedUrl) return res.redirect(signedUrl);
+
+    res.type(path.extname(document.path) || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `${disposition}; filename="${document.name.replace(/"/g, '')}"`,
+    );
+    const stream = await store.getStream(document.path);
+    stream.on('error', () => res.status(404).end());
+    stream.pipe(res);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
@@ -146,11 +148,12 @@ router.post(
     });
     if (!emp) return res.status(400).json({ error: 'employee not found' });
     try {
-      const pathToSave = `/uploads/${file.filename}`;
+      const key = buildDocumentKey(file.originalname);
+      await getStorage().put(key, file.buffer, file.mimetype);
       const d = await createDocumentRecord({
         employeeId: Number(employeeId),
         name,
-        path: pathToSave,
+        path: key,
         type,
         expiryDate,
       });
@@ -187,14 +190,16 @@ router.post(
 
     try {
       const documents = await Promise.all(
-        files.map((file) =>
-          createDocumentRecord({
+        files.map(async (file) => {
+          const key = buildDocumentKey(file.originalname);
+          await getStorage().put(key, file.buffer, file.mimetype);
+          return createDocumentRecord({
             employeeId: employee.id,
             name: file.originalname.replace(/\.[^.]+$/, ''),
-            path: `/uploads/${file.filename}`,
+            path: key,
             type: 'PAYSLIP',
-          }),
-        ),
+          });
+        }),
       );
 
       res.json({
@@ -221,11 +226,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    // Delete the physical file
-    const filePath = getAbsoluteFilePath(doc.path);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+    // Delete the stored file (tolerant of already-missing objects)
+    assertKeyInTenant(doc.path);
+    await getStorage().delete(doc.path).catch(() => undefined);
 
     // Delete the database record
     await prisma.document.deleteMany({ where: { id: parseInt(id) } });
@@ -269,11 +272,12 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
     // Pipe archive to response
     archive.pipe(res);
 
-    // Add all documents to archive
+    // Add all documents to archive through the storage driver
+    const store = getStorage();
     for (const doc of employee.documents) {
-      const filePath = getAbsoluteFilePath(doc.path);
-      if (fs.existsSync(filePath)) {
-        archive.file(filePath, { name: doc.name });
+      assertKeyInTenant(doc.path);
+      if (await store.exists(doc.path)) {
+        archive.append(await store.getStream(doc.path), { name: doc.name });
       }
     }
 

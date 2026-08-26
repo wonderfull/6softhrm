@@ -77,6 +77,28 @@ async function main() {
   const stealEmp = await request(app).get(`/api/documents/${1}/file`).set('Authorization', token2)
   check('tenant B cannot fetch tenant A document (404)', stealEmp.status === 404, `status ${stealEmp.status}`)
 
+  // 8b. storage: uploads land under a tenant-prefixed key; tenant B gets 404
+  const upload = await request(app)
+    .post('/api/documents/upload')
+    .set('Authorization', token)
+    .field('employeeId', String((await platformPrisma.employee.findFirst({ where: { tenantId: tenant!.id } }))!.id))
+    .field('name', 'Gate upload')
+    .attach('file', Buffer.from('%PDF-1.4 gate'), { filename: 'gate.pdf', contentType: 'application/pdf' })
+  check('upload succeeds', upload.status === 200, `status ${upload.status}`)
+  check(
+    'upload key is tenant-prefixed',
+    typeof upload.body.path === 'string' && upload.body.path.startsWith(`tenants/${tenant!.id}/documents/`),
+    upload.body.path,
+  )
+  const fileAsB = await request(app)
+    .get(`/api/documents/${upload.body.id}/file`)
+    .set('Authorization', token2)
+  check('tenant B cannot fetch tenant A upload (404)', fileAsB.status === 404, `status ${fileAsB.status}`)
+  const fileAsA = await request(app)
+    .get(`/api/documents/${upload.body.id}/file`)
+    .set('Authorization', token)
+  check('tenant A downloads own upload', fileAsA.status === 200, `status ${fileAsA.status}`)
+
   // 9. suspended tenant blocks login
   await platformPrisma.tenant.update({ where: { id: t2.id }, data: { status: 'SUSPENDED' } })
   const loginSusp = await request(app).post('/api/auth/login').send({ email: 'gate-admin@two.test', password: 'gate-test-pass' })

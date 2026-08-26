@@ -5,16 +5,12 @@ import { requireAuth } from '../middleware/auth'
 import { auditLog } from '../middleware/audit'
 import * as XLSX from 'xlsx'
 import archiver from 'archiver'
-import fs from 'fs'
 import path from 'path'
+import { getStorage, assertKeyInTenant } from '../lib/storage'
 import type { Document, LeaveRequest, Timesheet } from '@prisma/client'
 import { isHrAdminRole, normalizeRole, ROLES } from '../lib/roles'
 
 const router = Router()
-
-function getAbsoluteFilePath(documentPath: string) {
-  return path.join(process.cwd(), documentPath.replace(/^\//, ''))
-}
 
 function safeArchiveName(value: string) {
   return value.replace(/[<>:"/\\|?*\x00-\x1F]/g, '-').replace(/\s+/g, ' ').trim() || 'document'
@@ -274,9 +270,9 @@ router.get('/export-all', requireAuth, async (req: any, res) => {
       prisma.googleAccount.findMany(),
     ])
 
-    const documentManifest = documents.map((document) => {
-      const filePath = getAbsoluteFilePath(document.path)
-      return {
+    const store = getStorage()
+    const documentManifest = await Promise.all(
+      documents.map(async (document) => ({
         id: document.id,
         employeeId: document.employeeId,
         employeeName: document.employee ? `${document.employee.firstName} ${document.employee.lastName}` : null,
@@ -285,9 +281,9 @@ router.get('/export-all', requireAuth, async (req: any, res) => {
         path: document.path,
         uploadedAt: document.uploadedAt,
         expiryDate: document.expiryDate,
-        includedInZip: fs.existsSync(filePath),
-      }
-    })
+        includedInZip: await store.exists(document.path),
+      })),
+    )
 
     const backup = {
       exportDate: new Date().toISOString(),
@@ -332,15 +328,15 @@ router.get('/export-all', requireAuth, async (req: any, res) => {
     archive.append(JSON.stringify(documentManifest, null, 2), { name: 'data/documents-manifest.json' })
 
     for (const document of documents) {
-      const filePath = getAbsoluteFilePath(document.path)
-      if (!fs.existsSync(filePath)) continue
+      assertKeyInTenant(document.path)
+      if (!(await store.exists(document.path))) continue
 
       const employeeFolder = document.employee
         ? `${document.employeeId}-${safeArchiveName(`${document.employee.firstName} ${document.employee.lastName}`)}`
         : `${document.employeeId}-employee`
       const extension = path.extname(document.path)
       const archiveName = `documents/${employeeFolder}/${document.id}-${safeArchiveName(document.name)}${extension && !document.name.endsWith(extension) ? extension : ''}`
-      archive.file(filePath, { name: archiveName })
+      archive.append(await store.getStream(document.path), { name: archiveName })
     }
 
     await auditLog(req, 'DATA_EXPORT', 'System', undefined, {
