@@ -37,3 +37,6 @@ tp-negative.json
 
 # Browser screenshots from gate verification runs
 kingfisher-dashboard.png
+
+# Database backups (local copies)
+backend/backups/
