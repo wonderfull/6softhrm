@@ -1,6 +1,8 @@
 import React from 'react'
 import { apiGet, apiPost, API_BASE_URL } from '../lib/api'
 import Card from '../components/Card'
+import SecuritySettingsCard from '../components/SecuritySettingsCard'
+import CompanyProfileCard from '../components/CompanyProfileCard'
 
 export default function Settings() {
   const [driveConnected, setDriveConnected] = React.useState<boolean | null>(null)
@@ -160,6 +162,9 @@ export default function Settings() {
       <h2 className="text-2xl font-semibold mb-6">Settings</h2>
       
       <div className="space-y-6">
+        {isAdmin && <CompanyProfileCard />}
+        <SecuritySettingsCard />
+
         {/* Backup & Restore (Admin Only) */}
         {isAdmin && (
           <Card className="p-6">

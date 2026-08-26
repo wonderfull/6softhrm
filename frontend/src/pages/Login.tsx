@@ -9,7 +9,34 @@ export default function Login() {
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  // Two-factor step: set when login answers requires2fa
+  const [pendingToken, setPendingToken] = React.useState('');
+  const [totpCode, setTotpCode] = React.useState('');
   const navigate = useNavigate();
+
+  function completeLogin(data: any) {
+    localStorage.setItem('token', data.token);
+    storeTenant(data.user?.tenant);
+    window.location.href = '/dashboard';
+  }
+
+  async function submitCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const data = await apiPost('/auth/2fa/complete', {
+        pendingToken,
+        code: totpCode,
+      });
+      if (data.token) completeLogin(data);
+      else setError(data.error || 'Invalid authentication code');
+    } catch (err: any) {
+      setError(err.message || 'Invalid authentication code');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,10 +46,10 @@ export default function Login() {
     try {
       const data = await apiPost('/auth/login', { email, password });
 
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        storeTenant(data.user?.tenant);
-        window.location.href = '/dashboard';
+      if (data.requires2fa) {
+        setPendingToken(data.pendingToken);
+      } else if (data.token) {
+        completeLogin(data);
       } else {
         setError(data.error || 'Invalid credentials');
       }
@@ -62,6 +89,53 @@ export default function Login() {
 
         {/* Login Card */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-8">
+          {pendingToken ? (
+            <form onSubmit={submitCode} className="space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  Two-factor authentication
+                </h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Enter the 6-digit code from your authenticator app.
+                </p>
+              </div>
+              {error && (
+                <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200">
+                  {error}
+                </div>
+              )}
+              <input
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                required
+                autoFocus
+                aria-label="Authentication code"
+                placeholder="123456"
+                className="w-full text-center text-2xl tracking-[0.5em] font-mono py-3 bg-white text-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-white"
+              />
+              <button
+                type="submit"
+                disabled={loading || totpCode.length !== 6}
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+              >
+                {loading ? 'Verifying…' : 'Verify'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingToken('');
+                  setTotpCode('');
+                  setError('');
+                }}
+                className="w-full text-sm text-slate-600 hover:underline dark:text-slate-400"
+              >
+                Back to password
+              </button>
+            </form>
+          ) : (
           <form onSubmit={submit} className="space-y-6">
             {/* Email Input */}
             <div>
@@ -142,6 +216,7 @@ export default function Login() {
               )}
             </button>
           </form>
+          )}
 
           {/* Forgot Password Link */}
           <div className="mt-4 text-center">

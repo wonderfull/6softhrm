@@ -8,6 +8,8 @@ import { requireAuth, AuthRequest } from '../middleware/auth'
 import { requireRole } from '../middleware/roles'
 import { getJwtSecret } from '../lib/authConfig'
 import { sendEmail } from '../lib/emailService'
+import QRCode from 'qrcode'
+import { generateTotpSecret, totpKeyUri, verifyTotp } from '../lib/totp'
 import {
   canManageUserAccounts,
   normalizeRole,
@@ -132,6 +134,39 @@ router.post('/link-employee', requireAuth, requireRole('ADMIN', 'DIRECTOR'), asy
   }
 })
 
+function issueSessionToken(user: any) {
+  const secret = getJwtSecret()
+  const role = normalizeRole(user.role)
+  const token = jwt.sign({
+    id: user.id,
+    email: user.email,
+    role,
+    employeeId: user.employeeId,
+    tenantId: user.tenantId,
+    tokenVersion: user.tokenVersion
+  }, secret, { expiresIn: '8h' })
+  return {
+    token,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role,
+      employeeId: user.employeeId,
+      employee: user.employee,
+      tenant: user.tenant && {
+        id: user.tenant.id,
+        slug: user.tenant.slug,
+        name: user.tenant.name,
+        plan: user.tenant.plan,
+        features: user.tenant.features,
+        logoUrl: user.tenant.logoUrl,
+        primaryColor: user.tenant.primaryColor,
+      }
+    }
+  }
+}
+
 router.post('/login', async (req, res) => {
   const { email, password } = req.body
   if (!email || !password) return res.status(400).json({ error: 'email and password required' })
@@ -159,42 +194,104 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const secret = getJwtSecret()
-    const role = normalizeRole(user.role)
-    const token = jwt.sign({
-      id: user.id,
-      email: user.email,
-      role,
-      employeeId: user.employeeId,
-      tenantId: user.tenantId,
-      tokenVersion: user.tokenVersion
-    }, secret, { expiresIn: '8h' })
+    // Second factor: password is verified, but the session token is only
+    // issued after a valid TOTP code.
+    if (user.totpEnabled && user.totpSecret) {
+      const secret = getJwtSecret()
+      const pendingToken = jwt.sign(
+        { id: user.id, type: '2fa-pending' },
+        secret,
+        { expiresIn: '5m' },
+      )
+      await createAuditLog(user.id, email, 'LOGIN_2FA_REQUIRED', 'User', user.id, null, req, user.tenantId)
+      return res.json({ requires2fa: true, pendingToken })
+    }
 
     await createAuditLog(user.id, email, 'LOGIN_SUCCESS', 'User', user.id, null, req, user.tenantId)
-
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role,
-        employeeId: user.employeeId,
-        employee: user.employee,
-        tenant: {
-          id: user.tenant.id,
-          slug: user.tenant.slug,
-          name: user.tenant.name,
-          plan: user.tenant.plan,
-          features: user.tenant.features,
-          logoUrl: user.tenant.logoUrl,
-          primaryColor: user.tenant.primaryColor,
-        }
-      }
-    })
+    res.json(issueSessionToken(user))
   } catch (e: any) {
     res.status(500).json({ error: 'Authentication configuration error' })
   }
+})
+
+// Complete a 2FA login: pending token + valid TOTP code → session token.
+router.post('/2fa/complete', async (req, res) => {
+  const { pendingToken, code } = req.body
+  if (!pendingToken || !code) return res.status(400).json({ error: 'pendingToken and code required' })
+  try {
+    const secret = getJwtSecret()
+    const decoded: any = jwt.verify(pendingToken, secret)
+    if (decoded.type !== '2fa-pending') return res.status(401).json({ error: 'Invalid token' })
+
+    const user = await platformPrisma.user.findUnique({
+      where: { id: decoded.id },
+      include: { employee: true, tenant: true },
+    })
+    if (!user || !user.totpEnabled || !user.totpSecret) {
+      return res.status(401).json({ error: 'Invalid token' })
+    }
+    if (!verifyTotp(String(code), user.totpSecret)) {
+      await createAuditLog(user.id, user.email, 'LOGIN_2FA_FAILED', 'User', user.id, null, req, user.tenantId)
+      return res.status(401).json({ error: 'Invalid authentication code' })
+    }
+
+    await createAuditLog(user.id, user.email, 'LOGIN_SUCCESS', 'User', user.id, '2FA', req, user.tenantId)
+    res.json(issueSessionToken(user))
+  } catch (e: any) {
+    if (e.message === 'JWT_SECRET is not configured securely') {
+      return res.status(500).json({ error: 'Authentication configuration error' })
+    }
+    return res.status(401).json({ error: 'Invalid or expired token' })
+  }
+})
+
+// Begin 2FA enrolment: store a pending secret, return otpauth URI + QR.
+router.post('/2fa/setup', requireAuth, async (req: any, res) => {
+  try {
+    const user = await prisma.user.findFirst({ where: { id: req.user.id } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    if (user.totpEnabled) return res.status(400).json({ error: '2FA is already enabled' })
+
+    const totpSecret = generateTotpSecret()
+    await prisma.user.updateMany({ where: { id: user.id }, data: { totpSecret } })
+    const otpauth = totpKeyUri(user.email, 'OnsideHR', totpSecret)
+    const qrDataUrl = await QRCode.toDataURL(otpauth)
+    res.json({ otpauth, qrDataUrl })
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+// Confirm enrolment with a valid code.
+router.post('/2fa/enable', requireAuth, async (req: any, res) => {
+  const { code } = req.body
+  if (!code) return res.status(400).json({ error: 'code required' })
+  const user = await prisma.user.findFirst({ where: { id: req.user.id } })
+  if (!user?.totpSecret) return res.status(400).json({ error: 'Run 2FA setup first' })
+  if (!verifyTotp(String(code), user.totpSecret)) {
+    return res.status(400).json({ error: 'Invalid authentication code — check your authenticator app' })
+  }
+  await prisma.user.updateMany({ where: { id: user.id }, data: { totpEnabled: true } })
+  await createAuditLog(user.id, user.email, '2FA_ENABLED', 'User', user.id, null, req)
+  res.json({ enabled: true })
+})
+
+// Disable requires a current code (stolen-session protection).
+router.post('/2fa/disable', requireAuth, async (req: any, res) => {
+  const { code } = req.body
+  const user = await prisma.user.findFirst({ where: { id: req.user.id } })
+  if (!user?.totpEnabled || !user.totpSecret) {
+    return res.status(400).json({ error: '2FA is not enabled' })
+  }
+  if (!code || !verifyTotp(String(code), user.totpSecret)) {
+    return res.status(400).json({ error: 'A valid authentication code is required to disable 2FA' })
+  }
+  await prisma.user.updateMany({
+    where: { id: user.id },
+    data: { totpEnabled: false, totpSecret: null },
+  })
+  await createAuditLog(user.id, user.email, '2FA_DISABLED', 'User', user.id, null, req)
+  res.json({ enabled: false })
 })
 
 // Get all users

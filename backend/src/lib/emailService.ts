@@ -40,6 +40,10 @@ export interface EmailOptions {
 
 // Send email
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
+  // Never touch a real SMTP server from tests.
+  if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+    return false
+  }
   if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
     console.warn('Email not sent - SMTP not configured')
     return false

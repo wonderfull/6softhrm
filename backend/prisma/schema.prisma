@@ -75,6 +75,8 @@ model User {
   name          String?
   role          String         @default("USER")
   tokenVersion  Int            @default(0) // bumped to revoke outstanding JWTs
+  totpSecret    String? // pending or active TOTP secret (2FA)
+  totpEnabled   Boolean        @default(false)
   employeeId    Int?           @unique
   employee      Employee?      @relation(fields: [employeeId], references: [id])
   createdAt     DateTime       @default(now())

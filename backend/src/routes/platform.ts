@@ -130,7 +130,7 @@ router.post('/tenants', requirePlatformAdmin, async (req: AuthRequest, res) => {
 
 router.put('/tenants/:id', requirePlatformAdmin, async (req: AuthRequest, res) => {
   const id = Number(req.params.id)
-  const { name, status, plan, seatLimit, features, trialEndsAt } = req.body
+  const { name, status, plan, seatLimit, features, trialEndsAt, logoUrl, primaryColor } = req.body
   if (status !== undefined && !TENANT_STATUSES.has(status)) {
     return res.status(400).json({ error: 'invalid status' })
   }
@@ -145,6 +145,8 @@ router.put('/tenants/:id', requirePlatformAdmin, async (req: AuthRequest, res) =
     if (seatLimit !== undefined) data.seatLimit = seatLimit === null ? null : Number(seatLimit)
     if (features !== undefined) data.features = features
     if (trialEndsAt !== undefined) data.trialEndsAt = trialEndsAt ? new Date(trialEndsAt) : null
+    if (logoUrl !== undefined) data.logoUrl = logoUrl || null
+    if (primaryColor !== undefined) data.primaryColor = primaryColor || null
 
     const tenant = await platformPrisma.tenant.update({ where: { id }, data })
     await createAuditLog(

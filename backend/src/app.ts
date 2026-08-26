@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import employeeRoutes from './routes/employees';
@@ -13,6 +15,9 @@ import adminRoutes from './routes/admin';
 import gdprRoutes from './routes/gdpr';
 import notificationsRoutes from './routes/notifications';
 import platformRoutes from './routes/platform';
+import tenantRoutes from './routes/tenant';
+import { requireFeature } from './lib/tenantPolicy';
+import { requireAuth } from './middleware/auth';
 import { verifyEmailConfig } from './lib/emailService';
 import { initializeCronJobs } from './lib/cronJobs';
 
@@ -35,6 +40,36 @@ const app = express();
 // Behind Nginx / Hostinger reverse proxy — needed for req.ip / X-Forwarded-For
 // so AuditLog records the real client IP instead of 127.0.0.1.
 app.set('trust proxy', true);
+
+// Security headers. The API serves JSON (and file streams), so the strict
+// cross-origin defaults are safe here.
+app.use(helmet());
+
+// Brute-force protection on credential endpoints; a lenient global limit
+// backstops everything else. Keyed by IP (trust proxy is on above).
+// Disabled under Jest so test suites don't trip the counters.
+const isTestEnv = process.env.NODE_ENV === 'test' || !!process.env.JEST_WORKER_ID;
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => isTestEnv,
+  message: { error: 'Too many attempts. Try again in 15 minutes.' },
+});
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => isTestEnv,
+  message: { error: 'Too many requests. Slow down.' },
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
+app.use('/api/platform/auth/login', authLimiter);
+app.use('/api', apiLimiter);
 
 // CORS configuration - allow your frontend domains
 const allowedOrigins = [
@@ -95,7 +130,9 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
-app.use('/api/sponsorships', sponsorshipRoutes);
+// requireAuth must run first so the feature gate has tenant context;
+// the router's own per-route requireAuth calls are then no-ops.
+app.use('/api/sponsorships', requireAuth, requireFeature('compliance'), sponsorshipRoutes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/projects', projectRoutes);
@@ -105,6 +142,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/gdpr', gdprRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/platform', platformRoutes);
+app.use('/api/tenant', tenantRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

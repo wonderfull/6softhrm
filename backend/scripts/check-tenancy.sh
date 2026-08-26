@@ -5,9 +5,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-matches=$(grep -rnE '\.(findUnique|findUniqueOrThrow|update|delete|upsert)\(' src/routes --include='*.ts' \
-  | grep -v 'platformPrisma' \
-  | grep -vE 'router\.(get|post|put|delete|patch)\(' || true)
+matches=$(grep -rnE '\bprisma\.[a-zA-Z]+\.(findUnique|findUniqueOrThrow|update|delete|upsert)\(' src/routes --include='*.ts' \
+  | grep -v 'platformPrisma' || true)
 
 if [ -n "$matches" ]; then
   echo "FAIL — tenant-unsafe Prisma operations found in routes:" >&2

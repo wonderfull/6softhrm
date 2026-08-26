@@ -12,7 +12,9 @@ interface NavBarProps {
 }
 
 export default function NavBar({ darkMode, onToggleDarkMode, onLogout }: NavBarProps) {
-  const tenantName = getTenant()?.name;
+  const tenant = getTenant();
+  const tenantName = tenant?.name;
+  const tenantLogo = tenant?.logoUrl;
   const [dropdownOpen, setDropdownOpen] = React.useState(false)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
 
@@ -42,7 +44,17 @@ export default function NavBar({ darkMode, onToggleDarkMode, onLogout }: NavBarP
         <div className="flex items-center gap-3">
           <Link to="/" className="text-xl font-bold text-slate-900 dark:text-white">OnsideHR</Link>
           {tenantName && (
-            <span className="ml-3 hidden sm:inline-block rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+            <span className="ml-3 hidden sm:inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+              {tenantLogo && (
+                <img
+                  src={tenantLogo}
+                  alt=""
+                  className="h-5 w-5 rounded-sm object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              )}
               {tenantName}
             </span>
           )}
