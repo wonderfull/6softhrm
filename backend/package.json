@@ -20,7 +20,9 @@
     "test:coverage": "jest --coverage",
     "check:tenancy": "bash scripts/check-tenancy.sh",
     "verify:tenancy": "NODE_ENV=test ts-node --transpile-only scripts/verify-tenancy.ts",
-    "backup": "ts-node --transpile-only scripts/backup-db.ts"
+    "backup": "ts-node --transpile-only scripts/backup-db.ts",
+    "verify:onboarding": "NODE_ENV=test ts-node --transpile-only scripts/verify-onboarding.ts",
+    "verify:all": "npm run check:tenancy && npm run test && npm run verify:tenancy && npm run verify:onboarding"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1118.0",

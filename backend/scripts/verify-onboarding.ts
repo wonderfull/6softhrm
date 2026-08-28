@@ -27,9 +27,22 @@ async function main() {
   check('platform login', platformLogin.status === 200)
 
   // fresh tenant
+  // Ordered teardown so the gate is re-runnable: children before parents,
+  // and users before employees (User.employeeId is an FK).
   const old = await platformPrisma.tenant.findUnique({ where: { slug: 'gate-onboarding' } })
   if (old) {
-    await platformPrisma.user.deleteMany({ where: { tenantId: old.id } })
+    const where = { tenantId: old.id }
+    await platformPrisma.sponsorshipComplianceEvidence.deleteMany({ where })
+    await platformPrisma.sponsorshipReportableEvent.deleteMany({ where })
+    await platformPrisma.sponsorship.deleteMany({ where })
+    await platformPrisma.leaveRequest.deleteMany({ where })
+    await platformPrisma.timesheet.deleteMany({ where })
+    await platformPrisma.document.deleteMany({ where })
+    await platformPrisma.dataConsent.deleteMany({ where })
+    await platformPrisma.auditLog.deleteMany({ where })
+    await platformPrisma.user.deleteMany({ where })
+    await platformPrisma.employee.deleteMany({ where })
+    await platformPrisma.project.deleteMany({ where })
     await platformPrisma.tenant.delete({ where: { id: old.id } })
   }
   const created = await request(app)
@@ -125,6 +138,7 @@ async function main() {
 
   console.log('\n=== P6 ONBOARDING GATE ===')
   results.forEach((r) => console.log(r))
+  console.log(results.some((r) => r.startsWith('FAIL')) ? '\nRESULT: FAIL' : '\nRESULT: PASS')
   await platformPrisma.$disconnect()
   process.exit(process.exitCode || 0)
 }

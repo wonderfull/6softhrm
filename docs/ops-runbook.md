@@ -24,6 +24,17 @@ DATABASE_URL="mysql://.../onsidehr_restore_test" npm --prefix backend run start 
 **Rehearsed 26 Aug 2026: dump 106ms, restore 1s, app booted with tenants/users/employees intact.**
 Re-rehearse after every schema migration and at least quarterly.
 
+## Verification
+`npm --prefix backend run verify:all` runs the whole chain and is the pre-deploy gate:
+1. `check:tenancy` — static guard: no tenant-unsafe Prisma ops in route code
+2. `test` — 137 backend tests
+3. `verify:tenancy` — 19 live isolation checks (deny-by-default, cross-tenant
+   IDOR on reads/writes/files, legacy tokens, suspension of live sessions)
+4. `verify:onboarding` — 14 checks: full customer onboarding end to end
+
+Both gates are self-seeding and idempotent — safe to run repeatedly against a
+non-production database. Frontend: `npm --prefix frontend run test`.
+
 ## Monitoring (do these on day one of production)
 1. Uptime check on `https://app.onsidehr.co.uk/api/health` every minute
    (UptimeRobot/BetterStack free tiers are fine) → alert on 2 consecutive failures.
