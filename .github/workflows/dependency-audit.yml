@@ -1,0 +1,50 @@
+name: Dependency Audit
+
+# backend/ and frontend/ are separate npm packages (each with its own
+# package.json + package-lock.json), so they are audited independently.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [backend, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # `npm audit` reads package-lock.json directly, so no install is
+      # needed here — this keeps the workflow fast.
+
+      - name: Full advisory report (all severities, informational)
+        working-directory: ${{ matrix.workspace }}
+        run: npm audit --audit-level=moderate || true
+
+      # Severity gate: fail the build on high/critical, only report on
+      # moderate/low above. Moderate-and-below advisories are common noise
+      # in the npm ecosystem (ReDoS in a leaf dev-tool, edge-case DoS in a
+      # test-only package, etc.) and gating on them fails CI on nearly
+      # every commit — that trains people to ignore or bypass the check,
+      # which defeats the purpose. High/critical means there is a known,
+      # credible way to actually hurt this app (RCE, injection, auth
+      # bypass, practical DoS), so that's the bar that blocks merges.
+      - name: Enforce high/critical severity gate
+        working-directory: ${{ matrix.workspace }}
+        run: npm audit --audit-level=high
