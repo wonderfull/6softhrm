@@ -10,7 +10,7 @@ import { getJwtSecret } from '../lib/authConfig'
 import { sendEmail } from '../lib/emailService'
 import QRCode from 'qrcode'
 import { generateTotpSecret, totpKeyUri, verifyTotp } from '../lib/totp'
-import { loginThrottle } from '../lib/loginThrottle'
+import { lockoutMessage, loginThrottle } from '../lib/loginThrottle'
 import { throttleLoginByAccount } from '../middleware/loginThrottle'
 import {
   canManageUserAccounts,
@@ -192,7 +192,7 @@ function issueSessionToken(user: any) {
   }
 }
 
-router.post('/login', throttleLoginByAccount, async (req, res) => {
+router.post('/login', throttleLoginByAccount(), async (req, res) => {
   const { email, password } = req.body
   if (!email || !password) return res.status(400).json({ error: 'email and password required' })
 
@@ -261,11 +261,35 @@ router.post('/2fa/complete', async (req, res) => {
     if (!user || !user.totpEnabled || !user.totpSecret) {
       return res.status(401).json({ error: 'Invalid token' })
     }
+    // A pending token stays valid for five minutes, and a TOTP code is only
+    // six digits — without a throttle that window allows an unbounded number
+    // of guesses at a 1-in-a-million secret.
+    const totpKey = `2fa:${user.id}`
+    const totpLock = loginThrottle.check(totpKey)
+    if (totpLock.locked) {
+      res.set('Retry-After', String(Math.ceil(totpLock.retryAfterMs / 1000)))
+      return res.status(429).json({ error: lockoutMessage(totpLock.retryAfterMs) })
+    }
+
     if (!verifyTotp(String(code), user.totpSecret)) {
       await createAuditLog(user.id, user.email, 'LOGIN_2FA_FAILED', 'User', user.id, null, req, user.tenantId)
+      const { locked, failures, retryAfterMs } = loginThrottle.registerFailure(totpKey)
+      if (locked) {
+        await createAuditLog(
+          user.id,
+          user.email,
+          'LOGIN_2FA_LOCKED_OUT',
+          'User',
+          user.id,
+          `${failures} failed codes; locked for ${Math.ceil(retryAfterMs / 60000)}m`,
+          req,
+          user.tenantId,
+        )
+      }
       return res.status(401).json({ error: 'Invalid authentication code' })
     }
 
+    loginThrottle.reset(totpKey)
     await createAuditLog(user.id, user.email, 'LOGIN_SUCCESS', 'User', user.id, '2FA', req, user.tenantId)
     res.json(issueSessionToken(user))
   } catch (e: any) {

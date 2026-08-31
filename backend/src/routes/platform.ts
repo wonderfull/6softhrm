@@ -7,6 +7,10 @@ import { getJwtSecret } from '../lib/authConfig'
 import { requirePlatformAdmin } from '../middleware/platformAuth'
 import { createAuditLog } from '../middleware/audit'
 import { AuthRequest } from '../middleware/auth'
+import { loginThrottle } from '../lib/loginThrottle'
+import { throttleLoginByAccount } from '../middleware/loginThrottle'
+
+const PLATFORM_THROTTLE_PREFIX = 'platform:'
 
 const router = Router()
 
@@ -32,15 +36,35 @@ function tenantSummary(t: any) {
 
 // --- Platform authentication -----------------------------------------------
 
-router.post('/auth/login', async (req, res) => {
+// The platform console can reach every tenant, so it is the highest-value
+// credential in the system and gets the same per-account throttle as tenant
+// login. The prefix keeps its counters separate from a tenant user's.
+router.post('/auth/login', throttleLoginByAccount(PLATFORM_THROTTLE_PREFIX), async (req, res) => {
   const { email, password } = req.body
   if (!email || !password) return res.status(400).json({ error: 'email and password required' })
 
   const admin = await platformPrisma.platformAdmin.findUnique({ where: { email } })
   if (!admin || !(await bcrypt.compare(password, admin.password))) {
     await createAuditLog(null, email, 'PLATFORM_LOGIN_FAILED', 'PlatformAdmin', null, null, req, null)
+    const { locked, failures, retryAfterMs } = loginThrottle.registerFailure(
+      `${PLATFORM_THROTTLE_PREFIX}${email}`,
+    )
+    if (locked) {
+      await createAuditLog(
+        null,
+        email,
+        'PLATFORM_LOGIN_LOCKED_OUT',
+        'PlatformAdmin',
+        null,
+        `${failures} failed attempts; locked for ${Math.ceil(retryAfterMs / 60000)}m`,
+        req,
+        null,
+      )
+    }
     return res.status(401).json({ error: 'Invalid credentials' })
   }
+
+  loginThrottle.reset(`${PLATFORM_THROTTLE_PREFIX}${email}`)
 
   try {
     const secret = getJwtSecret()

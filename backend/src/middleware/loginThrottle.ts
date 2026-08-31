@@ -9,14 +9,16 @@ import { lockoutMessage, loginThrottle } from '../lib/loginThrottle';
 // Blocked attempts are deliberately not audit-logged: the lockout is recorded
 // once when it trips (see routes/auth.ts), and a row per blocked request would
 // let an attacker drive unbounded writes into AuditLog.
-export function throttleLoginByAccount(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  const { locked, retryAfterMs } = loginThrottle.check(req.body?.email);
-  if (!locked) return next();
+// The prefix keeps counters for different credential surfaces apart, so
+// hammering the platform console cannot lock a tenant user of the same name.
+export function throttleLoginByAccount(prefix = '') {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const { locked, retryAfterMs } = loginThrottle.check(
+      `${prefix}${req.body?.email ?? ''}`,
+    );
+    if (!locked) return next();
 
-  res.set('Retry-After', String(Math.ceil(retryAfterMs / 1000)));
-  return res.status(429).json({ error: lockoutMessage(retryAfterMs) });
+    res.set('Retry-After', String(Math.ceil(retryAfterMs / 1000)));
+    return res.status(429).json({ error: lockoutMessage(retryAfterMs) });
+  };
 }
