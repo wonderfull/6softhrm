@@ -27,12 +27,15 @@ Re-rehearse after every schema migration and at least quarterly.
 ## Verification
 `npm --prefix backend run verify:all` runs the whole chain and is the pre-deploy gate:
 1. `check:tenancy` — static guard: no tenant-unsafe Prisma ops in route code
-2. `test` — 247 backend tests
+2. `test` — 275 backend tests
 3. `verify:tenancy` — 19 live isolation checks (deny-by-default, cross-tenant
    IDOR on reads/writes/files, legacy tokens, suspension of live sessions)
 4. `verify:onboarding` — 14 checks: full customer onboarding end to end
+5. `verify:compliance` — 22 checks: the sponsor duties end to end (10-day
+   unauthorised absence, per-period salary reconciliation, Appendix D pack,
+   audit-readiness score)
 
-Both gates are self-seeding and idempotent — safe to run repeatedly against a
+All three gates are self-seeding and idempotent — safe to run repeatedly against a
 non-production database. Frontend: `npm --prefix frontend run test`.
 
 ## Monitoring (do these on day one of production)

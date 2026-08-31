@@ -382,21 +382,50 @@ Note also: the `Employee` model holds passport numbers, visa numbers, NI numbers
 
 ---
 
-## 10. Security hardening (currently absent)
+## 10. Security hardening — complete
 
-Verified missing from the codebase. All are cheap, and all will be asked about in a customer's security questionnaire:
+All seven rows closed. Rate limiting, helmet and token revocation landed in
+P6; the remaining four were built 2026-08-31.
 
-| Gap | Fix | Effort |
+| Gap | Status | Notes |
 |---|---|---|
-| No rate limiting anywhere | `express-rate-limit` — strict on `/api/auth/login`, `/forgot-password` | 30 min |
-| No security headers | `helmet` | 10 min |
-| No login throttle/lockout | Track failed attempts per email, exponential backoff | 1 hr |
-| JWT in `localStorage` | XSS steals the token. Move to `httpOnly` cookie + CSRF token, or accept and harden CSP | 2–3 hrs |
-| No token revocation | 8h token stays valid after logout/suspend. Add a `tokenVersion` on User, bump on password change/suspend | 1 hr |
-| Sensitive fields in plaintext | ✅ Done — `niNumber`/`passportNumber`/`accountNumber`/`sortCode` are AES-256-GCM encrypted at rest by the Prisma client extension; key in `FIELD_ENCRYPTION_KEY`, backfill via `npm run encrypt:fields` | done |
-| No dependency scanning | `npm audit` in CI, Dependabot | 20 min |
+| No rate limiting | ✅ P6 | `express-rate-limit`, strict on credential endpoints |
+| No security headers | ✅ P6 → hardened | now a real CSP, see below |
+| No login throttle/lockout | ✅ | per-account, 5 failures then 1m→30m backoff |
+| JWT in `localStorage` | ✅ mitigated | CSP hardened; token still in localStorage by decision |
+| No token revocation | ✅ P6 | `User.tokenVersion` |
+| Sensitive fields in plaintext | ✅ | AES-256-GCM on NI/passport/bank |
+| No dependency scanning | ✅ | `npm audit` CI + Dependabot |
 
-`multer@1.4.5-lts.1` is worth checking against current advisories during this pass.
+**What the work turned up beyond the table:**
+
+- The IP-keyed limiter was never sufficient on its own — a distributed attempt
+  on one account stays under it, and one office NAT can lock out colleagues.
+  Two further surfaces had no per-account throttle at all: the **platform
+  console** (which reaches every tenant) and **`/2fa/complete`**, which allowed
+  unbounded guessing at a six-digit code for the pending token's five minutes.
+  Both now throttled, with separate counters so hammering one cannot lock the
+  other.
+- Login lockout counters are **process-local and not durable** — a restart
+  clears every lock. Acceptable while `ecosystem.config.js` pins
+  `instances: 1`; switching to cluster mode multiplies the effective
+  threshold by the instance count. Durable fix is a `LoginAttempt` table.
+- Column encryption is layered **under** tenant scoping, leaving that
+  extension byte-for-byte unchanged. The API refuses to boot without
+  `FIELD_ENCRYPTION_KEY`, and **key loss is data loss** — it is not in the
+  mysqldump. The four columns can no longer be filtered in SQL; a `where`
+  naming one throws rather than silently matching nothing.
+- The shipped CSP was verified in a browser, which caught that blob: PDF
+  preview and tenant logo branding would both have broken, and that nginx
+  `add_header` does not inherit into a location declaring its own.
+- **`npm audit` cannot see multer** — a node-semver prerelease-matching rule
+  excludes `1.4.5-lts.2` from every advisory range that covers it. CI and
+  Dependabot will never flag it. See `docs/security-findings.md`, along with
+  `xlsx` (no fix published to npm) and the major-version bumps left for a
+  human.
+
+`multer@1.4.5-lts.2` carries 8 DoS advisories; fixing needs a 2.x major bump,
+deliberately not applied here.
 
 ---
 
