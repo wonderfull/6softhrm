@@ -3,8 +3,13 @@ import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
 import { platformPrisma } from './prismaClient'
+import { assertFieldEncryptionKey } from './lib/fieldEncryption'
 
 dotenv.config()
+
+// Refuse to boot without the column-encryption key: running on would mean
+// writing passport/NI/bank details to disk in plaintext.
+assertFieldEncryptionKey()
 
 // Render dynamically assigns a port — REQUIRED or you get 502
 const PORT = process.env.PORT || 4000

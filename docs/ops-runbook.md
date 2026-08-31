@@ -27,7 +27,7 @@ Re-rehearse after every schema migration and at least quarterly.
 ## Verification
 `npm --prefix backend run verify:all` runs the whole chain and is the pre-deploy gate:
 1. `check:tenancy` — static guard: no tenant-unsafe Prisma ops in route code
-2. `test` — 137 backend tests
+2. `test` — 247 backend tests
 3. `verify:tenancy` — 19 live isolation checks (deny-by-default, cross-tenant
    IDOR on reads/writes/files, legacy tokens, suspension of live sessions)
 4. `verify:onboarding` — 14 checks: full customer onboarding end to end
@@ -71,6 +71,31 @@ matter. Once a tenant exists with real data this no longer applies — later
 migrations are written against the multi-tenant schema.
 
 ## Environment inventory (backend/.env)
-DATABASE_URL, TEST_DATABASE_URL, JWT_SECRET, FRONTEND_URL, SMTP_*,
-STORAGE_DRIVER (+ R2_* when r2), PLATFORM_ADMIN_EMAIL/PASSWORD (seed only),
-BOOTSTRAP_* (seed only). Never commit .env files.
+DATABASE_URL, TEST_DATABASE_URL, JWT_SECRET, FIELD_ENCRYPTION_KEY, FRONTEND_URL,
+SMTP_*, STORAGE_DRIVER (+ R2_* when r2), PLATFORM_ADMIN_EMAIL/PASSWORD (seed
+only), BOOTSTRAP_* (seed only). See `backend/.env.example`. Never commit .env files.
+
+## Column encryption (FIELD_ENCRYPTION_KEY)
+`Employee.niNumber`, `passportNumber`, `accountNumber` and `sortCode` are
+encrypted at rest with AES-256-GCM by the Prisma client extension in
+`backend/src/prismaClient.ts`. Routes, exports and the CSV importer are
+unchanged — encryption and decryption are transparent.
+
+- **Generate a key:** `openssl rand -hex 32` → `FIELD_ENCRYPTION_KEY=<64 hex chars>`.
+  One key per environment; never reuse dev's in production.
+- **The API refuses to boot without it** (`src/index.ts`), deliberately: booting
+  without a key would write passport/NI/bank details to disk in plaintext.
+- **Backfill existing rows** after the first deploy that carries the key:
+  ```bash
+  npm --prefix backend run encrypt:fields -- --dry-run   # counts only, no writes
+  npm --prefix backend run encrypt:fields
+  ```
+  It is idempotent — already-encrypted values are skipped, so it is safe to
+  re-run after a partial run, a restore, or an import.
+- **Losing the key loses the data.** It is not in the database dump, so a
+  restore needs both the dump and the key. Back it up separately (password
+  manager), and keep the old key if you ever rotate: rotation means decrypting
+  with the old key and re-encrypting with the new one, which is not automated.
+- These four columns can no longer be filtered or searched by SQL — every row
+  has its own IV. A `where` clause naming one is rejected at runtime with
+  `ENCRYPTED_FIELD_NOT_FILTERABLE` rather than silently matching nothing.

@@ -393,7 +393,7 @@ Verified missing from the codebase. All are cheap, and all will be asked about i
 | No login throttle/lockout | Track failed attempts per email, exponential backoff | 1 hr |
 | JWT in `localStorage` | XSS steals the token. Move to `httpOnly` cookie + CSRF token, or accept and harden CSP | 2–3 hrs |
 | No token revocation | 8h token stays valid after logout/suspend. Add a `tokenVersion` on User, bump on password change/suspend | 1 hr |
-| Sensitive fields in plaintext | Passport/NI/bank in plaintext columns. Phase 2: application-level column encryption | 1 day |
+| Sensitive fields in plaintext | ✅ Done — `niNumber`/`passportNumber`/`accountNumber`/`sortCode` are AES-256-GCM encrypted at rest by the Prisma client extension; key in `FIELD_ENCRYPTION_KEY`, backfill via `npm run encrypt:fields` | done |
 | No dependency scanning | `npm audit` in CI, Dependabot | 20 min |
 
 `multer@1.4.5-lts.1` is worth checking against current advisories during this pass.
@@ -636,5 +636,5 @@ Sponsor guidance Part 3 was revised **five times in seventeen months** (Apr 2025
 4. **ISO 27001** — 46% of UK HR-tech buyers say security concerns triggered their purchase, and Sense HR advertises ISO 27001 + UK data centres at every tier. Expensive for a solo founder; consider Cyber Essentials Plus as the interim credential.
 5. **Billing** — GoCardless Direct Debit from the third manual invoice.
 6. **Per-tenant database** — offer only if a large prospect's security review demands it; the extension architecture makes a per-tenant connection resolver tractable later.
-7. **Column-level encryption** for passport/NI/bank fields — before or after first customer?
+7. ~~**Column-level encryption** for passport/NI/bank fields — before or after first customer?~~ **Answered: before.** Delivered as an application-level AES-256-GCM layer in the Prisma client extension (§10). Open follow-up: key rotation is manual (decrypt with the old key, re-encrypt with the new), and these four columns can no longer be filtered in SQL.
 8. **Three unverified competitors** worth a follow-up look: `brithr.co.uk` (note the deliberate confusability with BrightHR), `irshr.co.uk`, `dodo-hr.com`. The category is crowding faster than one search reveals.
