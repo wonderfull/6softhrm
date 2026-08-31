@@ -1,9 +1,50 @@
 # Phase 8 — The Compliance Moat
 
-**Planned:** 2026-08-31
-**Continues:** `docs/multitenant-plan.md` §14 (phases 0–7 delivered, merged to `main` at `b06f883`)
-**Goal:** ship the three sponsor duties no competitor can compute, because they
-require HR data the point solutions do not hold.
+**Planned:** 2026-08-31 · **Built:** 2026-08-31 (same day)
+**Continues:** `docs/multitenant-plan.md` §14 (phases 0–7 merged to `main` at `b06f883`)
+
+---
+
+## 0. Delivery status — all ten sub-items complete
+
+| # | Sub-item | Status | Commit |
+|---|---|---|---|
+| P8.0 | Working-day + bank-holiday service | ✅ | `ebc69b6` |
+| P8.1 | `AbsenceRecord` model + derivation | ✅ | `ebc69b6` |
+| P8.2 | 10-day unauthorised-absence detection | ✅ | `ebc69b6` |
+| P8.3 | CoS terms on `Sponsorship` | ✅ | `7ba005f` |
+| P8.4 | `PayRecord` model + CSV import | ✅ | `7ba005f` |
+| P8.5 | Per-pay-period salary reconciliation | ✅ | `7ba005f` |
+| P8.6 | Appendix D manifest + audit-pack ZIP | ✅ | `c2dc3b0` |
+| P8.7 | Audit-readiness score + dashboard tile | ✅ | `c2dc3b0` |
+| P8.8 | Guidance version surfacing | ✅ | `c2dc3b0` |
+| P8.9 | `verify:compliance` gate | ✅ | `c2dc3b0` |
+
+**Verification — `npm --prefix backend run verify:all`:**
+- Static tenancy guard: clean
+- Backend tests: **209/209** (was 137) · Frontend tests: **79/79** (was 71)
+- Tenancy gate, onboarding gate, and the new **compliance gate (22/22)** all PASS
+
+**Three real defects found and fixed along the way:**
+1. `isWorkingDay()` knew only the early May bank holiday, so every
+   10-working-day due date was wrong around Christmas, Easter and August —
+   in the direction that misses a Home Office deadline. Now the real gov.uk
+   calendar for all three regions, honouring `TenantSettings`.
+2. Both CSV importers rejected any salary containing "£" (UTF-8 read as
+   latin1 gives "Â£"), so realistic UK payroll spreadsheets failed the P6
+   import outright. Regression test added.
+3. The `verify:compliance` gate caught, on its first run, that the CoS fields
+   were in the schema but never wired into the sponsorship create/update
+   routes — `cosSalary` silently never persisted.
+
+**Deviation from plan:** the SOC going rate is recorded per sponsorship
+(`goingRateSalary`) rather than looked up from a vendored rate table. Those
+rates move with every guidance revision, and a stale table would silently
+under-report. This was the flagged risk in §Risks; delegating the lookup to
+the user is the honest resolution, not the descope.
+
+**Not built:** timesheet-gap absence detection remains advisory only
+(status `UNKNOWN`), by the design decision recorded under Open question.
 
 ---
 
@@ -160,10 +201,12 @@ critical path.
 | Bank-holiday snapshot goes stale | Due dates drift again | Refresh as part of the monthly guidance review (§14f) |
 | Absence walk cost at scale | Slow cron | Only walk active sponsored workers; index `[tenantId, employeeId, date]` |
 
-## Open question
+## Open question — settled
 
-**What is the authoritative source of "unauthorised absence"?** Timesheet gaps
-only work if the tenant logs timesheets daily; most SMEs will not. The
-alternative is an explicit manual "mark absent" action, with timesheet gaps as a
-prompt rather than a source of truth. This materially changes P8.1 and P8.2 and
-should be settled before P8.1 starts.
+**What is the authoritative source of "unauthorised absence"?**
+**Decided: an explicit manual "mark absent" action.** Timesheet gaps surface as
+`UNKNOWN` — a prompt for HR to confirm, never a report trigger. Most SMEs do not
+log timesheets daily, so inferring absence from missing paperwork would raise
+Home Office reports off nothing, and a silently under-reporting statutory report
+is worse than none. Encoded in `lib/absence.ts` with the precedence
+MANUAL > approved LEAVE_REQUEST > TIMESHEET_GAP.

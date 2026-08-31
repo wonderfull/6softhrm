@@ -131,4 +131,47 @@ describe('Dashboard Page', () => {
     expect(screen.getByText('2 overtime hours this month')).toBeInTheDocument()
     expect(screen.getByText('10 total hours recorded')).toBeInTheDocument()
   })
+  it('shows the audit readiness tile and its penalty breakdown', async () => {
+    const token = makeToken({ role: 'ADMIN', email: 'admin@example.com' })
+    ;(localStorage.getItem as any).mockImplementation((key: string) => (key === 'token' ? token : null))
+    ;(api.apiGet as any).mockImplementation((path: string) =>
+      path === '/sponsorships/audit-readiness'
+        ? Promise.resolve({
+            score: 62,
+            band: 'AT_RISK',
+            evidenceCompleteness: 80,
+            activeSponsorships: 3,
+            components: [
+              { key: 'salaryFailures', label: 'Pay periods below the CoS salary', count: 2, penalty: 20 },
+            ],
+            guidance: { sponsorGuidancePart3: '05/26', appendixD: '08/26' },
+          })
+        : Promise.resolve([]),
+    )
+
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
+
+    expect(await screen.findByText('62')).toBeInTheDocument()
+    expect(screen.getByText(/AT RISK/)).toBeInTheDocument()
+    expect(screen.getByText('Pay periods below the CoS salary')).toBeInTheDocument()
+    expect(screen.getByText(/3 sponsored workers/)).toBeInTheDocument()
+  })
+
+  // A tenant without the compliance feature gets a 403; the rest of the
+  // dashboard must still render.
+  it('hides the readiness tile when the compliance feature is off', async () => {
+    const token = makeToken({ role: 'ADMIN', email: 'admin@example.com' })
+    ;(localStorage.getItem as any).mockImplementation((key: string) => (key === 'token' ? token : null))
+    ;(api.apiGet as any).mockImplementation((path: string) =>
+      path === '/sponsorships/audit-readiness'
+        ? Promise.reject(new Error('FEATURE_NOT_AVAILABLE'))
+        : Promise.resolve([]),
+    )
+
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
+
+    expect(await screen.findByText('Total Employees')).toBeInTheDocument()
+    expect(screen.queryByText(/audit readiness/i)).not.toBeInTheDocument()
+  })
+
 })

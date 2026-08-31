@@ -30,6 +30,11 @@ const adminMenu = [
     label: 'Sponsorships',
     icon: <HiDocumentText size={18} />,
   },
+  {
+    to: '/compliance',
+    label: 'Compliance',
+    icon: <HiShieldCheck size={18} />,
+  },
   { to: '/time', label: 'Time', icon: <HiClock size={18} /> },
   {
     to: '/projects',
@@ -64,6 +69,11 @@ const managerMenu = [
     label: 'Sponsorships',
     icon: <HiDocumentText size={18} />,
   },
+  {
+    to: '/compliance',
+    label: 'Compliance',
+    icon: <HiShieldCheck size={18} />,
+  },
   { to: '/time', label: 'Time', icon: <HiClock size={18} /> },
   {
     to: '/projects',
@@ -83,6 +93,11 @@ const assistantMenu = [
     to: '/sponsorships',
     label: 'Sponsorship Support',
     icon: <HiDocumentText size={18} />,
+  },
+  {
+    to: '/compliance',
+    label: 'Compliance Support',
+    icon: <HiShieldCheck size={18} />,
   },
   { to: '/time', label: 'Time Support', icon: <HiClock size={18} /> },
   { to: '/leave', label: 'Leave Support', icon: <HiCalendar size={18} /> },
@@ -128,7 +143,9 @@ export default function Sidebar() {
     else items = userMenu;
     // Sponsorship compliance is a paid add-on — hide it for tenants without it.
     if (!hasFeature('compliance')) {
-      items = items.filter((m) => m.to !== '/sponsorships');
+      items = items.filter(
+        (m) => m.to !== '/sponsorships' && m.to !== '/compliance',
+      );
     }
     return items;
   }, [hasEmployeeProfile, userRole]);

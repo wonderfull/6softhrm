@@ -9,6 +9,7 @@ import {
 } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Sponsorships from './pages/Sponsorships';
+import Compliance from './pages/Compliance';
 import Employees from './pages/Employees';
 import Leave from './pages/Leave';
 import Time from './pages/Time';
@@ -42,6 +43,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/employees': 'People',
   '/sponsorships': 'Sponsorships',
+  '/compliance': 'Compliance',
   '/time': 'Time',
   '/projects': 'Projects',
   '/leave': 'Leave',
@@ -142,6 +144,20 @@ function App() {
                             ]}
                           >
                             <Sponsorships />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/compliance"
+                        element={
+                          <ProtectedRoute
+                            allowedRoles={[
+                              'ADMIN',
+                              'DIRECTOR',
+                              'OFFICE_ASSISTANT',
+                            ]}
+                          >
+                            <Compliance />
                           </ProtectedRoute>
                         }
                       />

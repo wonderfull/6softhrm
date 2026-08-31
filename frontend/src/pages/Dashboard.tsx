@@ -80,6 +80,7 @@ export default function Dashboard() {
   const [summaryTab, setSummaryTab] = React.useState<'leave' | 'overtime'>(
     'leave',
   );
+  const [readiness, setReadiness] = React.useState<any>(null);
 
   const user = getCurrentUser();
   const isAdmin = hasRole(user, 'ADMIN');
@@ -120,6 +121,14 @@ export default function Dashboard() {
       },
     );
   }, []);
+
+  React.useEffect(() => {
+    // Compliance is a paid feature; a 403 here simply means no tile.
+    if (!isAdmin) return;
+    apiGet('/sponsorships/audit-readiness')
+      .then(setReadiness)
+      .catch(() => setReadiness(null));
+  }, [isAdmin]);
 
   const ownLeaveRequests = hasEmployeeProfile
     ? leaveRequests.filter(
@@ -172,6 +181,75 @@ export default function Dashboard() {
           {today}
         </div>
       </div>
+
+{/* Audit readiness — the number a director checks weekly. Home Office
+          visits can be unannounced, so readiness is the product, not records. */}
+      {readiness && typeof readiness.score === 'number' && readiness.band && (
+        <div className="mb-8">
+          <div
+            className={`rounded-xl shadow-lg p-6 text-white bg-gradient-to-br ${
+              readiness.band === 'READY'
+                ? 'from-emerald-500 to-emerald-600'
+                : readiness.band === 'AT_RISK'
+                  ? 'from-amber-500 to-amber-600'
+                  : 'from-rose-500 to-rose-600'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-6 flex-wrap">
+              <div className="min-w-0">
+                <div className="text-white/80 text-sm mb-1">
+                  Sponsor audit readiness
+                </div>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-5xl font-bold">{readiness.score}</span>
+                  <span className="text-lg font-medium">
+                    /100 · {String(readiness.band).replace('_', ' ')}
+                  </span>
+                </div>
+                <div className="text-white/80 text-sm mt-1">
+                  {readiness.activeSponsorships} sponsored{' '}
+                  {readiness.activeSponsorships === 1 ? 'worker' : 'workers'} ·
+                  evidence {readiness.evidenceCompleteness}% complete
+                </div>
+              </div>
+              <div className="text-5xl opacity-20 flex-shrink-0" aria-hidden>
+                🛡
+              </div>
+            </div>
+
+            {readiness.components?.length > 0 && (
+              <ul className="mt-4 space-y-1 border-t border-white/20 pt-3">
+                {readiness.components.map((component: any) => (
+                  <li
+                    key={component.key}
+                    className="flex items-baseline justify-between gap-4 text-sm"
+                  >
+                    <span className="text-white/90">{component.label}</span>
+                    <span className="font-semibold flex-shrink-0">
+                      {component.count} · −{component.penalty}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-4 flex items-center justify-between gap-4 flex-wrap text-sm">
+              <Link
+                to="/sponsorships"
+                className="underline underline-offset-2 hover:text-white/80"
+              >
+                Review sponsorships →
+              </Link>
+              {readiness.guidance && (
+                <span className="text-white/70">
+                  Guidance: Part 3 {readiness.guidance.sponsorGuidancePart3} ·
+                  Appendix D {readiness.guidance.appendixD}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">

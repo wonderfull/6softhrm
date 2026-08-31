@@ -139,6 +139,12 @@ export default function Sponsorships() {
     visaType: '',
     casNumber: '',
     sponsorLicenseNumber: '',
+    socCode: '',
+    jobTitleOnCos: '',
+    cosSalary: '',
+    cosWeeklyHours: '',
+    goingRateSalary: '',
+    workLocation: '',
     startDate: '',
     endDate: '',
     complianceNotes: '',
@@ -198,6 +204,12 @@ export default function Sponsorships() {
       visaType: '',
       casNumber: '',
       sponsorLicenseNumber: '',
+      socCode: '',
+      jobTitleOnCos: '',
+      cosSalary: '',
+      cosWeeklyHours: '',
+      goingRateSalary: '',
+      workLocation: '',
       startDate: '',
       endDate: '',
       complianceNotes: '',
@@ -254,6 +266,12 @@ export default function Sponsorships() {
       visaType: sponsorship.visaType || '',
       casNumber: sponsorship.casNumber || '',
       sponsorLicenseNumber: sponsorship.sponsorLicenseNumber || '',
+      socCode: sponsorship.socCode || '',
+      jobTitleOnCos: sponsorship.jobTitleOnCos || '',
+      cosSalary: sponsorship.cosSalary?.toString() || '',
+      cosWeeklyHours: sponsorship.cosWeeklyHours?.toString() || '',
+      goingRateSalary: sponsorship.goingRateSalary?.toString() || '',
+      workLocation: sponsorship.workLocation || '',
       startDate: sponsorship.startDate
         ? sponsorship.startDate.split('T')[0]
         : '',
@@ -587,6 +605,122 @@ export default function Sponsorships() {
                   })
                 }
                 placeholder="Company Sponsor License"
+                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="sponsorship-soc-code"
+                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                SOC Code
+              </label>
+              <input
+                id="sponsorship-soc-code"
+                type="text"
+                value={formData.socCode}
+                onChange={(e) =>
+                  setFormData({ ...formData, socCode: e.target.value })
+                }
+                placeholder="e.g. 6145"
+                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="sponsorship-cos-job-title"
+                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                Job Title on CoS
+              </label>
+              <input
+                id="sponsorship-cos-job-title"
+                type="text"
+                value={formData.jobTitleOnCos}
+                onChange={(e) =>
+                  setFormData({ ...formData, jobTitleOnCos: e.target.value })
+                }
+                placeholder="As stated on the CoS"
+                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="sponsorship-cos-salary"
+                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                CoS Salary (annual gross)
+              </label>
+              <input
+                id="sponsorship-cos-salary"
+                type="number" step="any"
+                value={formData.cosSalary}
+                onChange={(e) =>
+                  setFormData({ ...formData, cosSalary: e.target.value })
+                }
+                placeholder="30000"
+                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+              />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Pay is reconciled against this every pay period.</p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="sponsorship-cos-weekly-hours"
+                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                Weekly Hours on CoS
+              </label>
+              <input
+                id="sponsorship-cos-weekly-hours"
+                type="number" step="any"
+                value={formData.cosWeeklyHours}
+                onChange={(e) =>
+                  setFormData({ ...formData, cosWeeklyHours: e.target.value })
+                }
+                placeholder="37.5"
+                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="sponsorship-going-rate"
+                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                Going Rate for SOC Code
+              </label>
+              <input
+                id="sponsorship-going-rate"
+                type="number" step="any"
+                value={formData.goingRateSalary}
+                onChange={(e) =>
+                  setFormData({ ...formData, goingRateSalary: e.target.value })
+                }
+                placeholder="38700"
+                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+              />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">The higher of this and the CoS salary is the threshold.</p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="sponsorship-work-location"
+                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                Work Location
+              </label>
+              <input
+                id="sponsorship-work-location"
+                type="text"
+                value={formData.workLocation}
+                onChange={(e) =>
+                  setFormData({ ...formData, workLocation: e.target.value })
+                }
+                placeholder="Primary work address"
                 className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
               />
             </div>
