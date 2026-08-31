@@ -22,6 +22,19 @@ backend/scripts/restore-db.sh backend/backups/<dump>.sql.gz "mysql://user:pass@l
 DATABASE_URL="mysql://.../onsidehr_restore_test" npm --prefix backend run start   # then GET /api/health
 ```
 **Rehearsed 26 Aug 2026: dump 106ms, restore 1s, app booted with tenants/users/employees intact.**
+
+**Re-rehearsed 31 Aug 2026, after the column-encryption migration** — dump
+122ms / 32KB, restore 191ms. Verified end to end:
+- all four sensitive columns hold `enc:v1:…` ciphertext, not plaintext
+- the dump file contains **no** plaintext NI, passport, account number or sort code
+- restored rows decrypt back to the original values with the correct key
+- reading with a *different* key fails closed (`FIELD_DECRYPTION_FAILED`)
+
+That last point is the one that matters operationally: **a stolen or restored
+dump is useless without `FIELD_ENCRYPTION_KEY`, and so is a legitimate restore.**
+Store the key somewhere that survives losing the database, and keep the old key
+if you ever rotate.
+
 Re-rehearse after every schema migration and at least quarterly.
 
 ## Verification
