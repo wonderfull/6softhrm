@@ -41,7 +41,15 @@ const app = express();
 
 // Behind Nginx / Hostinger reverse proxy — needed for req.ip / X-Forwarded-For
 // so AuditLog records the real client IP instead of 127.0.0.1.
-app.set('trust proxy', true);
+//
+// Exactly ONE hop, not `true`. With `true` Express takes the leftmost
+// X-Forwarded-For entry, which the client supplies — so anyone could send a
+// fresh fake IP per request and walk straight through the rate limiters below
+// (express-rate-limit warns about this as ERR_ERL_PERMISSIVE_TRUST_PROXY).
+// Nginx runs on the same host and appends the real address, so trusting one
+// hop yields an IP the client cannot forge. Increase this only if you put
+// another proxy (e.g. Cloudflare) in front, and by exactly the hops added.
+app.set('trust proxy', 1);
 
 // Security headers.
 //

@@ -72,3 +72,35 @@ everything at moderate and up, and fails the build only on high/critical.
 
 Expect the gate to show **red** today: the remaining findings above are real,
 not false positives. Clearing them is a decision, not a chore.
+
+## VITE_API_URL must be same-origin, or the CSP blocks every request
+
+**Verified in a browser 31 Aug 2026 — this would have broken production.**
+
+`frontend/.env.production` (gitignored, local to the machine that builds)
+still carries `VITE_API_URL=https://sixsofthrm.onrender.com/api` from the
+pre-rebrand Render deployment, and `.env.production.example` points at a
+Railway placeholder. Both are off-origin.
+
+Two independent failures result:
+1. Even ignoring CSP, a production build of OnsideHR would call the **old
+   single-tenant Render backend**, not the VPS.
+2. With the CSP now shipped, `connect-src 'self'` refuses it outright:
+   `Connecting to 'https://sixsofthrm.onrender.com/api/auth/login' violates
+   the following Content Security Policy directive: "connect-src 'self'"`.
+   Login, and every other call, fails.
+
+**Fix before the next production build:** set `VITE_API_URL=/api` in
+`frontend/.env.production`. Nginx already proxies `/api` to the backend on the
+same origin (`location /api/` in `nginx.conf` and in the config `deploy.sh`
+writes), so a relative URL is both correct and what `connect-src 'self'`
+expects — it is also the code's own default when the variable is unset.
+
+If you ever deliberately serve the API from another origin, add that origin to
+`connect-src` in `nginx/6soft-security-headers.conf` **and** to the copy in
+`deploy.sh`, or the app will break silently in the browser rather than at
+build time.
+
+Rebuilt with `VITE_API_URL=/api` and re-checked in a real browser: login plus
+`/dashboard`, `/documents`, `/compliance` and `/sponsorships` all load with
+**zero** console errors or warnings under the shipped policy.
