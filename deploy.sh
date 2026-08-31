@@ -148,8 +148,22 @@ server {
         proxy_set_header Host $host;
     }
 
-    add_header X-Frame-Options "SAMEORIGIN" always;
+    # Security headers. Kept in step with nginx/6soft-security-headers.conf —
+    # change both together. The CSP is derived from the actual Vite build:
+    # frame-src blob: is required for PDF preview, and img-src https: for
+    # tenant logo branding; dropping either silently breaks a feature.
+    #
+    # NOTE: a `location` block that sets ANY add_header of its own discards
+    # this whole inherited set. None of the locations above do today — if you
+    # add a Cache-Control to `location /`, you must repeat these there too or
+    # index.html ships with no CSP.
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Frame-Options "DENY" always;
     add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=()" always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self'; frame-src 'self' blob:; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests" always;
+    add_header X-XSS-Protection "0" always;
     
     gzip on;
     gzip_types text/plain text/css text/javascript application/javascript application/json;
