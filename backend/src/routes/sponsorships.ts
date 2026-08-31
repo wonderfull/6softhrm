@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import archiver from 'archiver'
 import prisma from '../prismaClient'
 import { currentTenantId } from '../lib/tenantContext'
 import { requireAuth } from '../middleware/auth'
@@ -16,19 +17,15 @@ import {
   addUtcDays,
   addWorkingDays,
 } from '../lib/workingDays'
+import { APPENDIX_D_KEYS, assessCompleteness, sponsorRetentionUntil } from '../lib/appendixD'
 import { loadWorkingDayConfig } from '../lib/tenantSettings'
+import { getStorage, assertKeyInTenant } from '../lib/storage'
+import { scoreReadiness } from '../lib/auditReadiness'
+import { guidanceSummary } from '../lib/guidanceVersion'
+import { assessPeriods } from '../lib/salaryReconciliation'
 
 const router = Router()
 
-const REQUIRED_COMPLIANCE_EVIDENCE = [
-  { key: 'RIGHT_TO_WORK_CHECK', label: 'Right-to-work check' },
-  { key: 'EMPLOYMENT_RIGHTS_NOTIFICATION', label: 'Employment rights notification' },
-  { key: 'RECRUITMENT_EVIDENCE', label: 'Recruitment evidence' },
-  { key: 'SALARY_EVIDENCE', label: 'Salary evidence' },
-  { key: 'SKILL_LEVEL_EVIDENCE', label: 'Skill-level evidence' },
-] as const
-
-const REQUIRED_COMPLIANCE_EVIDENCE_KEYS = new Set(REQUIRED_COMPLIANCE_EVIDENCE.map((item) => item.key))
 const REPORTABLE_EVENT_TYPES = new Set([
   'DELAYED_START',
   'UNAUTHORISED_ABSENCE_10_DAYS',
@@ -48,6 +45,38 @@ function summarizeEmployee(employee: any) {
   }
 }
 
+// Human-readable index so an auditor opening the ZIP sees the state of the file
+// immediately, including what is absent — omissions are the point of an audit.
+function buildPackIndex(pack: any, employee: any) {
+  const lines: string[] = []
+  lines.push(`# Appendix D audit pack — ${employee.firstName} ${employee.lastName}`)
+  lines.push('')
+  lines.push(`Generated: ${new Date().toISOString()}`)
+  lines.push(`Evidence complete: ${pack.completeCount}/${pack.requiredCount} (${pack.completenessPercentage}%)`)
+  if (pack.retainUntil) {
+    lines.push(`Retain until: ${new Date(pack.retainUntil).toISOString().slice(0, 10)} (sponsorship end + 1 year)`)
+  }
+  lines.push('')
+  lines.push('| Evidence | Reference | Status | Verified | File |')
+  lines.push('|---|---|---|---|---|')
+  for (const item of pack.requiredEvidence) {
+    const file = item.evidence?.document?.name ?? '—'
+    lines.push(
+      `| ${item.label} | ${item.reference} | ${item.status} | ${item.verified ? 'yes' : 'no'} | ${file} |`,
+    )
+  }
+  lines.push('')
+  const missing = pack.requiredEvidence.filter((i: any) => i.status === 'MISSING')
+  if (missing.length) {
+    lines.push('## Missing evidence')
+    for (const item of missing) lines.push(`- ${item.label} (${item.reference})`)
+  } else {
+    lines.push('All required evidence is present.')
+  }
+  lines.push('')
+  return lines.join('\n')
+}
+
 function buildCompliancePack(sponsorship: any) {
   const existingEvidence = sponsorship.complianceEvidence || []
   const latestEvidenceByType = new Map<string, any>()
@@ -58,15 +87,8 @@ function buildCompliancePack(sponsorship: any) {
     }
   }
 
-  const requiredEvidence = REQUIRED_COMPLIANCE_EVIDENCE.map((item) => {
-    const evidence = latestEvidenceByType.get(item.key)
-
-    return {
-      ...item,
-      status: evidence ? 'COMPLETE' : 'MISSING',
-      evidence: evidence || null,
-    }
-  })
+  const completeness = assessCompleteness(latestEvidenceByType)
+  const requiredEvidence = completeness.items
 
   return {
     sponsorship: {
@@ -80,7 +102,12 @@ function buildCompliancePack(sponsorship: any) {
     employee: summarizeEmployee(sponsorship.employee),
     requiredEvidence,
     existingEvidence,
-    missingCount: requiredEvidence.filter((item) => item.status === 'MISSING').length,
+    missingCount: completeness.missingCount,
+    completeCount: completeness.completeCount,
+    requiredCount: completeness.requiredCount,
+    completenessPercentage: completeness.percentage,
+    guidance: guidanceSummary(),
+    retainUntil: sponsorRetentionUntil(sponsorship.endDate ?? null),
   }
 }
 
@@ -176,6 +203,81 @@ router.get('/', requireAuth, async (req: any, res) => {
 })
 
 // Get expiring sponsorships (for dashboard alerts)
+// Audit-readiness score for the whole tenant. Every input is returned with the
+// number so it is always explainable, and drillable, rather than a bare score.
+router.get('/audit-readiness', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req: any, res) => {
+  try {
+    const now = new Date()
+    const in30Days = addUtcDays(now, 30)
+
+    const sponsorships = await prisma.sponsorship.findMany({
+      where: { active: true },
+      include: {
+        employee: true,
+        complianceEvidence: { include: { document: true }, orderBy: { createdAt: 'desc' } },
+      },
+    })
+
+    let completenessTotal = 0
+    let missingCosTerms = 0
+    let salaryFailures = 0
+
+    for (const sponsorship of sponsorships) {
+      const latestByType = new Map<string, any>()
+      for (const evidence of sponsorship.complianceEvidence) {
+        if (!latestByType.has(evidence.evidenceType)) latestByType.set(evidence.evidenceType, evidence)
+      }
+      completenessTotal += assessCompleteness(latestByType).percentage
+
+      if (!sponsorship.cosSalary && !sponsorship.goingRateSalary) {
+        missingCosTerms += 1
+        continue
+      }
+      const periods = await prisma.payRecord.findMany({
+        where: { employeeId: sponsorship.employeeId },
+      })
+      salaryFailures += assessPeriods(periods, {
+        cosSalary: sponsorship.cosSalary,
+        goingRateSalary: sponsorship.goingRateSalary,
+      }).filter((a) => !a.compliant).length
+    }
+
+    const [openEvents, overdueEvents, expiringVisas, unknownAbsences] = await Promise.all([
+      prisma.sponsorshipReportableEvent.count({ where: { status: 'OPEN' } }),
+      prisma.sponsorshipReportableEvent.count({
+        where: { status: 'OPEN', dueDate: { lt: now } },
+      }),
+      prisma.employee.count({
+        where: { visaExpiryDate: { gte: now, lte: in30Days } },
+      }),
+      prisma.absenceRecord.count({ where: { status: 'UNKNOWN' } }),
+    ])
+
+    const report = scoreReadiness({
+      evidenceCompleteness: sponsorships.length
+        ? completenessTotal / sponsorships.length
+        : 100,
+      overdueEvents,
+      // Overdue events are already penalised far more heavily; don't count twice.
+      openEvents: Math.max(0, openEvents - overdueEvents),
+      expiringDocuments: expiringVisas,
+      unresolvedAbsenceFlags: unknownAbsences,
+      salaryFailures,
+      sponsorshipsMissingCosTerms: missingCosTerms,
+      activeSponsorships: sponsorships.length,
+    })
+
+    res.json({
+      ...report,
+      activeSponsorships: sponsorships.length,
+      generatedAt: now,
+      guidance: guidanceSummary(),
+    })
+  } catch (e: any) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 router.get('/expiring', requireAuth, async (req: any, res) => {
   try {
     const user = req.user
@@ -318,6 +420,58 @@ router.get('/:id/compliance', requireAuth, async (req: any, res) => {
 })
 
 // Add sponsorship compliance evidence
+// Appendix D audit pack: every stored document for the worker plus an index
+// naming what is present and what is still missing. The guidance prescribes no
+// storage format, only that the evidence can be produced on request — and a
+// Home Office visit can be unannounced (C7.9), so this is a one-click export.
+router.get('/:id/compliance/pack', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req: any, res) => {
+  const id = Number(req.params.id)
+
+  try {
+    const sponsorship = await findAuthorizedSponsorshipForCompliance(req, res, id)
+    if (!sponsorship) return
+
+    const pack = buildCompliancePack(sponsorship)
+    const employee = sponsorship.employee
+    const safeName = `${employee.firstName}_${employee.lastName}`.replace(/[^A-Za-z0-9_-]/g, '')
+    const filename = `AuditPack_${safeName}_${new Date().toISOString().slice(0, 10)}.zip`
+
+    await auditLog(req, 'EXPORT', 'SponsorshipCompliancePack', sponsorship.id, {
+      sponsorshipId: sponsorship.id,
+      employeeId: sponsorship.employeeId,
+      completenessPercentage: pack.completenessPercentage,
+    })
+
+    res.setHeader('Content-Type', 'application/zip')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+
+    const archive = archiver('zip', { zlib: { level: 9 } })
+    archive.on('error', (err) => {
+      console.error('Error building audit pack:', err)
+      res.destroy()
+    })
+    archive.pipe(res)
+
+    archive.append(buildPackIndex(pack, employee), { name: 'INDEX.md' })
+
+    const store = getStorage()
+    for (const item of pack.requiredEvidence) {
+      const doc = item.evidence?.document
+      if (!doc?.path) continue
+      assertKeyInTenant(doc.path)
+      if (await store.exists(doc.path)) {
+        archive.append(await store.getStream(doc.path), {
+          name: `${item.key}/${doc.name}`,
+        })
+      }
+    }
+
+    await archive.finalize()
+  } catch (e: any) {
+    if (!res.headersSent) res.status(400).json({ error: e.message })
+  }
+})
+
 router.post('/:id/compliance/evidence', requireAuth, async (req: any, res) => {
   const id = Number(req.params.id)
   const role = normalizeRole(req.user?.role)
@@ -327,7 +481,7 @@ router.post('/:id/compliance/evidence', requireAuth, async (req: any, res) => {
   }
 
   const { evidenceType, documentId, notes, verifiedAt } = req.body
-  if (!REQUIRED_COMPLIANCE_EVIDENCE_KEYS.has(evidenceType)) {
+  if (!APPENDIX_D_KEYS.has(evidenceType)) {
     return res.status(400).json({ error: 'Invalid evidenceType' })
   }
 
@@ -450,8 +604,23 @@ router.get('/:id', requireAuth, async (req: any, res) => {
 
 // Create sponsorship
 router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
-  const { employeeId, visaType, casNumber, sponsorLicenseNumber, startDate, endDate, complianceNotes } = req.body
+  const {
+    employeeId,
+    visaType,
+    casNumber,
+    sponsorLicenseNumber,
+    startDate,
+    endDate,
+    complianceNotes,
+    socCode,
+    jobTitleOnCos,
+    cosSalary,
+    cosWeeklyHours,
+    workLocation,
+    goingRateSalary,
+  } = req.body
   if (!employeeId || !visaType || !startDate) return res.status(400).json({ error: 'missing fields' })
+  const num = (value: unknown) => (value === undefined || value === null || value === '' ? undefined : Number(value))
   try {
     const s = await prisma.sponsorship.create({
       data: {
@@ -463,6 +632,12 @@ router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any,
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : undefined,
         complianceNotes,
+        socCode,
+        jobTitleOnCos,
+        cosSalary: num(cosSalary),
+        cosWeeklyHours: num(cosWeeklyHours),
+        workLocation,
+        goingRateSalary: num(goingRateSalary),
       },
     })
     await auditLog(req, 'CREATE', 'Sponsorship', s.id, {
@@ -484,6 +659,12 @@ router.put('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: an
     const data: any = { ...rest }
     if (startDate) data.startDate = new Date(startDate)
     if (endDate !== undefined) data.endDate = endDate ? new Date(endDate) : null
+    // Numeric CoS fields arrive as strings from a form post.
+    for (const field of ['cosSalary', 'cosWeeklyHours', 'goingRateSalary']) {
+      if (data[field] !== undefined) {
+        data[field] = data[field] === null || data[field] === '' ? null : Number(data[field])
+      }
+    }
     
     const updated = await prisma.sponsorship.updateMany({ where: { id }, data })
     if (updated.count === 0)

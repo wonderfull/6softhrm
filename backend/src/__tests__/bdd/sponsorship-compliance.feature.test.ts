@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect } from '@jest/globals'
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'
 import { testPrisma as prisma } from '../helpers/tenantTest'
+import { APPENDIX_D_EVIDENCE } from '../../lib/appendixD'
 import {
   authHeader,
   createUser,
@@ -78,10 +79,10 @@ defineFeature(feature, (test) => {
         email: employee.email,
         jobTitle: employee.jobTitle,
       })
-      expect(response.body.requiredEvidence).toHaveLength(5)
+      expect(response.body.requiredEvidence).toHaveLength(APPENDIX_D_EVIDENCE.length)
       expect(response.body.requiredEvidence.every((row: any) => row.status === 'MISSING')).toBe(true)
       expect(response.body.existingEvidence).toEqual([])
-      expect(response.body.missingCount).toBe(5)
+      expect(response.body.missingCount).toBe(APPENDIX_D_EVIDENCE.length)
     })
   })
 
@@ -185,7 +186,7 @@ defineFeature(feature, (test) => {
       expect(response.status).toBe(200)
       const row = response.body.requiredEvidence.find((item: any) => item.key === 'RIGHT_TO_WORK_CHECK')
       expect(row.status).toBe('MISSING')
-      expect(response.body.missingCount).toBe(5)
+      expect(response.body.missingCount).toBe(APPENDIX_D_EVIDENCE.length)
     })
 
     when('the office assistant adds right-to-work compliance evidence', async () => {
@@ -209,7 +210,7 @@ defineFeature(feature, (test) => {
         evidenceType: 'RIGHT_TO_WORK_CHECK',
         documentId: document.id,
       }))
-      expect(response.body.missingCount).toBe(4)
+      expect(response.body.missingCount).toBe(APPENDIX_D_EVIDENCE.length - 1)
     })
   })
 
