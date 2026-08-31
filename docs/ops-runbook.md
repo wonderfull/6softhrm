@@ -50,6 +50,26 @@ non-production database. Frontend: `npm --prefix frontend run test`.
 4. `pm2 reload onsidehr-api`
 5. Smoke: `/api/health`, login, employee list.
 
+### First multi-tenant deploy — start from an empty database
+The `20260825085921_multi_tenant_foundation` migration assumes an **empty**
+database. It adds `tenantId INTEGER NOT NULL` with no default and no backfill,
+and creates no default tenant, so against a database that still holds the old
+single-tenant tables it fails on the `User` and `Employee` foreign keys
+(`ER_NO_REFERENCED_ROW_2`). MySQL auto-commits DDL, so there is no rollback —
+you are left half-migrated with rows stranded at `tenantId = 0`.
+
+If the target server still has a pre-multi-tenant database, **drop and recreate
+it** rather than migrating:
+
+```sql
+DROP DATABASE onsidehr; CREATE DATABASE onsidehr;
+```
+
+then run step 3 and seed the first tenant from the platform console. Take a dump
+first (`npm --prefix backend run backup`) if there is any chance the contents
+matter. Once a tenant exists with real data this no longer applies — later
+migrations are written against the multi-tenant schema.
+
 ## Environment inventory (backend/.env)
 DATABASE_URL, TEST_DATABASE_URL, JWT_SECRET, FRONTEND_URL, SMTP_*,
 STORAGE_DRIVER (+ R2_* when r2), PLATFORM_ADMIN_EMAIL/PASSWORD (seed only),
