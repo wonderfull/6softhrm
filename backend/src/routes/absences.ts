@@ -5,6 +5,7 @@ import { requireRole } from '../middleware/roles';
 import { auditLog } from '../middleware/audit';
 import { currentTenantId } from '../lib/tenantContext';
 import { deriveLedger, findUnauthorisedSpells } from '../lib/absence';
+import { findReadableEmployee } from '../lib/employeeAccess';
 import { loadWorkingDayConfig } from '../lib/tenantSettings';
 import { addUtcDays, toIsoDate, toUtcMidnight } from '../lib/workingDays';
 
@@ -36,10 +37,8 @@ router.get('/employee/:employeeId', requireAuth, async (req: any, res) => {
       return res.status(400).json({ error: 'Invalid employeeId' });
     }
 
-    const employee = await prisma.employee.findFirst({
-      where: { id: employeeId },
-    });
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+    const employee = await findReadableEmployee(req, res, employeeId);
+    if (!employee) return;
 
     const to = parseDate(req.query.to) ?? toUtcMidnight(new Date());
     const from =

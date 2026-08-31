@@ -7,6 +7,7 @@ import { auditLog } from '../middleware/audit';
 import { currentTenantId } from '../lib/tenantContext';
 import { parsePayImportFile, payCsvTemplate } from '../lib/payImport';
 import { assessPeriods } from '../lib/salaryReconciliation';
+import { findReadableEmployee } from '../lib/employeeAccess';
 import { toIsoDate } from '../lib/workingDays';
 
 const router = Router();
@@ -162,6 +163,9 @@ router.get('/employee/:employeeId', requireAuth, async (req: any, res) => {
     if (!Number.isInteger(employeeId)) {
       return res.status(400).json({ error: 'Invalid employeeId' });
     }
+
+    const employee = await findReadableEmployee(req, res, employeeId);
+    if (!employee) return;
 
     const [periods, sponsorship] = await Promise.all([
       prisma.payRecord.findMany({
