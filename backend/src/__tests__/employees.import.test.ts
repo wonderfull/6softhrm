@@ -125,4 +125,23 @@ describe('Employee CSV import', () => {
       .attach('file', csv(['A,B,ab@import.test,X,2026-01-05']), 'people.csv');
     expect(res.status).toBe(403);
   });
+  // Regression: a UTF-8 "£" read back as latin1 arrives as "Â£", which used to
+  // fail the whole row. UK salary columns almost always carry a pound sign.
+  it('imports a salary written with a pound sign', async () => {
+    const res = await request(app)
+      .post('/api/employees/import?dryRun=true')
+      .set('Authorization', adminToken)
+      .attach(
+        'file',
+        Buffer.from(
+          'First Name,Last Name,Email,Salary\nPound,Sign,pound@import.test,"\u00a330,000"\n',
+          'utf8',
+        ),
+        'salary.csv',
+      );
+    expect(res.status).toBe(200);
+    expect(res.body.summary.errors).toBe(0);
+    expect(res.body.rows[0].preview.salary).toBe(30000);
+  });
+
 });

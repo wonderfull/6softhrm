@@ -32,6 +32,7 @@ model Tenant {
   complianceEvidence SponsorshipComplianceEvidence[]
   reportableEvents   SponsorshipReportableEvent[]
   absenceRecords     AbsenceRecord[]
+  payRecords         PayRecord[]
   projects           Project[]
   timesheets         Timesheet[]
   leaveRequests      LeaveRequest[]
@@ -155,6 +156,7 @@ model Employee {
   timesheets    Timesheet[]
   leaveRequests LeaveRequest[]
   absences      AbsenceRecord[]
+  payRecords    PayRecord[]
 
   @@unique([tenantId, email])
 }
@@ -168,6 +170,15 @@ model Sponsorship {
   visaType             String
   casNumber            String? // Confirmation of acceptance for studies or CAS if relevant
   sponsorLicenseNumber String?
+  // Certificate of Sponsorship terms, reconciled against actual pay each period.
+  socCode              String?
+  jobTitleOnCos        String?
+  cosSalary            Float? // annual gross stated on the CoS
+  cosWeeklyHours       Float?
+  // Going rate for the SOC code. Recorded per sponsorship rather than derived
+  // from a vendored rate table, which moves with every guidance revision.
+  goingRateSalary      Float?
+  workLocation         String?
   startDate            DateTime
   endDate              DateTime?
   complianceNotes      String?
@@ -277,6 +288,27 @@ model AbsenceRecord {
   @@unique([tenantId, employeeId, date])
   @@index([tenantId, employeeId, date])
   @@index([tenantId, status])
+}
+
+// Actual pay per period, imported from payroll. From 8 April 2026 salary
+// compliance is assessed per pay period rather than annually, so this is the
+// evidence the reconciliation runs against.
+model PayRecord {
+  id          Int      @id @default(autoincrement())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    Int
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId  Int
+  periodStart DateTime
+  periodEnd   DateTime
+  grossPay    Float
+  hoursWorked Float?
+  source      String // CSV_IMPORT | MANUAL
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, employeeId, periodStart])
+  @@index([tenantId, employeeId, periodStart])
 }
 
 model Document {

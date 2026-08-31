@@ -23,6 +23,7 @@ const TENANT_MODELS = new Set([
   'Timesheet',
   'LeaveRequest',
   'AbsenceRecord',
+  'PayRecord',
   'Document',
   'AuditLog',
   'DataConsent',

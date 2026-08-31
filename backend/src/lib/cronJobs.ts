@@ -5,6 +5,7 @@ import cron from 'node-cron';
 import { platformPrisma as prisma } from '../prismaClient';
 import { sendEmail, EmailTemplates } from './emailService';
 import { detectUnauthorisedAbsence } from './absenceDetection';
+import { reconcileSalaries } from './salarySweep';
 
 // In-memory cron status — surfaced via /api/notifications/cron-status so the
 // Notifications page can show a "last run" badge. Survives until process restart;
@@ -189,6 +190,31 @@ async function runAbsenceSweep() {
   }
 }
 
+async function runSalarySweep() {
+  console.log('[CRON] Running salary reconciliation...');
+  try {
+    const result = await reconcileSalaries();
+    await prisma.auditLog.create({
+      data: {
+        userId: null,
+        userEmail: 'cron@system',
+        action: 'CRON_SALARY_SWEEP',
+        entity: 'System',
+        entityId: null,
+        details: JSON.stringify(result),
+        ipAddress: null,
+        userAgent: 'node-cron',
+      },
+    });
+    console.log(
+      `[CRON] Salary reconciliation complete. Periods: ${result.periodsAssessed}, ` +
+        `events raised: ${result.eventsCreated}, missing CoS terms: ${result.missingCosTerms}`,
+    );
+  } catch (error: any) {
+    console.error('[CRON] Error reconciling salaries:', error);
+  }
+}
+
 export function initializeCronJobs() {
   console.log('[CRON] Initializing scheduled tasks...');
   cron.schedule('0 9 * * *', checkExpiringRecords, {
@@ -198,8 +224,12 @@ export function initializeCronJobs() {
     timezone: 'Europe/London',
   });
   console.log('[CRON] Scheduled daily expiry check at 9:00 AM UK time');
+  cron.schedule('0 10 * * *', runSalarySweep, {
+    timezone: 'Europe/London',
+  });
   console.log('[CRON] Scheduled daily absence sweep at 9:30 AM UK time');
+  console.log('[CRON] Scheduled daily salary reconciliation at 10:00 AM UK time');
 }
 
 // Exported for the manual "Check & Send Notifications" button.
-export { checkExpiringRecords, runAbsenceSweep };
+export { checkExpiringRecords, runAbsenceSweep, runSalarySweep };

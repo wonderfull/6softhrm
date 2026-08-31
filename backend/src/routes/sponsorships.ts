@@ -35,6 +35,7 @@ const REPORTABLE_EVENT_TYPES = new Set([
   'EMPLOYMENT_ENDED',
   'WORK_LOCATION_CHANGED',
   'UNPAID_LEAVE_OVER_4_WEEKS',
+  'SALARY_BELOW_COS',
 ])
 
 function summarizeEmployee(employee: any) {

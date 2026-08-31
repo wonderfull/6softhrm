@@ -129,7 +129,10 @@ export function parseImportFile(buffer: Buffer): { rows: ImportRow[]; headerErro
         if (!date) errors.push(`${field}: "${value}" is not a valid date (use YYYY-MM-DD or DD/MM/YYYY)`)
         else data[field] = date
       } else if (field === 'salary') {
-        const n = Number(value.replace(/[£,\s]/g, ''))
+        // Drop any non-numeric decoration: a UTF-8 "£" read as latin1 arrives
+        // as "Â£", and a salary column with a currency symbol must still import.
+        const cleaned = value.replace(/[^0-9.-]/g, '')
+        const n = cleaned === '' ? NaN : Number(cleaned)
         if (isNaN(n)) errors.push(`salary: "${value}" is not a number`)
         else data.salary = n
       } else if (field === 'employeeType') {
