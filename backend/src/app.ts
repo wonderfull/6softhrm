@@ -43,9 +43,63 @@ const app = express();
 // so AuditLog records the real client IP instead of 127.0.0.1.
 app.set('trust proxy', true);
 
-// Security headers. The API serves JSON (and file streams), so the strict
-// cross-origin defaults are safe here.
-app.use(helmet());
+// Security headers.
+//
+// Express never serves HTML — Nginx serves the built SPA from disk (see
+// nginx.conf / nginx/6soft-security-headers.conf), so the CSP that actually
+// protects the app document lives there, NOT here. This one applies to JSON
+// responses and document downloads, where nothing legitimate is ever loaded,
+// so it can be maximally strict.
+const isProduction = process.env.NODE_ENV === 'production';
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        'default-src': ["'none'"],
+        // These three have no fallback to default-src, so they must be spelled out.
+        'frame-ancestors': ["'none'"],
+        'base-uri': ["'none'"],
+        'form-action': ["'none'"],
+      },
+    },
+    // Belt and braces with frame-ancestors for browsers that still read it.
+    frameguard: { action: 'deny' },
+    // API responses never need to leak a referrer anywhere.
+    referrerPolicy: { policy: 'no-referrer' },
+    // helmet sends HSTS by default even over plain http. Browsers ignore it
+    // there, but a local https experiment would pin every localhost port for
+    // two years, so keep it to production only.
+    strictTransportSecurity: isProduction
+      ? { maxAge: 63072000, includeSubDomains: true }
+      : false,
+  }),
+);
+
+// Permissions-Policy is the one cheap header helmet has no built-in for.
+// Nothing in this app uses any of these APIs; denying them limits what an
+// injected script could reach for.
+const PERMISSIONS_POLICY = [
+  'accelerometer=()',
+  'autoplay=()',
+  'camera=()',
+  'display-capture=()',
+  'encrypted-media=()',
+  'fullscreen=(self)',
+  'geolocation=()',
+  'gyroscope=()',
+  'magnetometer=()',
+  'microphone=()',
+  'midi=()',
+  'payment=()',
+  'usb=()',
+].join(', ');
+
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
+  next();
+});
 
 // Brute-force protection on credential endpoints; a lenient global limit
 // backstops everything else. Keyed by IP (trust proxy is on above).

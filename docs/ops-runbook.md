@@ -43,6 +43,104 @@ non-production database. Frontend: `npm --prefix frontend run test`.
 3. Disk: alert at 80% (`df -h /`).
 4. PM2: `pm2 install pm2-logrotate` so logs don't eat the disk.
 
+## Security headers and CSP
+
+### Which layer serves what
+Nginx serves the built SPA from disk; Express serves no HTML at all. **The CSP
+that protects the app document therefore comes from Nginx**, and Express's own
+CSP only ever lands on JSON responses and file downloads.
+
+| Layer | File | Policy |
+|---|---|---|
+| Nginx (serves `index.html`) | `nginx.conf`, `nginx/6soft-security-headers.conf` | the app CSP below |
+| Express (`/api/*` only) | `backend/src/app.ts` | `default-src 'none'` + `frame-ancestors`/`base-uri`/`form-action` `'none'` |
+
+The shipped app CSP:
+
+```
+default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self';
+script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com;
+font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:;
+connect-src 'self'; frame-src 'self' blob:; frame-ancestors 'none';
+form-action 'self'; upgrade-insecure-requests
+```
+
+Why each non-obvious directive is what it is:
+- **`script-src 'self'`, no `'unsafe-inline'`, no `'unsafe-eval'`** — Vite emits
+  one external module script and zero inline scripts, and the bundle contains
+  no `eval`, no `new Function` and no WebAssembly. This is the directive doing
+  the actual work; everything else is supporting.
+- **`style-src` without `'unsafe-inline'`** — Tailwind compiles to a static
+  stylesheet, and React writes `style` props through CSSOM, which CSP does not
+  police. Verified in a browser, not assumed.
+- **`frame-src 'self' blob:`** — `Documents.tsx` previews PDFs in an `<iframe>`
+  pointed at a `blob:` URL. The previous policy omitted `frame-src`, so it fell
+  back to `default-src 'self'` and **silently broke document preview**.
+- **`img-src … https:`** — tenants set an arbitrary `logoUrl` that `NavBar`
+  renders. The previous policy blocked it. `data:` covers the 2FA QR code and
+  `blob:` the image preview.
+- **`connect-src 'self'`** — the API is same-origin behind `/api/`. If you ever
+  point `VITE_API_URL` at a different host, that origin must be added here or
+  every request fails.
+
+### Nginx gotcha that bit us
+`add_header` does **not** inherit into a `location` that declares an
+`add_header` of its own — it replaces the whole inherited set. Both
+`location /` (which serves `index.html`) and the static-asset regex block set
+their own `Cache-Control`, so they must repeat the full header set or the app
+document ships with no CSP at all. `nginx.conf` now does this; a backend test
+(`securityHeaders.test.ts`) fails if a future edit drops it.
+
+**Known gap:** the older bootstrap script `deploy.sh` writes its own inline
+Nginx config that sets only `X-Frame-Options` and `X-Content-Type-Options`.
+Sites stood up with `deploy.sh` rather than `scripts/deploy-vps.sh` get no CSP.
+Prefer `scripts/deploy-vps.sh`, or paste the snippet in by hand.
+
+### Residual risk — read this before claiming the token is safe
+
+**The JWT is still in `localStorage`, and any script running on the origin can
+read it.** CSP is mitigation, not elimination. What actually changed is that it
+is now much harder to *get* a script running: an injected `<script>`, an
+attacker-hosted script tag, `eval` and `new Function` are all blocked
+(verified). What has *not* changed:
+
+- **Exfiltration is still possible once script execution happens.** `fetch` and
+  `sendBeacon` to a foreign origin are blocked by `connect-src 'self'`, but
+  `img-src … https:` (needed for tenant logos) leaves a one-line image-beacon
+  channel, and no CSP can stop a top-level navigation to an attacker URL —
+  `navigate-to` was never shipped in any browser. Treat exfiltration as
+  unpreventable and the script-execution block as the real control.
+- **`script-src 'self'` trusts everything on our own origin.** It would not
+  save us from a malicious or compromised npm dependency inside the bundle,
+  because that code is served from `'self'`.
+- **A same-origin HTML/SVG upload would inherit the app's privileges.** Today
+  the upload allowlist is PDF/PNG/JPEG/DOC/DOCX only and uploads are streamed
+  through `/api`, never served as documents — keep it that way.
+- Anything that reads the token also survives logout, since there is still no
+  token revocation (see the `tokenVersion` item in the plan's §10).
+
+### If you later want the httpOnly-cookie migration
+It was deliberately *not* done here — it is a broad, cross-cutting change, not
+a header tweak. It would involve:
+1. `auth.ts` setting the JWT as `httpOnly; Secure; SameSite=Lax` on login and
+   clearing it on logout, instead of returning it in the body.
+2. A CSRF defence, because cookies are sent automatically — double-submit token
+   or an `Origin`/`Sec-Fetch-Site` check on every state-changing route.
+3. The frontend API layers (`lib/api.ts`, `lib/platformApi.ts`) dropping the
+   `Authorization` header and sending `credentials: 'include'`, plus the six
+   files that build the header themselves — `Documents.tsx`, `Settings.tsx`,
+   `Employees.tsx`, `DataExport.tsx`, `Consent.tsx`, `ImportEmployeesModal.tsx`
+   (`grep -rl Authorization frontend/src`).
+4. `NavBar.tsx` losing its ability to decode the token client-side for the
+   current user — it would need a `/api/auth/me` call instead.
+5. CORS: `credentials: true` already set, but a split-origin deployment
+   (`VITE_API_URL`) would need `SameSite=None` and an exact origin allowlist.
+6. Every backend test that signs a token and sets an `Authorization` header,
+   and the Playwright e2e specs.
+
+Budget it as its own piece of work with its own verification gate, not as a
+follow-on to this one.
+
 ## Production deploy checklist
 1. `git pull && npm --prefix backend ci && npm --prefix frontend ci`
 2. `npm --prefix backend run build && npm --prefix frontend run build`
