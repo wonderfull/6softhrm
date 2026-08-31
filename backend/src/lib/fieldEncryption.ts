@@ -53,6 +53,23 @@ export function isEncrypted(value: unknown): value is string {
   return typeof value === 'string' && value.startsWith(PREFIX);
 }
 
+/**
+ * Whether a value is genuinely our ciphertext, rather than plaintext that
+ * merely starts with the prefix. Callers deciding whether a value still needs
+ * encrypting must use this, not the prefix test: treating an undecryptable
+ * lookalike as "already encrypted" leaves it plaintext forever AND makes every
+ * later read throw, because the read path will try to decrypt it.
+ */
+export function isGenuineCiphertext(value: unknown): value is string {
+  if (!isEncrypted(value)) return false;
+  try {
+    decryptField(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function encryptField(plaintext: string): string {
   const iv = crypto.randomBytes(IV_BYTES);
   const cipher = crypto.createCipheriv(
@@ -104,18 +121,10 @@ function isWalkable(value: any): boolean {
 function encryptValue(value: any): any {
   if (typeof value === 'string') {
     // Already-ciphertext passes through, which keeps the backfill and any
-    // restore-from-export idempotent. A caller-supplied string that only looks
-    // like ciphertext fails to decrypt and is treated as plaintext, so a
-    // crafted "enc:v1:…" payload cannot land unencrypted.
-    if (isEncrypted(value)) {
-      try {
-        decryptField(value);
-        return value;
-      } catch {
-        /* fall through and encrypt it as the literal string it is */
-      }
-    }
-    return encryptField(value);
+    // restore-from-export idempotent. A string that only looks like ciphertext
+    // is encrypted as the literal string it is, so a crafted "enc:v1:…"
+    // payload cannot land unencrypted.
+    return isGenuineCiphertext(value) ? value : encryptField(value);
   }
   // Prisma update syntax: { niNumber: { set: 'QQ123456C' } }
   if (

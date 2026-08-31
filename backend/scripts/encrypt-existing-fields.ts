@@ -8,7 +8,7 @@ import { platformPrisma } from '../src/prismaClient';
 import {
   ENCRYPTED_FIELDS,
   assertFieldEncryptionKey,
-  isEncrypted,
+  isGenuineCiphertext,
 } from '../src/lib/fieldEncryption';
 
 type RawEmployeeRow = { id: number } & Record<string, string | null>;
@@ -43,7 +43,10 @@ export async function encryptExistingFields(
     for (const field of ENCRYPTED_FIELDS) {
       const stored = row[field];
       if (stored === null || stored === undefined || stored === '') continue;
-      if (isEncrypted(stored)) {
+      // Deliberately not the bare prefix test: a legacy value that merely
+      // starts with the prefix must be encrypted like any other plaintext,
+      // or it stays unprotected and throws on every subsequent read.
+      if (isGenuineCiphertext(stored)) {
         stats.fieldsAlreadyEncrypted++;
         continue;
       }
