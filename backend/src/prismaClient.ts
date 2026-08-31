@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { tenantStore } from './lib/tenantContext';
 import {
-  assertNotFilteringEncryptedFields,
+  assertNoEncryptedFieldInQuery,
   decryptReadResult,
   encryptWriteData,
 } from './lib/fieldEncryption';
@@ -78,9 +78,7 @@ const encrypted = base.$extends({
     $allModels: {
       async $allOperations({ model, operation, args, query }) {
         const incoming: any = args ?? {};
-        if (incoming.where) {
-          assertNotFilteringEncryptedFields(model, operation, incoming.where);
-        }
+        assertNoEncryptedFieldInQuery(model, operation, incoming);
         let next = incoming;
         for (const key of WRITE_ARG_KEYS) {
           if (incoming[key] !== undefined) {

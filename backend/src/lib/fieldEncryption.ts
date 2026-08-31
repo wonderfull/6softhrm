@@ -169,16 +169,52 @@ export function assertNotFilteringEncryptedFields(
   model: string | undefined,
   operation: string,
   where: any,
+  clause = 'filters on',
 ): void {
   if (!isWalkable(where)) return;
   for (const [key, value] of Object.entries(where as Record<string, any>)) {
     if (FIELD_SET.has(key)) {
       throw new Error(
-        `ENCRYPTED_FIELD_NOT_FILTERABLE: ${model ?? 'query'}.${operation} filters on "${key}", ` +
+        `ENCRYPTED_FIELD_NOT_FILTERABLE: ${model ?? 'query'}.${operation} ${clause} "${key}", ` +
           'which is encrypted at rest and cannot be matched by the database.',
       );
     }
     if (isWalkable(value))
-      assertNotFilteringEncryptedFields(model, operation, value);
+      assertNotFilteringEncryptedFields(model, operation, value, clause);
+  }
+}
+
+// `where` is not the only clause the database evaluates against the stored
+// bytes. Sorting by ciphertext yields an order with no relation to the
+// plaintext, and every row carries its own IV so `distinct` de-duplicates
+// nothing — both would be silently wrong rather than empty, which is worse
+// than a failed filter. `cursor` is keyset pagination and needs an equality
+// match it cannot make.
+export function assertNoEncryptedFieldInQuery(
+  model: string | undefined,
+  operation: string,
+  args: any,
+): void {
+  if (!isWalkable(args)) return;
+
+  if (args.where !== undefined) {
+    assertNotFilteringEncryptedFields(model, operation, args.where);
+  }
+  if (args.orderBy !== undefined) {
+    assertNotFilteringEncryptedFields(model, operation, args.orderBy, 'orders by');
+  }
+  if (args.cursor !== undefined) {
+    assertNotFilteringEncryptedFields(model, operation, args.cursor, 'paginates by');
+  }
+  if (args.distinct !== undefined) {
+    const fields = Array.isArray(args.distinct) ? args.distinct : [args.distinct];
+    for (const field of fields) {
+      if (typeof field === 'string' && FIELD_SET.has(field)) {
+        throw new Error(
+          `ENCRYPTED_FIELD_NOT_FILTERABLE: ${model ?? 'query'}.${operation} selects distinct on "${field}", ` +
+            'which is encrypted at rest — every row has its own IV, so nothing would be de-duplicated.',
+        );
+      }
+    }
   }
 }
