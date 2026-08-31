@@ -1,8 +1,40 @@
 # OnsideHR — Multi-Tenant SaaS Conversion Plan
 
-**Date:** 2026-08-20
-**Author:** planning session, Claude Code
-**Repo:** `6softHRM` → to be rebranded **OnsideHR** (`onsidehr.co.uk`)
+**Planned:** 2026-08-20 · **Built:** 2026-08-25/26
+**Repo:** `6softHRM` → rebranded **OnsideHR** (`onsidehr.co.uk`)
+**Branch:** `feat/multi-tenant`
+
+---
+
+## 0. Delivery status — phases 1–7 complete
+
+| Phase | Status | Commit |
+|---|---|---|
+| P0 Baseline repair | ✅ | `8741e67` |
+| P1+P2 Tenant foundation + 147-call-site sweep | ✅ | `b2a750d` |
+| P3 Platform console + live session enforcement | ✅ | `46ddbd2` |
+| P4 Storage abstraction (local + R2) | ✅ | `6948580` |
+| P5 Rebrand + B2B legal pack | ✅ | `b3be20a` |
+| P6 Sellability (CSV import, 2FA, gating, seats, hardening) | ✅ | `f4c4584` |
+| P7 Ops (backups, restore, PM2, runbook) | ✅ | `dd52818` |
+| Gate hardening (idempotent re-runs) | ✅ | `9765caa` |
+
+**Verification — `npm --prefix backend run verify:all`:**
+- Static tenancy guard: no tenant-unsafe Prisma ops in routes
+- Backend tests: **137/137** · Frontend tests: **71/71**
+- Tenancy gate: **19/19** (deny-by-default, cross-tenant IDOR on reads /
+  writes / files, legacy tokens, live-session suspension)
+- Onboarding gate: **14/14** (create tenant → setup link → branded login →
+  import 50 employees → seat cap → leave approval → upload → feature gate)
+- Restore rehearsal: dump 106ms, restore 1s, app boots on restored DB
+
+**Deferred by decision:** final pricing (§13 is the researched recommendation,
+not a committed price list). **Still to do before selling:** point R2 env vars
+at a real bucket, DNS + SPF/DKIM/DMARC on onsidehr.co.uk
+(`docs/deploy-dns-email.md`), solicitor review of Terms + DPA, ICO
+registration as a processor.
+
+Sections 1–15 below are the original plan, kept as the design record.
 
 ---
 

@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import prisma from '../prismaClient'
+import prisma, { platformPrisma } from '../prismaClient'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
@@ -8,6 +8,8 @@ import { requireAuth, AuthRequest } from '../middleware/auth'
 import { requireRole } from '../middleware/roles'
 import { getJwtSecret } from '../lib/authConfig'
 import { sendEmail } from '../lib/emailService'
+import QRCode from 'qrcode'
+import { generateTotpSecret, totpKeyUri, verifyTotp } from '../lib/totp'
 import {
   canManageUserAccounts,
   normalizeRole,
@@ -45,16 +47,20 @@ function createPasswordResetPayload(user: { id: number; email: string }) {
 async function sendPasswordResetEmail(email: string, resetLink: string) {
   return sendEmail({
     to: email,
-    subject: 'Reset your 6Soft HRM password',
+    subject: 'Reset your OnsideHR password',
     text: `Use this link to reset your password: ${resetLink}`,
     html: `
-      <p>A password reset was requested for your 6Soft HRM account.</p>
+      <p>A password reset was requested for your OnsideHR account.</p>
       <p><a href="${resetLink}">Reset your password</a></p>
       <p>If you did not request this, you can ignore this email.</p>
     `,
   })
 }
 
+// Public registration must resolve a tenant before it can create anything.
+// An authenticated admin/director registers into their own tenant; a
+// self-service signup is only accepted when HR has already created an
+// employee record with that email (which pins the tenant).
 router.post('/register', async (req: AuthRequest, res) => {
   const { email, password, name, role } = req.body
   if (!email || !password) return res.status(400).json({ error: 'email and password required' })
@@ -67,20 +73,35 @@ router.post('/register', async (req: AuthRequest, res) => {
     const assignedRole = canManageUserAccounts(requesterRole)
       ? requireAssignableRole(requesterRole, requestedRole)
       : ROLES.EMPLOYEE
+
+    let tenantId: number | null = requester?.tenantId ?? null
+    const employeeMatches = await platformPrisma.employee.findMany({ where: { email } })
+    let employee = null
+    if (tenantId) {
+      employee = employeeMatches.find((e) => e.tenantId === tenantId) ?? null
+    } else if (employeeMatches.length === 1) {
+      employee = employeeMatches[0]
+      tenantId = employee.tenantId
+    }
+
+    if (!tenantId) {
+      return res.status(403).json({
+        error: 'No employee record found for this email. Ask your HR admin to create your account.',
+      })
+    }
+
     const userData: any = {
+      tenantId,
       email,
       password: hashed,
       name,
       role: assignedRole,
     }
-
-    // Auto-link to employee if email matches
-    const employee = await prisma.employee.findUnique({ where: { email } })
     if (employee) {
       userData.employeeId = employee.id
     }
 
-    const user = await prisma.user.create({ data: userData })
+    const user = await platformPrisma.user.create({ data: userData })
     res.json({ id: user.id, email: user.email, name: user.name, role: normalizeRole(user.role) })
   } catch (e: any) {
     const status = /permission/i.test(e.message) ? 403 : 400
@@ -94,17 +115,18 @@ router.post('/link-employee', requireAuth, requireRole('ADMIN', 'DIRECTOR'), asy
   if (!email) return res.status(400).json({ error: 'email required' })
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } })
-    const employee = await prisma.employee.findUnique({ where: { email } })
+    const user = await prisma.user.findFirst({ where: { email } })
+    const employee = await prisma.employee.findFirst({ where: { email } })
 
     if (!user || !employee) {
       return res.status(404).json({ error: 'User or Employee not found' })
     }
 
-    const updated = await prisma.user.update({
+    await prisma.user.updateMany({
       where: { id: user.id },
       data: { employeeId: employee.id }
     })
+    const updated = await prisma.user.findFirst({ where: { id: user.id } })
 
     res.json({ success: true, user: updated })
   } catch (e: any) {
@@ -112,51 +134,164 @@ router.post('/link-employee', requireAuth, requireRole('ADMIN', 'DIRECTOR'), asy
   }
 })
 
+function issueSessionToken(user: any) {
+  const secret = getJwtSecret()
+  const role = normalizeRole(user.role)
+  const token = jwt.sign({
+    id: user.id,
+    email: user.email,
+    role,
+    employeeId: user.employeeId,
+    tenantId: user.tenantId,
+    tokenVersion: user.tokenVersion
+  }, secret, { expiresIn: '8h' })
+  return {
+    token,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role,
+      employeeId: user.employeeId,
+      employee: user.employee,
+      tenant: user.tenant && {
+        id: user.tenant.id,
+        slug: user.tenant.slug,
+        name: user.tenant.name,
+        plan: user.tenant.plan,
+        features: user.tenant.features,
+        logoUrl: user.tenant.logoUrl,
+        primaryColor: user.tenant.primaryColor,
+      }
+    }
+  }
+}
+
 router.post('/login', async (req, res) => {
   const { email, password } = req.body
   if (!email || !password) return res.status(400).json({ error: 'email and password required' })
 
-  const user = await prisma.user.findUnique({
+  // Pre-auth by definition: the email IS the tenant resolver, so this lookup
+  // must be cross-tenant. User.email is globally unique.
+  const user = await platformPrisma.user.findUnique({
     where: { email },
-    include: { employee: true }
+    include: { employee: true, tenant: true }
   })
   if (!user) {
-    await createAuditLog(null, email, 'LOGIN_FAILED', 'User', null, 'Invalid email', req)
+    await createAuditLog(null, email, 'LOGIN_FAILED', 'User', null, 'Invalid email', req, null)
     return res.status(401).json({ error: 'Invalid credentials' })
   }
 
   const ok = await bcrypt.compare(password, user.password)
   if (!ok) {
-    await createAuditLog(user.id, email, 'LOGIN_FAILED', 'User', user.id, 'Invalid password', req)
+    await createAuditLog(user.id, email, 'LOGIN_FAILED', 'User', user.id, 'Invalid password', req, user.tenantId)
     return res.status(401).json({ error: 'Invalid credentials' })
   }
 
+  if (user.tenant.status === 'SUSPENDED' || user.tenant.status === 'CANCELLED' || user.tenant.deletedAt) {
+    await createAuditLog(user.id, email, 'LOGIN_BLOCKED_TENANT_STATUS', 'User', user.id, user.tenant.status, req, user.tenantId)
+    return res.status(403).json({ error: 'This account is currently unavailable. Contact your administrator.' })
+  }
+
   try {
-    const secret = getJwtSecret()
-    const role = normalizeRole(user.role)
-    const token = jwt.sign({
-      id: user.id,
-      email: user.email,
-      role,
-      employeeId: user.employeeId
-    }, secret, { expiresIn: '8h' })
+    // Second factor: password is verified, but the session token is only
+    // issued after a valid TOTP code.
+    if (user.totpEnabled && user.totpSecret) {
+      const secret = getJwtSecret()
+      const pendingToken = jwt.sign(
+        { id: user.id, type: '2fa-pending' },
+        secret,
+        { expiresIn: '5m' },
+      )
+      await createAuditLog(user.id, email, 'LOGIN_2FA_REQUIRED', 'User', user.id, null, req, user.tenantId)
+      return res.json({ requires2fa: true, pendingToken })
+    }
 
-    await createAuditLog(user.id, email, 'LOGIN_SUCCESS', 'User', user.id, null, req)
-
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role,
-        employeeId: user.employeeId,
-        employee: user.employee
-      }
-    })
+    await createAuditLog(user.id, email, 'LOGIN_SUCCESS', 'User', user.id, null, req, user.tenantId)
+    res.json(issueSessionToken(user))
   } catch (e: any) {
     res.status(500).json({ error: 'Authentication configuration error' })
   }
+})
+
+// Complete a 2FA login: pending token + valid TOTP code → session token.
+router.post('/2fa/complete', async (req, res) => {
+  const { pendingToken, code } = req.body
+  if (!pendingToken || !code) return res.status(400).json({ error: 'pendingToken and code required' })
+  try {
+    const secret = getJwtSecret()
+    const decoded: any = jwt.verify(pendingToken, secret)
+    if (decoded.type !== '2fa-pending') return res.status(401).json({ error: 'Invalid token' })
+
+    const user = await platformPrisma.user.findUnique({
+      where: { id: decoded.id },
+      include: { employee: true, tenant: true },
+    })
+    if (!user || !user.totpEnabled || !user.totpSecret) {
+      return res.status(401).json({ error: 'Invalid token' })
+    }
+    if (!verifyTotp(String(code), user.totpSecret)) {
+      await createAuditLog(user.id, user.email, 'LOGIN_2FA_FAILED', 'User', user.id, null, req, user.tenantId)
+      return res.status(401).json({ error: 'Invalid authentication code' })
+    }
+
+    await createAuditLog(user.id, user.email, 'LOGIN_SUCCESS', 'User', user.id, '2FA', req, user.tenantId)
+    res.json(issueSessionToken(user))
+  } catch (e: any) {
+    if (e.message === 'JWT_SECRET is not configured securely') {
+      return res.status(500).json({ error: 'Authentication configuration error' })
+    }
+    return res.status(401).json({ error: 'Invalid or expired token' })
+  }
+})
+
+// Begin 2FA enrolment: store a pending secret, return otpauth URI + QR.
+router.post('/2fa/setup', requireAuth, async (req: any, res) => {
+  try {
+    const user = await prisma.user.findFirst({ where: { id: req.user.id } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    if (user.totpEnabled) return res.status(400).json({ error: '2FA is already enabled' })
+
+    const totpSecret = generateTotpSecret()
+    await prisma.user.updateMany({ where: { id: user.id }, data: { totpSecret } })
+    const otpauth = totpKeyUri(user.email, 'OnsideHR', totpSecret)
+    const qrDataUrl = await QRCode.toDataURL(otpauth)
+    res.json({ otpauth, qrDataUrl })
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+// Confirm enrolment with a valid code.
+router.post('/2fa/enable', requireAuth, async (req: any, res) => {
+  const { code } = req.body
+  if (!code) return res.status(400).json({ error: 'code required' })
+  const user = await prisma.user.findFirst({ where: { id: req.user.id } })
+  if (!user?.totpSecret) return res.status(400).json({ error: 'Run 2FA setup first' })
+  if (!verifyTotp(String(code), user.totpSecret)) {
+    return res.status(400).json({ error: 'Invalid authentication code — check your authenticator app' })
+  }
+  await prisma.user.updateMany({ where: { id: user.id }, data: { totpEnabled: true } })
+  await createAuditLog(user.id, user.email, '2FA_ENABLED', 'User', user.id, null, req)
+  res.json({ enabled: true })
+})
+
+// Disable requires a current code (stolen-session protection).
+router.post('/2fa/disable', requireAuth, async (req: any, res) => {
+  const { code } = req.body
+  const user = await prisma.user.findFirst({ where: { id: req.user.id } })
+  if (!user?.totpEnabled || !user.totpSecret) {
+    return res.status(400).json({ error: '2FA is not enabled' })
+  }
+  if (!code || !verifyTotp(String(code), user.totpSecret)) {
+    return res.status(400).json({ error: 'A valid authentication code is required to disable 2FA' })
+  }
+  await prisma.user.updateMany({
+    where: { id: user.id },
+    data: { totpEnabled: false, totpSecret: null },
+  })
+  await createAuditLog(user.id, user.email, '2FA_DISABLED', 'User', user.id, null, req)
+  res.json({ enabled: false })
 })
 
 // Get all users
@@ -187,7 +322,7 @@ router.get('/users', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req, 
 router.put('/users/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: AuthRequest, res) => {
   const { email, name, role, password, employeeId } = req.body
   try {
-    const existingUser = await prisma.user.findUnique({ where: { id: Number(req.params.id) } })
+    const existingUser = await prisma.user.findFirst({ where: { id: Number(req.params.id) } })
     if (!existingUser) return res.status(404).json({ error: 'User not found' })
 
     const requesterRole = normalizeRole(req.user?.role)
@@ -201,12 +336,15 @@ router.put('/users/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (r
     }
     if (password) {
       data.password = await bcrypt.hash(password, 10)
+      data.tokenVersion = { increment: 1 }
     }
     if (employeeId !== undefined) {
       data.employeeId = employeeId || null
     }
 
-    const user = await prisma.user.update({ where: { id: Number(req.params.id) }, data })
+    await prisma.user.updateMany({ where: { id: existingUser.id }, data })
+    const user = await prisma.user.findFirst({ where: { id: existingUser.id } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
     res.json({ id: user.id, email: user.email, name: user.name, role: normalizeRole(user.role) })
   } catch (e: any) {
     const status = /permission/i.test(e.message) ? 403 : 400
@@ -216,7 +354,7 @@ router.put('/users/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (r
 
 router.post('/users/:id/reset-link', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: AuthRequest, res) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: Number(req.params.id) } })
+    const user = await prisma.user.findFirst({ where: { id: Number(req.params.id) } })
     if (!user) return res.status(404).json({ error: 'User not found' })
     if (normalizeRole(user.role) === ROLES.ADMIN && normalizeRole(req.user?.role) !== ROLES.ADMIN) {
       return res.status(403).json({ error: 'You do not have permission to manage admin accounts' })
@@ -242,16 +380,17 @@ router.post('/users/:id/reset-password', requireAuth, requireRole('ADMIN', 'DIRE
   if (!newPassword) return res.status(400).json({ error: 'newPassword required' })
 
   try {
-    const user = await prisma.user.findUnique({ where: { id: Number(req.params.id) } })
+    const user = await prisma.user.findFirst({ where: { id: Number(req.params.id) } })
     if (!user) return res.status(404).json({ error: 'User not found' })
     if (normalizeRole(user.role) === ROLES.ADMIN && normalizeRole(req.user?.role) !== ROLES.ADMIN) {
       return res.status(403).json({ error: 'You do not have permission to manage admin accounts' })
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10)
-    await prisma.user.update({
+    await prisma.user.updateMany({
       where: { id: user.id },
-      data: { password: hashedPassword }
+      // Bump tokenVersion so every outstanding session dies with the old password.
+      data: { password: hashedPassword, tokenVersion: { increment: 1 } }
     })
 
     await createAuditLog(req.user?.id, req.user?.email, 'PASSWORD_RESET_BY_ADMIN', 'User', user.id, null, req)
@@ -265,13 +404,13 @@ router.post('/users/:id/reset-password', requireAuth, requireRole('ADMIN', 'DIRE
 // Delete user
 router.delete('/users/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: AuthRequest, res) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: Number(req.params.id) } })
+    const user = await prisma.user.findFirst({ where: { id: Number(req.params.id) } })
     if (!user) return res.status(404).json({ error: 'User not found' })
     if (normalizeRole(user.role) === ROLES.ADMIN && normalizeRole(req.user?.role) !== ROLES.ADMIN) {
       return res.status(403).json({ error: 'You do not have permission to manage admin accounts' })
     }
 
-    await prisma.user.delete({ where: { id: Number(req.params.id) } })
+    await prisma.user.deleteMany({ where: { id: user.id } })
     res.json({ ok: true })
   } catch (e: any) {
     res.status(400).json({ error: e.message })
@@ -284,7 +423,8 @@ router.post('/forgot-password', async (req, res) => {
   if (!email) return res.status(400).json({ error: 'Email required' })
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } })
+    // Pre-auth: cross-tenant lookup by globally-unique email.
+    const user = await platformPrisma.user.findUnique({ where: { email } })
     if (!user) {
       // For security, don't reveal if email exists
       return res.json({ message: 'If the email exists, a reset link has been generated.' })
@@ -316,11 +456,12 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Invalid reset token' })
     }
 
-    // Update password
+    // Pre-auth: the user id comes from the signed reset token itself.
     const hashedPassword = await bcrypt.hash(newPassword, 10)
-    await prisma.user.update({
+    await platformPrisma.user.update({
       where: { id: decoded.id },
-      data: { password: hashedPassword }
+      // Bump tokenVersion so every outstanding session dies with the old password.
+      data: { password: hashedPassword, tokenVersion: { increment: 1 } }
     })
 
     res.json({ message: 'Password reset successful' })
@@ -329,7 +470,7 @@ router.post('/reset-password', async (req, res) => {
       return res.status(500).json({ error: 'Authentication configuration error' })
     }
     if (e.name === 'TokenExpiredError') {
-      return res.status(400).json({ error: 'Reset token has expired' })
+      return res.status(400).json({ error: 'Invalid or expired reset token' })
     }
     res.status(400).json({ error: 'Invalid or expired reset token' })
   }

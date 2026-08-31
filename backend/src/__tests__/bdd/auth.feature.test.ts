@@ -4,7 +4,7 @@ import request from 'supertest'
 import jwt from 'jsonwebtoken'
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'
-import { authHeader, cleanupFixturePrefix, createUser, uniquePrefix } from './helpers/fixtures'
+import { authHeader, cleanupFixturePrefix, createEmployee, createUser, uniquePrefix } from './helpers/fixtures'
 
 const feature = loadFeature(path.join(__dirname, '../features/auth.feature'))
 
@@ -36,8 +36,11 @@ describe('BDD: auth', () => {
       let response: request.Response
       let email = ''
 
-      given('a public registration payload requesting the ADMIN role', () => {
+      given('an existing employee record and a public registration payload requesting the ADMIN role', async () => {
         email = `${prefix}@example.com`
+        // Public signup only resolves a tenant through an existing employee
+        // record with the same email.
+        await createEmployee(prefix, { email })
       })
 
       when('the registration is submitted', async () => {
@@ -53,6 +56,27 @@ describe('BDD: auth', () => {
         expect(response.status).toBe(200)
         expect(response.body.email).toBe(email)
         expect(response.body.role).toBe('EMPLOYEE')
+      })
+    })
+
+    test('Public registration without an employee record is rejected', ({ given, when, then }) => {
+      let response: request.Response
+      let email = ''
+
+      given('a public registration payload for an unknown email', () => {
+        email = `${prefix}.stranger@example.com`
+      })
+
+      when('the registration is submitted', async () => {
+        response = await request(app).post('/api/auth/register').send({
+          email,
+          password: 'password123',
+          name: prefix,
+        })
+      })
+
+      then('the registration is rejected with a 403 response', () => {
+        expect(response.status).toBe(403)
       })
     })
 
@@ -171,7 +195,7 @@ describe('BDD: auth', () => {
       when('an admin generates a password reset link for that user', async () => {
         response = await request(app)
           .post(`/api/auth/users/${userId}/reset-link`)
-          .set('Authorization', authHeader({ id: 60, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+          .set('Authorization', authHeader({ email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
       })
 
       then('the response confirms the reset link was handled without exposing it', () => {
@@ -201,7 +225,7 @@ describe('BDD: auth', () => {
       when('an admin directly resets that user\'s password', async () => {
         response = await request(app)
           .post(`/api/auth/users/${userId}/reset-password`)
-          .set('Authorization', authHeader({ id: 61, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+          .set('Authorization', authHeader({ email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
           .send({ newPassword: 'temporary-password123' })
       })
 

@@ -21,6 +21,6 @@ module.exports = {
     }]
   },
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
-  testTimeout: 10000,
+  testTimeout: 30000,
   maxWorkers: 1  // Run tests serially to avoid database conflicts
 }

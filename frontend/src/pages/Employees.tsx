@@ -1,4 +1,5 @@
 import React from 'react';
+import ImportEmployeesModal from '../components/ImportEmployeesModal';
 import {
   apiGet,
   apiPost,
@@ -379,6 +380,7 @@ export default function Employees() {
   const isElevated = isElevatedRole(currentRole);
   const isSupport = currentRole === 'OFFICE_ASSISTANT';
   const canManageEmployees = isElevated;
+  const [showImport, setShowImport] = React.useState(false);
   const canManageAccounts = isElevated;
   const canViewSensitive = isElevated || currentRole === 'EMPLOYEE';
   const isEmployeeLogin = currentRole === 'EMPLOYEE';
@@ -821,6 +823,16 @@ export default function Employees() {
             >
               <HiArrowDownTray size={18} />
               Export
+            </button>
+          )}
+          {canManageEmployees && (
+            <button
+              type="button"
+              onClick={() => setShowImport(true)}
+              className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+            >
+              <HiArrowDownTray size={18} className="rotate-180" />
+              Import CSV
             </button>
           )}
           {canManageEmployees && (
@@ -2002,6 +2014,12 @@ export default function Employees() {
           </div>
         )}
       </Dialog>
+      {showImport && (
+        <ImportEmployeesModal
+          onClose={() => setShowImport(false)}
+          onImported={() => loadEmployees()}
+        />
+      )}
     </div>
   );
 }

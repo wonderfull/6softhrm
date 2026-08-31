@@ -25,7 +25,7 @@ describe('BDD: notifications', () => {
       when('a manager triggers an expiry check', async () => {
         response = await request(app)
           .post('/api/notifications/check-expiries')
-          .set('Authorization', authHeader({ id: 50, email: `${prefix}.manager@example.com`, role: 'MANAGER' }))
+          .set('Authorization', authHeader({ email: `${prefix}.manager@example.com`, role: 'MANAGER' }))
       })
 
       then('the expiry check succeeds', () => {
@@ -40,7 +40,7 @@ describe('BDD: notifications', () => {
       when('a regular user triggers an expiry check', async () => {
         response = await request(app)
           .post('/api/notifications/check-expiries')
-          .set('Authorization', authHeader({ id: 51, email: `${prefix}.user@example.com`, role: 'USER' }))
+          .set('Authorization', authHeader({ email: `${prefix}.user@example.com`, role: 'USER' }))
       })
 
       then('the request is rejected with a 403 response', () => {
@@ -79,7 +79,7 @@ describe('BDD: notifications', () => {
         response = await request(app)
           .get('/api/notifications/upcoming-expiries')
           .query({ days: 30 })
-          .set('Authorization', authHeader({ id: 52, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+          .set('Authorization', authHeader({ email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
       })
 
       then('only records within 30 days are returned', () => {

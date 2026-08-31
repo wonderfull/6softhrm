@@ -162,7 +162,7 @@ export default function Dashboard() {
       <div className="mb-8 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Welcome to 6soft HRM
+            Welcome to OnsideHR
           </h1>
           <p className="text-slate-600 dark:text-slate-300">
             Your complete HR management solution

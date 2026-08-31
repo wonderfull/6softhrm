@@ -1,3 +1,4 @@
+import { hasFeature } from '../lib/tenant';
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -110,9 +111,10 @@ export default function Sidebar() {
   const hasEmployeeProfile = !!currentUser?.employeeId;
 
   const menu = React.useMemo(() => {
-    if (userRole === 'ADMIN') return adminMenu;
-    if (userRole === 'DIRECTOR') {
-      return hasEmployeeProfile
+    let items;
+    if (userRole === 'ADMIN') items = adminMenu;
+    else if (userRole === 'DIRECTOR') {
+      items = hasEmployeeProfile
         ? [
             ...managerMenu,
             {
@@ -122,9 +124,13 @@ export default function Sidebar() {
             },
           ]
         : managerMenu;
+    } else if (userRole === 'OFFICE_ASSISTANT') items = assistantMenu;
+    else items = userMenu;
+    // Sponsorship compliance is a paid add-on — hide it for tenants without it.
+    if (!hasFeature('compliance')) {
+      items = items.filter((m) => m.to !== '/sponsorships');
     }
-    if (userRole === 'OFFICE_ASSISTANT') return assistantMenu;
-    return userMenu;
+    return items;
   }, [hasEmployeeProfile, userRole]);
 
   return (
@@ -133,7 +139,7 @@ export default function Sidebar() {
         <div className="flex items-center justify-center py-4 px-4 border-b border-slate-200 dark:border-slate-700">
           <img
             src="/logo.svg"
-            alt="6soft"
+            alt="OnsideHR"
             className="h-12"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
@@ -155,7 +161,7 @@ export default function Sidebar() {
           </div>
         </nav>
         <div className="p-4 text-xs text-center text-slate-500 border-t border-slate-200 dark:border-slate-700">
-          © {new Date().getFullYear()} 6soft HRM
+          © {new Date().getFullYear()} OnsideHR
         </div>
       </div>
     </aside>

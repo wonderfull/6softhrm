@@ -24,9 +24,12 @@ import DataExport from './pages/DataExport';
 import Consent from './pages/Consent';
 import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
+import Platform from './pages/Platform';
+import PlatformLogin from './pages/PlatformLogin';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Gdpr from './pages/Gdpr';
+import Dpa from './pages/Dpa';
 import NavBar from './components/NavBar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
@@ -50,8 +53,11 @@ const ROUTE_TITLES: Record<string, string> = {
   '/consent': 'Data Consent',
   '/privacy': 'Privacy Policy',
   '/terms': 'Terms of Service',
+  '/dpa': 'Data Processing Agreement',
   '/gdpr': 'GDPR',
   '/login': 'Sign in',
+  '/platform': 'Platform Console',
+  '/platform/login': 'Platform Console',
   '/register': 'Register',
   '/forgot-password': 'Forgot password',
   '/reset-password': 'Reset password',
@@ -61,7 +67,7 @@ function RouteTitle() {
   const { pathname } = useLocation();
   React.useEffect(() => {
     const title = ROUTE_TITLES[pathname];
-    document.title = title ? `${title} · 6soft HRM` : '6soft HRM';
+    document.title = title ? `${title} · OnsideHR` : 'OnsideHR';
   }, [pathname]);
   return null;
 }
@@ -78,6 +84,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('tenant');
     setIsLoggedIn(false);
     window.location.href = '/login';
   };
@@ -102,6 +109,10 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Platform console (operator-only; guards itself via platformToken) */}
+        <Route path="/platform/login" element={<PlatformLogin />} />
+        <Route path="/platform" element={<Platform />} />
 
         {/* Protected Routes */}
         <Route
@@ -186,6 +197,7 @@ function App() {
                       <Route path="/consent" element={<Consent />} />
                       <Route path="/privacy" element={<Privacy />} />
                       <Route path="/terms" element={<Terms />} />
+                      <Route path="/dpa" element={<Dpa />} />
                       <Route path="/gdpr" element={<Gdpr />} />
                       {/* B12: canonicalise common alt-paths back to /employees */}
                       <Route

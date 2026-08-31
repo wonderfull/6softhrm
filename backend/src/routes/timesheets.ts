@@ -65,7 +65,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
   try {
     const user = req.user
     const role = normalizeRole(user.role)
-    const existing = await prisma.timesheet.findUnique({ where: { id: parseInt(id) } })
+    const existing = await prisma.timesheet.findFirst({ where: { id: parseInt(id) } })
     if (!existing) return res.status(404).json({ error: 'Timesheet not found' })
 
     if (role === ROLES.EMPLOYEE) {
@@ -86,10 +86,11 @@ router.put('/:id', requireAuth, async (req: any, res) => {
     if (hours !== undefined) data.hours = Number(hours)
     if (notes !== undefined) data.notes = notes
     
-    const ts = await prisma.timesheet.update({
+    await prisma.timesheet.updateMany({
       where: { id: parseInt(id) },
       data
     })
+    const ts = await prisma.timesheet.findFirst({ where: { id: parseInt(id) } })
     res.json(ts)
   } catch (e: any) {
     res.status(400).json({ error: e.message })
@@ -101,7 +102,7 @@ router.delete('/:id', requireAuth, async (req: any, res) => {
   try {
     const user = req.user
     const role = normalizeRole(user.role)
-    const existing = await prisma.timesheet.findUnique({ where: { id: parseInt(id) } })
+    const existing = await prisma.timesheet.findFirst({ where: { id: parseInt(id) } })
     if (!existing) return res.status(404).json({ error: 'Timesheet not found' })
 
     if (role === ROLES.EMPLOYEE) {
@@ -112,7 +113,7 @@ router.delete('/:id', requireAuth, async (req: any, res) => {
       return res.status(403).json({ error: 'Unauthorized' })
     }
 
-    await prisma.timesheet.delete({ where: { id: parseInt(id) } })
+    await prisma.timesheet.deleteMany({ where: { id: parseInt(id) } })
     res.json({ success: true })
   } catch (e: any) {
     res.status(400).json({ error: e.message })

@@ -38,7 +38,7 @@ describe('BDD: leave', () => {
       when('the linked user submits a leave request', async () => {
         response = await request(app)
           .post('/api/leave')
-          .set('Authorization', authHeader({ id: 1, email, role: 'USER', employeeId }))
+          .set('Authorization', authHeader({ email, role: 'USER', employeeId }))
           .send({
             type: 'ANNUAL',
             startDate: '2026-05-01',
@@ -66,7 +66,7 @@ describe('BDD: leave', () => {
       when('the unlinked user submits a leave request', async () => {
         response = await request(app)
           .post('/api/leave')
-          .set('Authorization', authHeader({ id: 2, email, role: 'USER' }))
+          .set('Authorization', authHeader({ email, role: 'USER' }))
           .send({
             type: 'ANNUAL',
             startDate: '2026-05-01',
@@ -92,7 +92,7 @@ describe('BDD: leave', () => {
       when('an admin requests the leave list', async () => {
         response = await request(app)
           .get('/api/leave')
-          .set('Authorization', authHeader({ id: 10, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+          .set('Authorization', authHeader({ email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
       })
 
       then('the admin receives all matching leave requests', () => {
@@ -115,7 +115,7 @@ describe('BDD: leave', () => {
       when('a manager approves the request', async () => {
         response = await request(app)
           .put(`/api/leave/${leaveId}/approve`)
-          .set('Authorization', authHeader({ id: 20, email: `${prefix}.manager@example.com`, role: 'MANAGER' }))
+          .set('Authorization', authHeader({ email: `${prefix}.manager@example.com`, role: 'MANAGER' }))
       })
 
       then('the leave request status becomes APPROVED', () => {
@@ -137,7 +137,7 @@ describe('BDD: leave', () => {
       when('a manager rejects the request', async () => {
         response = await request(app)
           .put(`/api/leave/${leaveId}/reject`)
-          .set('Authorization', authHeader({ id: 21, email: `${prefix}.manager@example.com`, role: 'MANAGER' }))
+          .set('Authorization', authHeader({ email: `${prefix}.manager@example.com`, role: 'MANAGER' }))
           .send({ reason: 'Rejected in BDD test' })
       })
 

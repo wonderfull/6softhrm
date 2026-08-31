@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import prisma from '../prismaClient';
-import { requireAuth } from '../middleware/auth';
+import { currentTenantId } from '../lib/tenantContext';
+import { requireAuth, rebindTenant } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
 import archiver from 'archiver';
+import { getStorage, buildDocumentKey, assertKeyInTenant } from '../lib/storage';
 import {
   canDeleteDocuments,
   canOperateDocuments,
@@ -14,10 +15,9 @@ import {
 
 const router = Router();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads')),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
-});
+// Files are buffered in memory (5MB cap) then handed to the storage driver
+// under a tenant-prefixed key — never written to a shared local namespace.
+const storage = multer.memoryStorage();
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = [
@@ -43,10 +43,6 @@ function canAccessDocument(user: any, employeeId: number) {
   return role === ROLES.EMPLOYEE && user.employeeId === employeeId;
 }
 
-function getAbsoluteFilePath(documentPath: string) {
-  return path.join(process.cwd(), documentPath.replace(/^\//, ''));
-}
-
 async function createDocumentRecord(data: {
   employeeId: number;
   name: string;
@@ -55,6 +51,7 @@ async function createDocumentRecord(data: {
   expiryDate?: string;
 }) {
   const documentData: any = {
+    tenantId: currentTenantId(),
     employeeId: data.employeeId,
     name: data.name,
     path: data.path,
@@ -94,7 +91,7 @@ router.get('/', requireAuth, async (req: any, res) => {
 
 router.get('/:id/file', requireAuth, async (req: any, res) => {
   try {
-    const document = await prisma.document.findUnique({
+    const document = await prisma.document.findFirst({
       where: { id: Number(req.params.id) },
     });
     if (!document) return res.status(404).json({ error: 'Document not found' });
@@ -103,21 +100,28 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const filePath = getAbsoluteFilePath(document.path);
-    if (!fs.existsSync(filePath)) {
+    assertKeyInTenant(document.path);
+    const store = getStorage();
+    if (!(await store.exists(document.path))) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    if (req.query.disposition === 'inline') {
-      res.type(path.extname(filePath));
-      res.setHeader(
-        'Content-Disposition',
-        `inline; filename="${document.name}"`,
-      );
-      return res.sendFile(filePath);
-    }
+    const disposition =
+      req.query.disposition === 'inline' ? ('inline' as const) : ('attachment' as const);
 
-    res.download(filePath, document.name);
+    // Object storage serves the bytes itself via a short-lived signed URL;
+    // the local driver streams through the API.
+    const signedUrl = await store.getSignedUrl(document.path, document.name, disposition);
+    if (signedUrl) return res.redirect(signedUrl);
+
+    res.type(path.extname(document.path) || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `${disposition}; filename="${document.name.replace(/"/g, '')}"`,
+    );
+    const stream = await store.getStream(document.path);
+    stream.on('error', () => res.status(404).end());
+    stream.pipe(res);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
@@ -128,6 +132,7 @@ router.post(
   '/upload',
   requireAuth,
   upload.single('file'),
+  rebindTenant,
   async (req: any, res) => {
     const file = req.file as Express.Multer.File | undefined;
     const { employeeId, name, type, expiryDate } = req.body;
@@ -138,16 +143,17 @@ router.post(
       return res.status(403).json({ error: 'Unauthorized' });
     }
     // Verify employee exists before writing DB record
-    const emp = await prisma.employee.findUnique({
+    const emp = await prisma.employee.findFirst({
       where: { id: Number(employeeId) },
     });
     if (!emp) return res.status(400).json({ error: 'employee not found' });
     try {
-      const pathToSave = `/uploads/${file.filename}`;
+      const key = buildDocumentKey(file.originalname);
+      await getStorage().put(key, file.buffer, file.mimetype);
       const d = await createDocumentRecord({
         employeeId: Number(employeeId),
         name,
-        path: pathToSave,
+        path: key,
         type,
         expiryDate,
       });
@@ -162,6 +168,7 @@ router.post(
   '/upload-payslips',
   requireAuth,
   upload.array('files', 20),
+  rebindTenant,
   async (req: any, res) => {
     const files = (req.files || []) as Express.Multer.File[];
     const { employeeId } = req.body;
@@ -176,21 +183,23 @@ router.post(
         .json({ error: 'employeeId and at least one file are required' });
     }
 
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employee.findFirst({
       where: { id: Number(employeeId) },
     });
     if (!employee) return res.status(400).json({ error: 'employee not found' });
 
     try {
       const documents = await Promise.all(
-        files.map((file) =>
-          createDocumentRecord({
+        files.map(async (file) => {
+          const key = buildDocumentKey(file.originalname);
+          await getStorage().put(key, file.buffer, file.mimetype);
+          return createDocumentRecord({
             employeeId: employee.id,
             name: file.originalname.replace(/\.[^.]+$/, ''),
-            path: `/uploads/${file.filename}`,
+            path: key,
             type: 'PAYSLIP',
-          }),
-        ),
+          });
+        }),
       );
 
       res.json({
@@ -207,7 +216,7 @@ router.post(
 router.delete('/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
-    const doc = await prisma.document.findUnique({
+    const doc = await prisma.document.findFirst({
       where: { id: parseInt(id) },
     });
     if (!doc) return res.status(404).json({ error: 'Document not found' });
@@ -217,14 +226,12 @@ router.delete('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    // Delete the physical file
-    const filePath = getAbsoluteFilePath(doc.path);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+    // Delete the stored file (tolerant of already-missing objects)
+    assertKeyInTenant(doc.path);
+    await getStorage().delete(doc.path).catch(() => undefined);
 
     // Delete the database record
-    await prisma.document.delete({ where: { id: parseInt(id) } });
+    await prisma.document.deleteMany({ where: { id: parseInt(id) } });
     res.json({ success: true });
   } catch (e: any) {
     console.error('Error deleting document:', e);
@@ -242,7 +249,7 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employee.findFirst({
       where: { id: parseInt(employeeId) },
       include: { documents: true },
     });
@@ -265,11 +272,12 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
     // Pipe archive to response
     archive.pipe(res);
 
-    // Add all documents to archive
+    // Add all documents to archive through the storage driver
+    const store = getStorage();
     for (const doc of employee.documents) {
-      const filePath = getAbsoluteFilePath(doc.path);
-      if (fs.existsSync(filePath)) {
-        archive.file(filePath, { name: doc.name });
+      assertKeyInTenant(doc.path);
+      if (await store.exists(doc.path)) {
+        archive.append(await store.getStream(doc.path), { name: doc.name });
       }
     }
 

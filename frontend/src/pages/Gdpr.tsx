@@ -13,7 +13,7 @@ export default function Gdpr() {
       <p>
         6soft Ltd acts as data controller for accounts created by 6soft, and as
         data processor where an employer organisation operates a tenant.
-        Enquiries: <a href="mailto:info@6soft.co.uk">info@6soft.co.uk</a>.
+        Enquiries: <a href="mailto:hello@onsidehr.co.uk">hello@onsidehr.co.uk</a>.
       </p>
 
       <h2>Data subject rights</h2>

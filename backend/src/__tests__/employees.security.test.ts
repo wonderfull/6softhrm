@@ -3,7 +3,7 @@ import express from 'express';
 import request from 'supertest';
 import authRouter from '../routes/auth';
 import employeesRouter from '../routes/employees';
-import prisma from '../prismaClient';
+import { testPrisma as prisma, signTestToken } from './helpers/tenantTest';
 import {
   authHeader,
   cleanupFixturePrefix,
@@ -60,7 +60,7 @@ describe('Employees authorization', () => {
       .post('/api/employees')
       .set(
         'Authorization',
-        authHeader({ id: 90, email: 'user@test.com', role: 'USER' }),
+        authHeader({ email: 'user@test.com', role: 'USER' }),
       )
       .send({
         firstName: 'Blocked',
@@ -77,7 +77,7 @@ describe('Employees authorization', () => {
       .put(`/api/employees/${employeeId}`)
       .set(
         'Authorization',
-        authHeader({ id: 91, email: 'user@test.com', role: 'USER' }),
+        authHeader({ email: 'user@test.com', role: 'USER' }),
       )
       .send({ jobTitle: 'Mutated' });
 
@@ -89,9 +89,7 @@ describe('Employees authorization', () => {
       .put(`/api/employees/${employeeId}`)
       .set(
         'Authorization',
-        authHeader({
-          id: 94,
-          email: 'employees-security@test.com',
+        authHeader({ email: 'employees-security@test.com',
           role: 'EMPLOYEE',
           employeeId,
         }),
@@ -117,7 +115,7 @@ describe('Employees authorization', () => {
       .delete(`/api/employees/${employeeId}`)
       .set(
         'Authorization',
-        authHeader({ id: 92, email: 'user@test.com', role: 'USER' }),
+        authHeader({ email: 'user@test.com', role: 'USER' }),
       );
 
     expect(response.status).toBe(403);
@@ -177,9 +175,7 @@ describe('Employee deletion with dependent records', () => {
       .delete(`/api/employees/${employee.id}`)
       .set(
         'Authorization',
-        authHeader({
-          id: 200,
-          email: `${prefix}.admin@example.com`,
+        authHeader({ email: `${prefix}.admin@example.com`,
           role: 'ADMIN',
         }),
       );
@@ -235,9 +231,7 @@ describe('user employee management permissions', () => {
         .put(`/api/auth/users/${user.id}`)
         .set(
           'Authorization',
-          authHeader({
-            id: 100,
-            email: `${prefix}.admin@example.com`,
+          authHeader({ email: `${prefix}.admin@example.com`,
             role: 'ADMIN',
           }),
         )
@@ -262,9 +256,7 @@ describe('user employee management permissions', () => {
         .put(`/api/auth/users/${user.id}`)
         .set(
           'Authorization',
-          authHeader({
-            id: 101,
-            email: `${prefix}.director@example.com`,
+          authHeader({ email: `${prefix}.director@example.com`,
             role: 'DIRECTOR',
           }),
         )
@@ -285,9 +277,7 @@ describe('user employee management permissions', () => {
       .put(`/api/auth/users/${user.id}`)
       .set(
         'Authorization',
-        authHeader({
-          id: 102,
-          email: `${prefix}.director@example.com`,
+        authHeader({ email: `${prefix}.director@example.com`,
           role: 'DIRECTOR',
         }),
       )
@@ -307,9 +297,7 @@ describe('user employee management permissions', () => {
       .put(`/api/auth/users/${admin.id}`)
       .set(
         'Authorization',
-        authHeader({
-          id: 103,
-          email: `${prefix}.director@example.com`,
+        authHeader({ email: `${prefix}.director@example.com`,
           role: 'DIRECTOR',
         }),
       )
@@ -321,9 +309,7 @@ describe('user employee management permissions', () => {
       .delete(`/api/auth/users/${admin.id}`)
       .set(
         'Authorization',
-        authHeader({
-          id: 104,
-          email: `${prefix}.director@example.com`,
+        authHeader({ email: `${prefix}.director@example.com`,
           role: 'DIRECTOR',
         }),
       );
@@ -348,9 +334,7 @@ describe('user employee management permissions', () => {
       .get('/api/employees')
       .set(
         'Authorization',
-        authHeader({
-          id: 105,
-          email: `${prefix}.admin@example.com`,
+        authHeader({ email: `${prefix}.admin@example.com`,
           role: 'ADMIN',
         }),
       );
@@ -371,9 +355,7 @@ describe('user employee management permissions', () => {
       .post('/api/employees')
       .set(
         'Authorization',
-        authHeader({
-          id: 108,
-          email: `${prefix}.admin@example.com`,
+        authHeader({ email: `${prefix}.admin@example.com`,
           role: 'ADMIN',
         }),
       )
@@ -439,9 +421,7 @@ describe('user employee management permissions', () => {
       .get('/api/employees')
       .set(
         'Authorization',
-        authHeader({
-          id: 106,
-          email: `${prefix}.office@example.com`,
+        authHeader({ email: `${prefix}.office@example.com`,
           role: 'OFFICE_ASSISTANT',
         }),
       );
@@ -472,9 +452,7 @@ describe('user employee management permissions', () => {
     const employee = await createEmployee(`${prefix}-office-blocked`, {
       email: `${prefix}-office-blocked@example.com`,
     });
-    const token = authHeader({
-      id: 107,
-      email: `${prefix}.office@example.com`,
+    const token = authHeader({ email: `${prefix}.office@example.com`,
       role: 'OFFICE_ASSISTANT',
     });
 

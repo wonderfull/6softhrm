@@ -1,8 +1,9 @@
 import { beforeAll, afterAll, expect } from '@jest/globals'
 import { execSync } from 'child_process'
+import { initTestTenant } from './helpers/tenantTest'
 
 // Setup before all tests
-beforeAll(() => {
+beforeAll(async () => {
   // Set test environment variables
   process.env.NODE_ENV = 'test'
   process.env.JWT_SECRET = 'test-secret-key'
@@ -27,11 +28,17 @@ beforeAll(() => {
       DATABASE_URL: process.env.TEST_DATABASE_URL || process.env.DATABASE_URL,
     },
   })
-})
+
+  // Every suite gets its own tenant; tokens and fixtures scope to it via
+  // the helpers in ./helpers/tenantTest.
+  await initTestTenant()
+}, 60000) // db push + tenant init can exceed the default 10s hook timeout
 
 // Cleanup after all tests
-afterAll(() => {
-  // Close any open connections
+afterAll(async () => {
+  // Drop the shared Prisma connection so Jest can exit without --forceExit.
+  const { platformPrisma } = await import('../prismaClient')
+  await platformPrisma.$disconnect()
 })
 
 // Mock console methods to reduce noise in tests

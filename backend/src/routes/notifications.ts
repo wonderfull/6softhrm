@@ -132,7 +132,7 @@ router.post('/notify-leave-request', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Missing leaveRequestId' });
     }
 
-    const leaveRequest = await prisma.leaveRequest.findUnique({
+    const leaveRequest = await prisma.leaveRequest.findFirst({
       where: { id: parseInt(leaveRequestId) },
       include: {
         employee: true,
@@ -186,7 +186,7 @@ router.post(
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
-      const leaveRequest = await prisma.leaveRequest.findUnique({
+      const leaveRequest = await prisma.leaveRequest.findFirst({
         where: { id: parseInt(leaveRequestId) },
         include: {
           employee: true,
@@ -239,7 +239,7 @@ router.post('/notify-document-upload', requireAuth, async (req: any, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employee.findFirst({
       where: { id: parseInt(employeeId) },
     });
 
@@ -286,7 +286,7 @@ router.post(
 
       const sent = await sendEmail({
         to,
-        subject: '✅ Test Email from 6Soft HRM',
+        subject: '✅ Test Email from OnsideHR',
         html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: #10b981; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -294,7 +294,7 @@ router.post(
           </div>
           <div style="padding: 20px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
             <p style="font-size: 16px; color: #111827;">
-              This is a test email from your 6Soft HRM system.
+              This is a test email from your OnsideHR system.
             </p>
             <p style="font-size: 16px; color: #111827;">
               If you received this email, your email notifications are configured correctly! ✅

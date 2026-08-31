@@ -34,3 +34,9 @@ hooks/hook-debug.json
 # Browser automation session snapshots and scraped research data
 .playwright-mcp/
 tp-negative.json
+
+# Browser screenshots from gate verification runs
+kingfisher-dashboard.png
+
+# Database backups (local copies)
+backend/backups/

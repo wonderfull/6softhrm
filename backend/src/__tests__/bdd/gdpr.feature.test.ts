@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect } from '@jest/globals'
 import request from 'supertest'
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'
-import prisma from '../../prismaClient'
+import { testPrisma as prisma } from '../helpers/tenantTest'
 import { authHeader, cleanupFixturePrefix, createDocument, createEmployee, createProject, createTimesheet, createUser, uniquePrefix } from './helpers/fixtures'
 
 const feature = loadFeature(path.join(__dirname, '../features/gdpr.feature'))
@@ -38,7 +38,7 @@ describe('BDD: gdpr', () => {
         response = await request(app)
           .get('/api/gdpr/audit-logs')
           .query({ action: 'LOGIN_SUCCESS' })
-          .set('Authorization', authHeader({ id: 40, email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
+          .set('Authorization', authHeader({ email: `${prefix}.admin@example.com`, role: 'ADMIN' }))
       })
 
       then('the audit logs response includes the matching entry', () => {
@@ -65,7 +65,7 @@ describe('BDD: gdpr', () => {
       when('the employee requests their own subject access data', async () => {
         response = await request(app)
           .get(`/api/gdpr/subject-access-request/${employeeId}`)
-          .set('Authorization', authHeader({ id: 41, email, role: 'USER', employeeId }))
+          .set('Authorization', authHeader({ email, role: 'USER', employeeId }))
       })
 
       then('the export contains the employee email', () => {
@@ -93,7 +93,7 @@ describe('BDD: gdpr', () => {
       when("the first employee requests the second employee's subject access data", async () => {
         response = await request(app)
           .get(`/api/gdpr/subject-access-request/${targetEmployeeId}`)
-          .set('Authorization', authHeader({ id: 42, email: requesterEmail, role: 'USER', employeeId: requesterId }))
+          .set('Authorization', authHeader({ email: requesterEmail, role: 'USER', employeeId: requesterId }))
       })
 
       then('the request is rejected with a 403 response', () => {
@@ -117,7 +117,7 @@ describe('BDD: gdpr', () => {
       when('the employee records a consent choice', async () => {
         createConsentResponse = await request(app)
           .post('/api/gdpr/consent')
-          .set('Authorization', authHeader({ id: 43, email, role: 'USER', employeeId }))
+          .set('Authorization', authHeader({ email, role: 'USER', employeeId }))
           .send({
             employeeId,
             consentType: `${prefix}-photo_usage`,
@@ -129,7 +129,7 @@ describe('BDD: gdpr', () => {
       and('the employee requests their consent history', async () => {
         historyResponse = await request(app)
           .get(`/api/gdpr/consent/${employeeId}`)
-          .set('Authorization', authHeader({ id: 43, email, role: 'USER', employeeId }))
+          .set('Authorization', authHeader({ email, role: 'USER', employeeId }))
       })
 
       then('the consent history contains the recorded consent type', () => {
@@ -168,9 +168,7 @@ describe('BDD: gdpr', () => {
       when('the linked employee records consent for the other employee', async () => {
         response = await request(app)
           .post('/api/gdpr/consent')
-          .set('Authorization', authHeader({
-            id: 44,
-            email: requesterEmail,
+          .set('Authorization', authHeader({ email: requesterEmail,
             role: 'USER',
             employeeId: requesterId,
           }))

@@ -40,6 +40,10 @@ export interface EmailOptions {
 
 // Send email
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
+  // Never touch a real SMTP server from tests.
+  if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+    return false
+  }
   if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
     console.warn('Email not sent - SMTP not configured')
     return false
@@ -47,7 +51,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 
   try {
     const info = await transporter.sendMail({
-      from: `"${process.env.SMTP_FROM_NAME || '6Soft HRM'}" <${process.env.SMTP_USER}>`,
+      from: `"${process.env.SMTP_FROM_NAME || 'OnsideHR'}" <${process.env.SMTP_USER}>`,
       to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
       subject: options.subject,
       text: options.text || options.html.replace(/<[^>]*>/g, ''),
@@ -84,7 +88,7 @@ export const EmailTemplates = {
             </p>
           </div>
           <p style="color: #6b7280; font-size: 14px;">
-            This is an automated notification from 6Soft HRM. Please login to the system to update records.
+            This is an automated notification from OnsideHR. Please login to the system to update records.
           </p>
         </div>
       </div>
@@ -110,7 +114,7 @@ export const EmailTemplates = {
             </p>
           </div>
           <p style="color: #6b7280; font-size: 14px;">
-            This is an automated notification from 6Soft HRM. Please login to the system to update records.
+            This is an automated notification from OnsideHR. Please login to the system to update records.
           </p>
         </div>
       </div>
@@ -137,7 +141,7 @@ export const EmailTemplates = {
             </p>
           </div>
           <p style="color: #6b7280; font-size: 14px;">
-            This is an automated notification from 6Soft HRM. Please login to the system to process this request.
+            This is an automated notification from OnsideHR. Please login to the system to process this request.
           </p>
         </div>
       </div>
@@ -169,7 +173,7 @@ export const EmailTemplates = {
             </p>
           </div>
           <p style="color: #6b7280; font-size: 14px;">
-            This is an automated notification from 6Soft HRM.
+            This is an automated notification from OnsideHR.
           </p>
         </div>
       </div>
@@ -203,7 +207,7 @@ export const EmailTemplates = {
           </div>
           ` : ''}
           <p style="color: #6b7280; font-size: 14px;">
-            This is an automated notification from 6Soft HRM. Please contact your manager for more information.
+            This is an automated notification from OnsideHR. Please contact your manager for more information.
           </p>
         </div>
       </div>
@@ -215,7 +219,7 @@ export const EmailTemplates = {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #8b5cf6; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0;">🎉 Welcome to 6Soft!</h2>
+          <h2 style="margin: 0;">🎉 Welcome aboard!</h2>
         </div>
         <div style="padding: 20px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
           <p style="font-size: 16px; color: #111827;">
@@ -265,7 +269,7 @@ export const EmailTemplates = {
             </p>
           </div>
           <p style="color: #6b7280; font-size: 14px;">
-            This is an automated notification from 6Soft HRM.
+            This is an automated notification from OnsideHR.
           </p>
         </div>
       </div>

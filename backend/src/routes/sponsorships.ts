@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import prisma from '../prismaClient'
+import { currentTenantId } from '../lib/tenantContext'
 import { requireAuth } from '../middleware/auth'
 import { requireRole } from '../middleware/roles'
 import { auditLog } from '../middleware/audit'
@@ -133,7 +134,7 @@ async function findAuthorizedSponsorshipForCompliance(req: any, res: any, id: nu
   const user = req.user
   const role = normalizeRole(user?.role)
 
-  const sponsorship = await prisma.sponsorship.findUnique({
+  const sponsorship = await prisma.sponsorship.findFirst({
     where: { id },
     include: {
       employee: true,
@@ -287,7 +288,7 @@ router.put('/reportable-events/:eventId/mark-reported', requireAuth, requireRole
   }
 
   try {
-    const event = await prisma.sponsorshipReportableEvent.update({
+    const updatedCount = await prisma.sponsorshipReportableEvent.updateMany({
       where: { id: eventId },
       data: {
         status: 'REPORTED',
@@ -295,6 +296,13 @@ router.put('/reportable-events/:eventId/mark-reported', requireAuth, requireRole
         reportedBy: req.user?.id,
       },
     })
+    if (updatedCount.count === 0)
+      return res.status(404).json({ error: 'Reportable event not found' })
+    const event = await prisma.sponsorshipReportableEvent.findFirst({
+      where: { id: eventId },
+    })
+    if (!event)
+      return res.status(404).json({ error: 'Reportable event not found' })
 
     await auditLog(req, 'UPDATE', 'SponsorshipReportableEvent', event.id, {
       sponsorshipId: event.sponsorshipId,
@@ -341,14 +349,14 @@ router.post('/:id/compliance/evidence', requireAuth, async (req: any, res) => {
   }
 
   try {
-    const sponsorship = await prisma.sponsorship.findUnique({
+    const sponsorship = await prisma.sponsorship.findFirst({
       where: { id },
       include: { employee: true },
     })
     if (!sponsorship) return res.status(404).json({ error: 'Sponsorship not found' })
 
     if (documentId) {
-      const document = await prisma.document.findUnique({ where: { id: Number(documentId) } })
+      const document = await prisma.document.findFirst({ where: { id: Number(documentId) } })
       if (!document) return res.status(400).json({ error: 'Document not found' })
       if (document.employeeId !== sponsorship.employeeId) {
         return res.status(400).json({ error: 'Document must belong to the sponsored employee' })
@@ -357,6 +365,7 @@ router.post('/:id/compliance/evidence', requireAuth, async (req: any, res) => {
 
     const evidence = await prisma.sponsorshipComplianceEvidence.create({
       data: {
+        tenantId: currentTenantId(),
         sponsorshipId: sponsorship.id,
         documentId: documentId ? Number(documentId) : undefined,
         evidenceType,
@@ -397,7 +406,7 @@ router.post('/:id/reportable-events', requireAuth, requireRole('ADMIN', 'DIRECTO
   }
 
   try {
-    const sponsorship = await prisma.sponsorship.findUnique({
+    const sponsorship = await prisma.sponsorship.findFirst({
       where: { id: sponsorshipId },
       select: { id: true, employeeId: true },
     })
@@ -405,6 +414,7 @@ router.post('/:id/reportable-events', requireAuth, requireRole('ADMIN', 'DIRECTO
 
     const event = await prisma.sponsorshipReportableEvent.create({
       data: {
+        tenantId: currentTenantId(),
         sponsorshipId: sponsorship.id,
         eventType,
         eventDate: parsedEventDate,
@@ -432,7 +442,7 @@ router.get('/:id', requireAuth, async (req: any, res) => {
   const role = normalizeRole(user?.role)
 
   try {
-    const sponsorship = await prisma.sponsorship.findUnique({
+    const sponsorship = await prisma.sponsorship.findFirst({
       where: { id },
       include: { employee: true },
     })
@@ -462,6 +472,7 @@ router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any,
   try {
     const s = await prisma.sponsorship.create({
       data: {
+        tenantId: currentTenantId(),
         employeeId,
         visaType,
         casNumber,
@@ -491,7 +502,11 @@ router.put('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: an
     if (startDate) data.startDate = new Date(startDate)
     if (endDate !== undefined) data.endDate = endDate ? new Date(endDate) : null
     
-    const s = await prisma.sponsorship.update({ where: { id }, data })
+    const updated = await prisma.sponsorship.updateMany({ where: { id }, data })
+    if (updated.count === 0)
+      return res.status(404).json({ error: 'Sponsorship not found' })
+    const s = await prisma.sponsorship.findFirst({ where: { id } })
+    if (!s) return res.status(404).json({ error: 'Sponsorship not found' })
     await auditLog(req, 'UPDATE', 'Sponsorship', s.id, {
       updatedFields: Object.keys(data),
     })
@@ -505,8 +520,9 @@ router.put('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: an
 router.delete('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
   const id = Number(req.params.id)
   try {
-    const existing = await prisma.sponsorship.findUnique({ where: { id } })
-    await prisma.sponsorship.delete({ where: { id } })
+    const existing = await prisma.sponsorship.findFirst({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Sponsorship not found' })
+    await prisma.sponsorship.deleteMany({ where: { id } })
     await auditLog(req, 'DELETE', 'Sponsorship', id, {
       employeeId: existing?.employeeId,
       visaType: existing?.visaType,

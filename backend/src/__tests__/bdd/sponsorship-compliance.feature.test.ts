@@ -3,9 +3,10 @@ import request from 'supertest'
 import { afterEach, beforeEach, expect } from '@jest/globals'
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'
-import prisma from '../../prismaClient'
+import { testPrisma as prisma } from '../helpers/tenantTest'
 import {
   authHeader,
+  createUser,
   cleanupFixturePrefix,
   createDocument,
   createEmployee,
@@ -32,6 +33,7 @@ defineFeature(feature, (test) => {
   let response: request.Response
 
   beforeEach(() => {
+    for (const key of Object.keys(roleUsers)) delete roleUsers[key]
     prefix = uniquePrefix('sponsorship-compliance')
   })
 
@@ -44,12 +46,17 @@ defineFeature(feature, (test) => {
     sponsorship = await createSponsorship(employee.id)
   }
 
-  function roleHeader(role: string, id = 50) {
-    return authHeader({
-      id,
-      email: `${prefix}.${role.toLowerCase()}@example.com`,
-      role,
-    })
+  const roleUsers: Record<string, any> = {}
+
+  async function roleHeader(role: string) {
+    if (!roleUsers[role]) {
+      roleUsers[role] = await createUser(`${prefix}.${role.toLowerCase()}`, {
+        email: `${prefix}.${role.toLowerCase()}@example.com`,
+        role,
+      })
+    }
+    const user = roleUsers[role]
+    return authHeader({ id: user.id, email: user.email, role })
   }
 
   test('HR support roles can view a compliance pack', ({ given, when, then }) => {
@@ -58,7 +65,7 @@ defineFeature(feature, (test) => {
     when(/^a (.*) views the sponsorship compliance pack$/, async (role: string) => {
       response = await request(app)
         .get(`/api/sponsorships/${sponsorship.id}/compliance`)
-        .set('Authorization', roleHeader(role))
+        .set('Authorization', await roleHeader(role))
     })
 
     then('the compliance pack is returned with five missing evidence rows', () => {
@@ -88,9 +95,7 @@ defineFeature(feature, (test) => {
     when('the linked employee views the sponsorship compliance pack', async () => {
       response = await request(app)
         .get(`/api/sponsorships/${sponsorship.id}/compliance`)
-        .set('Authorization', authHeader({
-          id: 51,
-          email: otherEmployee.email,
+        .set('Authorization', authHeader({ email: otherEmployee.email,
           role: 'EMPLOYEE',
           employeeId: otherEmployee.id,
         }))
@@ -110,7 +115,7 @@ defineFeature(feature, (test) => {
     when('the office assistant adds right-to-work compliance evidence', async () => {
       response = await request(app)
         .post(`/api/sponsorships/${sponsorship.id}/compliance/evidence`)
-        .set('Authorization', roleHeader('OFFICE_ASSISTANT', 52))
+        .set('Authorization', await roleHeader('OFFICE_ASSISTANT'))
         .send({ ...requiredRightToWorkEvidence, documentId: document.id })
     })
 
@@ -134,7 +139,7 @@ defineFeature(feature, (test) => {
     when('the office assistant updates the sponsorship visa type', async () => {
       response = await request(app)
         .put(`/api/sponsorships/${sponsorship.id}`)
-        .set('Authorization', roleHeader('OFFICE_ASSISTANT', 52))
+        .set('Authorization', await roleHeader('OFFICE_ASSISTANT'))
         .send({ visaType: 'Changed Worker' })
     })
 
@@ -154,7 +159,7 @@ defineFeature(feature, (test) => {
     when("the office assistant adds compliance evidence using the other employee's document", async () => {
       response = await request(app)
         .post(`/api/sponsorships/${sponsorship.id}/compliance/evidence`)
-        .set('Authorization', roleHeader('OFFICE_ASSISTANT', 53))
+        .set('Authorization', await roleHeader('OFFICE_ASSISTANT'))
         .send({ ...requiredRightToWorkEvidence, documentId: otherDocument.id })
     })
 
@@ -173,7 +178,7 @@ defineFeature(feature, (test) => {
     when('an admin views the sponsorship compliance pack', async () => {
       response = await request(app)
         .get(`/api/sponsorships/${sponsorship.id}/compliance`)
-        .set('Authorization', roleHeader('ADMIN', 54))
+        .set('Authorization', await roleHeader('ADMIN'))
     })
 
     then('right-to-work evidence is missing', () => {
@@ -186,14 +191,14 @@ defineFeature(feature, (test) => {
     when('the office assistant adds right-to-work compliance evidence', async () => {
       response = await request(app)
         .post(`/api/sponsorships/${sponsorship.id}/compliance/evidence`)
-        .set('Authorization', roleHeader('OFFICE_ASSISTANT', 55))
+        .set('Authorization', await roleHeader('OFFICE_ASSISTANT'))
         .send({ ...requiredRightToWorkEvidence, documentId: document.id })
     })
 
     and('an admin views the sponsorship compliance pack', async () => {
       response = await request(app)
         .get(`/api/sponsorships/${sponsorship.id}/compliance`)
-        .set('Authorization', roleHeader('ADMIN', 54))
+        .set('Authorization', await roleHeader('ADMIN'))
     })
 
     then('right-to-work evidence is complete', () => {
@@ -226,7 +231,7 @@ defineFeature(feature, (test) => {
     when('an admin reviews reportable sponsorship events', async () => {
       response = await request(app)
         .get('/api/sponsorships/reportable-events/open')
-        .set('Authorization', roleHeader('ADMIN', 56))
+        .set('Authorization', await roleHeader('ADMIN'))
     })
 
     then('the worker is flagged for delayed start reporting', () => {
@@ -252,7 +257,7 @@ defineFeature(feature, (test) => {
     when('a director reviews reportable sponsorship events', async () => {
       response = await request(app)
         .post(`/api/sponsorships/${sponsorship.id}/reportable-events`)
-        .set('Authorization', roleHeader('DIRECTOR', 57))
+        .set('Authorization', await roleHeader('DIRECTOR'))
         .send({
           eventType: 'UNAUTHORISED_ABSENCE_10_DAYS',
           eventDate: '2026-05-01T00:00:00.000Z',
@@ -277,7 +282,7 @@ defineFeature(feature, (test) => {
     when('the office assistant creates a work location changed reportable event', async () => {
       response = await request(app)
         .post(`/api/sponsorships/${sponsorship.id}/reportable-events`)
-        .set('Authorization', roleHeader('OFFICE_ASSISTANT', 58))
+        .set('Authorization', await roleHeader('OFFICE_ASSISTANT'))
         .send({
           eventType: 'WORK_LOCATION_CHANGED',
           eventDate: '2026-05-01T00:00:00.000Z',
@@ -296,7 +301,7 @@ defineFeature(feature, (test) => {
     when('the office assistant marks the reportable event as reported', async () => {
       response = await request(app)
         .put(`/api/sponsorships/reportable-events/${reportableEvent.id}/mark-reported`)
-        .set('Authorization', roleHeader('OFFICE_ASSISTANT', 58))
+        .set('Authorization', await roleHeader('OFFICE_ASSISTANT'))
     })
 
     then('the reportable event update is forbidden', () => {
@@ -321,14 +326,14 @@ defineFeature(feature, (test) => {
     when('a director marks the reportable event as reported', async () => {
       response = await request(app)
         .put(`/api/sponsorships/reportable-events/${reportableEvent.id}/mark-reported`)
-        .set('Authorization', roleHeader('DIRECTOR', 59))
+        .set('Authorization', await roleHeader('DIRECTOR'))
     })
 
     then('the reportable event is marked as reported by the director', () => {
       expect(response.status).toBe(200)
       expect(response.body.status).toBe('REPORTED')
       expect(response.body.reportedAt).toEqual(expect.any(String))
-      expect(response.body.reportedBy).toBe(59)
+      expect(response.body.reportedBy).toBe(roleUsers.DIRECTOR.id)
     })
   })
 })

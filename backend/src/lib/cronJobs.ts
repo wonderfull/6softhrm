@@ -1,5 +1,8 @@
 import cron from 'node-cron';
-import prisma from '../prismaClient';
+// Cron sweeps run outside any request, so they use the platform client.
+// TODO(multi-tenant P6): iterate tenants and run each sweep inside
+// runWithTenant() so alerts only reach that tenant's admins.
+import { platformPrisma as prisma } from '../prismaClient';
 import { sendEmail, EmailTemplates } from './emailService';
 
 // In-memory cron status — surfaced via /api/notifications/cron-status so the

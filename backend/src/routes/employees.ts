@@ -1,5 +1,10 @@
 import { Router } from 'express';
 import prisma from '../prismaClient';
+import { currentTenantId } from '../lib/tenantContext';
+import { assertSeatsAvailable } from '../lib/tenantPolicy';
+import multer from 'multer';
+import { csvTemplate, parseImportFile } from '../lib/employeeImport';
+import { rebindTenant } from '../middleware/auth';
 import { requireAuth } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
 import { requireRole } from '../middleware/roles';
@@ -134,7 +139,7 @@ router.get('/', requireAuth, async (req: any, res) => {
     userRole !== ROLES.OFFICE_ASSISTANT &&
     userEmail
   ) {
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employee.findFirst({
       where: { email: userEmail },
       include: { sponsorships: true, documents: true },
     });
@@ -218,18 +223,21 @@ router.post(
   async (req: any, res) => {
     const data = normalizeEmployeePayload(req.body);
     try {
-      const emp = await prisma.employee.create({ data });
+      await assertSeatsAvailable(1);
+      const emp = await prisma.employee.create({
+        data: { ...data, tenantId: currentTenantId() },
+      });
       await auditLog(req, 'CREATE', 'Employee', emp.id, {
         firstName: emp.firstName,
         lastName: emp.lastName,
         email: emp.email,
       });
       // Auto-link to user if email matches
-      const user = await prisma.user.findUnique({
+      const user = await prisma.user.findFirst({
         where: { email: emp.email },
       });
       if (user && !user.employeeId) {
-        await prisma.user.update({
+        await prisma.user.updateMany({
           where: { id: user.id },
           data: { employeeId: emp.id },
         });
@@ -237,6 +245,9 @@ router.post(
 
       res.json(emp);
     } catch (e: any) {
+      if (e.code === 'SEAT_LIMIT_REACHED') {
+        return res.status(402).json({ error: e.message, code: e.code });
+      }
       console.error('Error creating employee:', e);
       res.status(400).json({ error: e.message });
     }
@@ -252,7 +263,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
     if (role === ROLES.ADMIN || role === ROLES.DIRECTOR) {
       data = normalizeEmployeePayload(req.body);
     } else if (role === ROLES.EMPLOYEE) {
-      const existing = await prisma.employee.findUnique({
+      const existing = await prisma.employee.findFirst({
         where: { id: employeeId },
       });
       const ownsRecord =
@@ -265,10 +276,14 @@ router.put('/:id', requireAuth, async (req: any, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const emp = await prisma.employee.update({
+    const updated = await prisma.employee.updateMany({
       where: { id: employeeId },
       data,
     });
+    if (updated.count === 0)
+      return res.status(404).json({ error: 'Employee not found' });
+    const emp = await prisma.employee.findFirst({ where: { id: employeeId } });
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
     await auditLog(req, 'UPDATE', 'Employee', emp.id, {
       updatedFields: Object.keys(data).filter((k) => data[k] !== undefined),
       selfService: role === ROLES.EMPLOYEE,
@@ -288,7 +303,7 @@ router.delete(
     const { id } = req.params;
     try {
       const employeeId = parseInt(id);
-      const emp = await prisma.employee.findUnique({
+      const emp = await prisma.employee.findFirst({
         where: { id: employeeId },
       });
       if (!emp) {
@@ -307,7 +322,7 @@ router.delete(
         prisma.leaveRequest.deleteMany({ where: { employeeId } }),
         prisma.document.deleteMany({ where: { employeeId } }),
         prisma.dataConsent.deleteMany({ where: { employeeId } }),
-        prisma.employee.delete({ where: { id: employeeId } }),
+        prisma.employee.deleteMany({ where: { id: employeeId } }),
       ]);
       await auditLog(req, 'DELETE', 'Employee', employeeId, {
         deletedEmployee: `${emp.firstName} ${emp.lastName}`,
@@ -315,6 +330,114 @@ router.delete(
       res.json({ success: true });
     } catch (e: any) {
       console.error('Error deleting employee:', e);
+      res.status(400).json({ error: e.message });
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// CSV import — the #1 onboarding unblocker. Dry run first, then commit.
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+});
+
+router.get(
+  '/import/template',
+  requireAuth,
+  requireRole('ADMIN', 'DIRECTOR'),
+  (_req, res) => {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="onsidehr-employee-import-template.csv"',
+    );
+    res.send(csvTemplate());
+  },
+);
+
+router.post(
+  '/import',
+  requireAuth,
+  requireRole('ADMIN', 'DIRECTOR'),
+  importUpload.single('file'),
+  rebindTenant,
+  async (req: any, res) => {
+    const file = req.file as Express.Multer.File | undefined;
+    if (!file) return res.status(400).json({ error: 'No file uploaded' });
+    const dryRun = String(req.query.dryRun ?? req.body.dryRun ?? '') === 'true';
+
+    try {
+      const { rows, headerErrors } = parseImportFile(file.buffer);
+      if (headerErrors.length) {
+        return res.status(400).json({ error: headerErrors.join(' ') , headerErrors});
+      }
+
+      // Idempotency: an existing employee with the same email is updated.
+      const existing = await prisma.employee.findMany({
+        where: { email: { in: rows.map((r) => r.email).filter(Boolean) } },
+        select: { id: true, email: true },
+      });
+      const existingByEmail = new Map(existing.map((e) => [e.email.toLowerCase(), e.id]));
+
+      const plan = rows.map((r) => ({
+        ...r,
+        action: r.errors.length ? ('error' as const)
+          : existingByEmail.has(r.email) ? ('update' as const)
+          : ('create' as const),
+      }));
+      const creates = plan.filter((r) => r.action === 'create');
+      const summary = {
+        total: plan.length,
+        creates: creates.length,
+        updates: plan.filter((r) => r.action === 'update').length,
+        errors: plan.filter((r) => r.action === 'error').length,
+      };
+
+      if (dryRun) {
+        return res.json({
+          dryRun: true,
+          summary,
+          rows: plan.map(({ data, ...rest }) => ({ ...rest, preview: data })),
+        });
+      }
+
+      await assertSeatsAvailable(creates.length);
+
+      let created = 0;
+      let updated = 0;
+      for (const r of plan) {
+        if (r.action === 'error') continue;
+        const existingId = existingByEmail.get(r.email);
+        if (existingId) {
+          await prisma.employee.updateMany({ where: { id: existingId }, data: r.data });
+          updated += 1;
+        } else {
+          await prisma.employee.create({
+            data: { ...(r.data as any), tenantId: currentTenantId() },
+          });
+          created += 1;
+        }
+      }
+
+      await auditLog(req, 'IMPORT', 'Employee', undefined, {
+        created,
+        updated,
+        skipped: summary.errors,
+        filename: file.originalname,
+      });
+
+      res.json({
+        dryRun: false,
+        summary: { ...summary, created, updated },
+        rows: plan
+          .filter((r) => r.action === 'error')
+          .map(({ data, ...rest }) => rest),
+      });
+    } catch (e: any) {
+      if (e.code === 'SEAT_LIMIT_REACHED') {
+        return res.status(402).json({ error: e.message, code: e.code });
+      }
       res.status(400).json({ error: e.message });
     }
   },
@@ -329,7 +452,7 @@ router.get('/export/excel', requireAuth, async (req: any, res) => {
     let employees;
     // If user is not ADMIN/MANAGER, show only their own employee record
     if (userRole !== 'ADMIN' && userRole !== 'MANAGER' && userEmail) {
-      const employee = await prisma.employee.findUnique({
+      const employee = await prisma.employee.findFirst({
         where: { email: userEmail },
       });
       employees = employee ? [employee] : [];

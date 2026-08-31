@@ -112,7 +112,7 @@ const DataExport: React.FC = () => {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `6soft-hrm-full-backup-${new Date().toISOString().split('T')[0]}.zip`
+      a.download = `onsidehr-full-backup-${new Date().toISOString().split('T')[0]}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

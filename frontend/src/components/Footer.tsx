@@ -7,7 +7,7 @@ import {
 } from 'react-icons/hi';
 import { getCurrentUser, hasRole } from '../lib/api';
 
-const CONTACT_EMAIL = 'info@6soft.co.uk';
+const CONTACT_EMAIL = 'hello@onsidehr.co.uk';
 const CONTACT_PHONE = '+44 123 456 7890';
 const CONTACT_PHONE_HREF = 'tel:+441234567890';
 
@@ -25,7 +25,7 @@ export default function Footer() {
           {/* Company Info */}
           <div className="col-span-1">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3">
-              6soft HRM
+              OnsideHR
             </h3>
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
               Professional Human Resource Management System for modern
@@ -190,7 +190,7 @@ export default function Footer() {
         <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              © {currentYear} 6soft HRM. All rights reserved.
+              © {currentYear} OnsideHR · operated by 6soft Ltd. All rights reserved.
             </p>
             <div className="flex gap-6">
               <Link
@@ -210,6 +210,12 @@ export default function Footer() {
                 className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 GDPR Compliance
+              </Link>
+              <Link
+                to="/dpa"
+                className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                DPA
               </Link>
             </div>
           </div>
