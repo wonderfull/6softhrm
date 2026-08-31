@@ -4,12 +4,12 @@ import { resolve } from 'path'
 // Load environment variables from .env file
 config({ path: resolve(__dirname, '../.env') })
 
-import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { platformPrisma as prisma } from '../src/prismaClient'
 
-// The seed uses the raw client deliberately: it runs outside any request, and
-// every row it writes carries an explicit tenantId.
-const prisma = new PrismaClient()
+// The seed uses the platform (unscoped) client deliberately: it runs outside
+// any request, and every row it writes carries an explicit tenantId. Field
+// encryption still applies, so seeded NI numbers are not stored in plaintext.
 
 async function upsertBootstrapUser(
   tenantId: number,

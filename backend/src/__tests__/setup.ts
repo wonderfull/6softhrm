@@ -2,6 +2,13 @@ import { beforeAll, afterAll, expect } from '@jest/globals'
 import { execSync } from 'child_process'
 import { initTestTenant } from './helpers/tenantTest'
 
+// Set at module load, not in beforeAll: prismaClient is imported by the suites
+// before any hook runs, and the field-encryption layer needs a key from the
+// first query onwards.
+process.env.FIELD_ENCRYPTION_KEY =
+  process.env.FIELD_ENCRYPTION_KEY ||
+  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+
 // Setup before all tests
 beforeAll(async () => {
   // Set test environment variables

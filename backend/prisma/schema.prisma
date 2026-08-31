@@ -101,7 +101,10 @@ model Employee {
   email            String
   phoneNumber      String?
   workPhone        String?
-  niNumber         String? // National Insurance placeholder
+  // Encrypted at rest (AES-256-GCM) by the prismaClient extension — see
+  // src/lib/fieldEncryption.ts. TEXT because the stored value is base64 of
+  // IV + auth tag + ciphertext, and unfilterable because every row has its own IV.
+  niNumber         String?   @db.Text // National Insurance
   jobTitle         String?
   employeeType     String    @default("EMPLOYEE") // EMPLOYEE or DIRECTOR
   department       String?
@@ -121,8 +124,8 @@ model Employee {
   accountName   String?
   bankName      String?
   bankBranch    String?
-  accountNumber String?
-  sortCode      String?
+  accountNumber String? @db.Text // encrypted at rest
+  sortCode      String? @db.Text // encrypted at rest
 
   // Salary Details
   salary              Float?
@@ -134,7 +137,7 @@ model Employee {
 
   // Sensitive Identity and Eligibility Details
   taxCode                String?
-  passportNumber         String?
+  passportNumber         String?   @db.Text // encrypted at rest
   passportCountryOfIssue String?
   passportExpiryDate     DateTime?
   licenceNumber          String?

@@ -1,6 +1,11 @@
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { tenantStore } from './lib/tenantContext';
+import {
+  assertNotFilteringEncryptedFields,
+  decryptReadResult,
+  encryptWriteData,
+} from './lib/fieldEncryption';
 
 dotenv.config();
 
@@ -56,15 +61,48 @@ const CREATE_OPS = new Set(['create', 'createMany']);
 
 const base = new PrismaClient();
 
+// Args that carry rows to write. `where` is absent on purpose: an encrypted
+// column cannot be matched by the database, so filters on one are rejected
+// rather than encrypted into a filter that would match nothing.
+const WRITE_ARG_KEYS = ['data', 'create', 'update'] as const;
+
+/**
+ * Field-encryption layer, applied *under* tenant scoping so both clients get
+ * it. Encrypts the sensitive Employee columns on the way in and decrypts them
+ * on the way out, transparently to every caller. It runs on all models because
+ * these columns come back nested — `include: { employee: true }` on timesheets,
+ * leave, documents — and the walkers key on field name, not model.
+ */
+const encrypted = base.$extends({
+  query: {
+    $allModels: {
+      async $allOperations({ model, operation, args, query }) {
+        const incoming: any = args ?? {};
+        if (incoming.where) {
+          assertNotFilteringEncryptedFields(model, operation, incoming.where);
+        }
+        let next = incoming;
+        for (const key of WRITE_ARG_KEYS) {
+          if (incoming[key] !== undefined) {
+            next = { ...next, [key]: encryptWriteData(incoming[key]) };
+          }
+        }
+        return decryptReadResult(await query(next));
+      },
+    },
+  },
+});
+
 /**
  * Platform client — NO tenant scoping. Reserved for work that is legitimately
  * cross-tenant or pre-auth: login's email→tenant resolution, the platform
  * admin console, cron sweeps, seeds and migrations. Every use is a
  * deliberate, greppable escape hatch; route handlers must not import it.
+ * Field encryption still applies; only $queryRaw sees the raw columns.
  */
-export const platformPrisma = base;
+export const platformPrisma = encrypted;
 
-const prisma = base.$extends({
+const prisma = encrypted.$extends({
   query: {
     $allModels: {
       async $allOperations({ model, operation, args, query }) {
