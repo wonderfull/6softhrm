@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -149,6 +150,28 @@ app.use('/api/platform', platformRoutes);
 app.use('/api/tenant', tenantRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Multer throws on a rejected upload — oversized, too many files, unexpected
+// field. Without this the MulterError reaches Express's default handler and
+// the client gets a 500 (with a stack outside production) instead of being
+// told the file is too large. Must sit after the routes that mount multer.
+app.use(
+  (
+    err: unknown,
+    _req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    if (!(err instanceof multer.MulterError)) return next(err);
+    const tooBig = err.code === 'LIMIT_FILE_SIZE';
+    return res.status(tooBig ? 413 : 400).json({
+      error: tooBig
+        ? 'That file is larger than the 5MB limit.'
+        : `Upload rejected: ${err.code}`,
+      code: err.code,
+    });
+  },
+);
 
 // JSON 404 for unknown /api/* routes (avoids leaking Express's HTML
 // "Cannot GET /api/..." default and keeps API clients happy).
