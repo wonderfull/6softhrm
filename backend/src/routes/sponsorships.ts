@@ -210,13 +210,32 @@ router.get('/audit-readiness', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OF
     const now = new Date()
     const in30Days = addUtcDays(now, 30)
 
+    // Scoring only needs evidence presence and verification, so the evidence
+    // documents themselves are deliberately not selected.
     const sponsorships = await prisma.sponsorship.findMany({
       where: { active: true },
       include: {
-        employee: true,
-        complianceEvidence: { include: { document: true }, orderBy: { createdAt: 'desc' } },
+        complianceEvidence: {
+          select: { evidenceType: true, verifiedAt: true },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     })
+
+    const sponsoredEmployeeIds = sponsorships.map((s) => s.employeeId)
+    const withCosTerms = sponsorships.filter((s) => s.cosSalary || s.goingRateSalary)
+
+    // One query for every sponsored worker's pay, grouped in memory — this ran
+    // per sponsorship, so a 60-worker tenant issued 60 serial queries per load.
+    const payRecords = await prisma.payRecord.findMany({
+      where: { employeeId: { in: withCosTerms.map((s) => s.employeeId) } },
+    })
+    const payByEmployee = new Map<number, typeof payRecords>()
+    for (const record of payRecords) {
+      const list = payByEmployee.get(record.employeeId)
+      if (list) list.push(record)
+      else payByEmployee.set(record.employeeId, [record])
+    }
 
     let completenessTotal = 0
     let missingCosTerms = 0
@@ -233,10 +252,7 @@ router.get('/audit-readiness', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OF
         missingCosTerms += 1
         continue
       }
-      const periods = await prisma.payRecord.findMany({
-        where: { employeeId: sponsorship.employeeId },
-      })
-      salaryFailures += assessPeriods(periods, {
+      salaryFailures += assessPeriods(payByEmployee.get(sponsorship.employeeId) ?? [], {
         cosSalary: sponsorship.cosSalary,
         goingRateSalary: sponsorship.goingRateSalary,
       }).filter((a) => !a.compliant).length
@@ -248,7 +264,10 @@ router.get('/audit-readiness', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OF
         where: { status: 'OPEN', dueDate: { lt: now } },
       }),
       prisma.employee.count({
-        where: { visaExpiryDate: { gte: now, lte: in30Days } },
+        where: {
+          id: { in: sponsoredEmployeeIds },
+          visaExpiryDate: { gte: now, lte: in30Days },
+        },
       }),
       prisma.absenceRecord.count({ where: { status: 'UNKNOWN' } }),
     ])
