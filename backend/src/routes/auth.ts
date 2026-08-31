@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Request, Router } from 'express'
 import prisma, { platformPrisma } from '../prismaClient'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
@@ -10,6 +10,8 @@ import { getJwtSecret } from '../lib/authConfig'
 import { sendEmail } from '../lib/emailService'
 import QRCode from 'qrcode'
 import { generateTotpSecret, totpKeyUri, verifyTotp } from '../lib/totp'
+import { loginThrottle } from '../lib/loginThrottle'
+import { throttleLoginByAccount } from '../middleware/loginThrottle'
 import {
   canManageUserAccounts,
   normalizeRole,
@@ -134,6 +136,29 @@ router.post('/link-employee', requireAuth, requireRole('ADMIN', 'DIRECTOR'), asy
   }
 })
 
+// Counts a failed login against the account and, on the attempt that trips
+// the lockout, writes a single audit row. Called for unknown emails too, so
+// a locked non-existent account behaves exactly like a locked real one.
+async function registerFailedLogin(
+  req: Request,
+  email: string,
+  userId: number | null,
+  tenantId: number | null,
+) {
+  const { locked, failures, retryAfterMs } = loginThrottle.registerFailure(email)
+  if (!locked) return
+  await createAuditLog(
+    userId,
+    email,
+    'LOGIN_LOCKED_OUT',
+    'User',
+    userId,
+    `${failures} failed attempts; locked for ${Math.ceil(retryAfterMs / 60000)}m`,
+    req,
+    tenantId,
+  )
+}
+
 function issueSessionToken(user: any) {
   const secret = getJwtSecret()
   const role = normalizeRole(user.role)
@@ -167,7 +192,7 @@ function issueSessionToken(user: any) {
   }
 }
 
-router.post('/login', async (req, res) => {
+router.post('/login', throttleLoginByAccount, async (req, res) => {
   const { email, password } = req.body
   if (!email || !password) return res.status(400).json({ error: 'email and password required' })
 
@@ -179,14 +204,20 @@ router.post('/login', async (req, res) => {
   })
   if (!user) {
     await createAuditLog(null, email, 'LOGIN_FAILED', 'User', null, 'Invalid email', req, null)
+    await registerFailedLogin(req, email, null, null)
     return res.status(401).json({ error: 'Invalid credentials' })
   }
 
   const ok = await bcrypt.compare(password, user.password)
   if (!ok) {
     await createAuditLog(user.id, email, 'LOGIN_FAILED', 'User', user.id, 'Invalid password', req, user.tenantId)
+    await registerFailedLogin(req, email, user.id, user.tenantId)
     return res.status(401).json({ error: 'Invalid credentials' })
   }
+
+  // Credentials were correct: this was never a brute-force run, so clear the
+  // counter before the tenant-status and 2FA branches below.
+  loginThrottle.reset(email)
 
   if (user.tenant.status === 'SUSPENDED' || user.tenant.status === 'CANCELLED' || user.tenant.deletedAt) {
     await createAuditLog(user.id, email, 'LOGIN_BLOCKED_TENANT_STATUS', 'User', user.id, user.tenant.status, req, user.tenantId)
