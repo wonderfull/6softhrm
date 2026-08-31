@@ -40,7 +40,7 @@ Re-rehearse after every schema migration and at least quarterly.
 ## Verification
 `npm --prefix backend run verify:all` runs the whole chain and is the pre-deploy gate:
 1. `check:tenancy` — static guard: no tenant-unsafe Prisma ops in route code
-2. `test` — 275 backend tests
+2. `test` — the full backend Jest suite (the run prints the count)
 3. `verify:tenancy` — 19 live isolation checks (deny-by-default, cross-tenant
    IDOR on reads/writes/files, legacy tokens, suspension of live sessions)
 4. `verify:onboarding` — 14 checks: full customer onboarding end to end
