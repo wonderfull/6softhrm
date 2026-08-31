@@ -4,6 +4,7 @@ import cron from 'node-cron';
 // runWithTenant() so alerts only reach that tenant's admins.
 import { platformPrisma as prisma } from '../prismaClient';
 import { sendEmail, EmailTemplates } from './emailService';
+import { detectUnauthorisedAbsence } from './absenceDetection';
 
 // In-memory cron status — surfaced via /api/notifications/cron-status so the
 // Notifications page can show a "last run" badge. Survives until process restart;
@@ -163,13 +164,42 @@ async function checkExpiringRecords() {
   }
 }
 
+async function runAbsenceSweep() {
+  console.log('[CRON] Running unauthorised-absence sweep...');
+  try {
+    const result = await detectUnauthorisedAbsence();
+    await prisma.auditLog.create({
+      data: {
+        userId: null,
+        userEmail: 'cron@system',
+        action: 'CRON_ABSENCE_SWEEP',
+        entity: 'System',
+        entityId: null,
+        details: JSON.stringify(result),
+        ipAddress: null,
+        userAgent: 'node-cron',
+      },
+    });
+    console.log(
+      `[CRON] Absence sweep complete. Tenants: ${result.tenantsScanned}, ` +
+        `sponsorships: ${result.sponsorshipsScanned}, events raised: ${result.eventsCreated}`,
+    );
+  } catch (error: any) {
+    console.error('[CRON] Error sweeping absence:', error);
+  }
+}
+
 export function initializeCronJobs() {
   console.log('[CRON] Initializing scheduled tasks...');
   cron.schedule('0 9 * * *', checkExpiringRecords, {
     timezone: 'Europe/London',
   });
+  cron.schedule('30 9 * * *', runAbsenceSweep, {
+    timezone: 'Europe/London',
+  });
   console.log('[CRON] Scheduled daily expiry check at 9:00 AM UK time');
+  console.log('[CRON] Scheduled daily absence sweep at 9:30 AM UK time');
 }
 
 // Exported for the manual "Check & Send Notifications" button.
-export { checkExpiringRecords };
+export { checkExpiringRecords, runAbsenceSweep };

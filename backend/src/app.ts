@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import employeeRoutes from './routes/employees';
 import sponsorshipRoutes from './routes/sponsorships';
+import absenceRoutes from './routes/absences';
 import leaveRoutes from './routes/leave';
 import timesheetRoutes from './routes/timesheets';
 import projectRoutes from './routes/projects';
@@ -133,6 +134,7 @@ app.use('/api/employees', employeeRoutes);
 // requireAuth must run first so the feature gate has tenant context;
 // the router's own per-route requireAuth calls are then no-ops.
 app.use('/api/sponsorships', requireAuth, requireFeature('compliance'), sponsorshipRoutes);
+app.use('/api/absences', requireAuth, requireFeature('compliance'), absenceRoutes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/projects', projectRoutes);

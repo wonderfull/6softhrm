@@ -31,6 +31,7 @@ model Tenant {
   sponsorships       Sponsorship[]
   complianceEvidence SponsorshipComplianceEvidence[]
   reportableEvents   SponsorshipReportableEvent[]
+  absenceRecords     AbsenceRecord[]
   projects           Project[]
   timesheets         Timesheet[]
   leaveRequests      LeaveRequest[]
@@ -86,25 +87,25 @@ model User {
 }
 
 model Employee {
-  id           Int       @id @default(autoincrement())
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tenantId     Int
-  firstName    String
-  middleName   String?
-  lastName     String
-  title        String? // Mr, Mrs, Dr, etc.
-  gender       String?
-  ethnicity    String?
-  dateOfBirth  DateTime?
-  email        String
-  phoneNumber  String?
-  workPhone    String?
-  niNumber     String? // National Insurance placeholder
-  jobTitle     String?
-  employeeType String    @default("EMPLOYEE") // EMPLOYEE or DIRECTOR
-  department   String?
-  startDate    DateTime?
-  endDate      DateTime?
+  id               Int       @id @default(autoincrement())
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId         Int
+  firstName        String
+  middleName       String?
+  lastName         String
+  title            String? // Mr, Mrs, Dr, etc.
+  gender           String?
+  ethnicity        String?
+  dateOfBirth      DateTime?
+  email            String
+  phoneNumber      String?
+  workPhone        String?
+  niNumber         String? // National Insurance placeholder
+  jobTitle         String?
+  employeeType     String    @default("EMPLOYEE") // EMPLOYEE or DIRECTOR
+  department       String?
+  startDate        DateTime?
+  endDate          DateTime?
   probationEndDate DateTime?
 
   // Address Details
@@ -131,16 +132,16 @@ model Employee {
   payrollNumber       String?
 
   // Sensitive Identity and Eligibility Details
-  taxCode               String?
-  passportNumber        String?
+  taxCode                String?
+  passportNumber         String?
   passportCountryOfIssue String?
-  passportExpiryDate    DateTime?
-  licenceNumber         String?
-  licenceCountryOfIssue String?
-  licenceClass          String?
-  licenceExpiryDate     DateTime?
-  visaNumber            String?
-  visaExpiryDate        DateTime?
+  passportExpiryDate     DateTime?
+  licenceNumber          String?
+  licenceCountryOfIssue  String?
+  licenceClass           String?
+  licenceExpiryDate      DateTime?
+  visaNumber             String?
+  visaExpiryDate         DateTime?
 
   // Emergency Contact Information
   emergencyContactName     String?
@@ -153,6 +154,7 @@ model Employee {
   documents     Document[]
   timesheets    Timesheet[]
   leaveRequests LeaveRequest[]
+  absences      AbsenceRecord[]
 
   @@unique([tenantId, email])
 }
@@ -253,6 +255,28 @@ model LeaveRequest {
   reason     String?
 
   @@index([tenantId])
+}
+
+// One row per employee per calendar day, only for days that are not plain
+// attendance. UNAUTHORISED days on a sponsored worker are what drive the
+// 10-working-day Home Office report (sponsor guidance Part 3 C1.15).
+model AbsenceRecord {
+  id         Int      @id @default(autoincrement())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId   Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId Int
+  date       DateTime
+  status     String // AUTHORISED | UNAUTHORISED | SICK | UNKNOWN
+  source     String // LEAVE_REQUEST | TIMESHEET_GAP | MANUAL
+  notes      String?
+  recordedBy Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([tenantId, employeeId, date])
+  @@index([tenantId, employeeId, date])
+  @@index([tenantId, status])
 }
 
 model Document {

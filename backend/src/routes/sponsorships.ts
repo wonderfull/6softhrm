@@ -11,6 +11,12 @@ import {
   normalizeRole,
   ROLES,
 } from '../lib/roles'
+import {
+  WorkingDayConfig,
+  addUtcDays,
+  addWorkingDays,
+} from '../lib/workingDays'
+import { loadWorkingDayConfig } from '../lib/tenantSettings'
 
 const router = Router()
 
@@ -84,34 +90,7 @@ function parseRequiredDate(value: unknown) {
   return date
 }
 
-function addUtcDays(date: Date, days: number) {
-  const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
-  next.setUTCDate(next.getUTCDate() + days)
-  return next
-}
-
-function isEarlyMayBankHoliday(date: Date) {
-  return date.getUTCMonth() === 4 && date.getUTCDay() === 1 && date.getUTCDate() <= 7
-}
-
-function isWorkingDay(date: Date) {
-  const day = date.getUTCDay()
-  return day !== 0 && day !== 6 && !isEarlyMayBankHoliday(date)
-}
-
-function addWorkingDays(date: Date, workingDays: number) {
-  let remaining = workingDays
-  let next = addUtcDays(date, 0)
-
-  while (remaining > 0) {
-    next = addUtcDays(next, 1)
-    if (isWorkingDay(next)) remaining -= 1
-  }
-
-  return next
-}
-
-function buildDelayedStartAlert(sponsorship: any) {
+function buildDelayedStartAlert(sponsorship: any, config: WorkingDayConfig) {
   const eventDate = addUtcDays(sponsorship.startDate, 28)
 
   return {
@@ -119,7 +98,7 @@ function buildDelayedStartAlert(sponsorship: any) {
     sponsorshipId: sponsorship.id,
     eventType: 'DELAYED_START',
     eventDate,
-    dueDate: addWorkingDays(eventDate, 10),
+    dueDate: addWorkingDays(eventDate, 10, config),
     status: 'OPEN',
     notes: 'Sponsored worker has not started within 28 days of expected start date',
     reportedAt: null,
@@ -264,7 +243,10 @@ router.get('/reportable-events/open', requireAuth, requireRole('ADMIN', 'DIRECTO
       },
       include: { employee: true },
     })
-    const delayedStartAlerts = delayedStartSponsorships.map(buildDelayedStartAlert)
+    const workingDayConfig = await loadWorkingDayConfig(currentTenantId())
+    const delayedStartAlerts = delayedStartSponsorships.map((sponsorship) =>
+      buildDelayedStartAlert(sponsorship, workingDayConfig),
+    )
     const openItems = [...events, ...delayedStartAlerts].sort(
       (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
     )
