@@ -65,7 +65,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo and Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-2xl shadow-lg mb-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-[#5e6ad2] rounded-2xl shadow-lg mb-4">
             <img
               src="/logo.svg"
               alt="OnsideHR"
@@ -79,7 +79,7 @@ export default function Login() {
               style={{ display: 'none' }}
             />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">
             OnsideHR
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
@@ -114,12 +114,12 @@ export default function Login() {
                 autoFocus
                 aria-label="Authentication code"
                 placeholder="123456"
-                className="w-full text-center text-2xl tracking-[0.5em] font-mono py-3 bg-white text-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-white"
+                className="w-full text-center text-2xl tracking-[0.5em] font-mono py-3 bg-white text-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-[#5e69d1] dark:bg-slate-700 dark:text-white"
               />
               <button
                 type="submit"
                 disabled={loading || totpCode.length !== 6}
-                className="w-full bg-blue-600 hover:bg-blue-700 active:translate-y-px text-white py-3 rounded-lg font-semibold shadow-sm transition-all disabled:opacity-50"
+                className="w-full bg-[#5e6ad2] hover:bg-[#828fff] active:translate-y-px text-white py-3 rounded-lg font-semibold shadow-sm transition-all disabled:opacity-50"
               >
                 {loading ? 'Verifying…' : 'Verify'}
               </button>
@@ -151,7 +151,7 @@ export default function Login() {
                   type="email"
                   autoComplete="email"
                   required
-                  className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-[#5e69d1] focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all"
                 />
               </div>
             </div>
@@ -170,7 +170,7 @@ export default function Login() {
                   type="password"
                   autoComplete="current-password"
                   required
-                  className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-[#5e69d1] focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all"
                 />
               </div>
             </div>
@@ -186,7 +186,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 active:translate-y-px text-white font-semibold py-3 rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#5e6ad2] hover:bg-[#828fff] active:translate-y-px text-white font-semibold py-3 rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -222,7 +222,7 @@ export default function Login() {
           <div className="mt-4 text-center">
             <Link
               to="/forgot-password"
-              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline"
+              className="text-sm text-[#5e6ad2] dark:text-[#828fff] hover:text-[#5e69d1] dark:hover:text-[#a4adff] hover:underline"
             >
               Forgot your password?
             </Link>
