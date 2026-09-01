@@ -5,7 +5,11 @@ import { requireAuth, rebindTenant } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import archiver from 'archiver';
-import { getStorage, buildDocumentKey, assertKeyInTenant } from '../lib/storage';
+import {
+  getStorage,
+  buildDocumentKey,
+  assertKeyInTenant,
+} from '../lib/storage';
 import {
   canDeleteDocuments,
   canOperateDocuments,
@@ -31,8 +35,16 @@ const ALLOWED_TYPES = [
 const upload = multer({
   storage,
   limits: { fileSize: MAX_SIZE },
-  fileFilter: (req, file, cb) => {
-    cb(null, ALLOWED_TYPES.includes(file.mimetype));
+  fileFilter: (req: any, file, cb) => {
+    const allowed = ALLOWED_TYPES.includes(file.mimetype);
+    if (!allowed) {
+      // multer drops filtered files without a trace; remember them so the
+      // multi-file route can report what was skipped instead of silently
+      // succeeding on a smaller batch.
+      req.rejectedFiles = req.rejectedFiles || [];
+      req.rejectedFiles.push(file.originalname);
+    }
+    cb(null, allowed);
   },
 });
 
@@ -107,11 +119,17 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
     }
 
     const disposition =
-      req.query.disposition === 'inline' ? ('inline' as const) : ('attachment' as const);
+      req.query.disposition === 'inline'
+        ? ('inline' as const)
+        : ('attachment' as const);
 
     // Object storage serves the bytes itself via a short-lived signed URL;
     // the local driver streams through the API.
-    const signedUrl = await store.getSignedUrl(document.path, document.name, disposition);
+    const signedUrl = await store.getSignedUrl(
+      document.path,
+      document.name,
+      disposition,
+    );
     if (signedUrl) return res.redirect(signedUrl);
 
     res.type(path.extname(document.path) || 'application/octet-stream');
@@ -138,6 +156,10 @@ router.post(
     const { employeeId, name, type, expiryDate } = req.body;
     if (!file || !employeeId || !name)
       return res.status(400).json({ error: 'missing fields or file' });
+    // A NaN id would throw inside Prisma below, outside any catch — reject it
+    // here instead of hanging the request.
+    if (!Number.isInteger(Number(employeeId)))
+      return res.status(400).json({ error: 'invalid employeeId' });
     // Elevated roles can upload for anyone; employees only for their own record
     if (!canAccessDocument(req.user, Number(employeeId))) {
       return res.status(403).json({ error: 'Unauthorized' });
@@ -172,15 +194,30 @@ router.post(
   async (req: any, res) => {
     const files = (req.files || []) as Express.Multer.File[];
     const { employeeId } = req.body;
+    // Files the fileFilter dropped for a disallowed type (see above).
+    const skipped = ((req.rejectedFiles || []) as string[]).map((name) => ({
+      name,
+      reason: 'DISALLOWED_TYPE',
+    }));
 
     if (!canOperateDocuments(req.user?.role)) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    if (!employeeId || files.length === 0) {
+    if (!employeeId || (files.length === 0 && skipped.length === 0)) {
       return res
         .status(400)
         .json({ error: 'employeeId and at least one file are required' });
+    }
+    // A NaN id would throw inside Prisma below, outside any catch — reject it
+    // here instead of hanging the request.
+    if (!Number.isInteger(Number(employeeId))) {
+      return res.status(400).json({ error: 'invalid employeeId' });
+    }
+    if (files.length === 0) {
+      return res
+        .status(400)
+        .json({ error: 'every file was rejected: type not allowed', skipped });
     }
 
     const employee = await prisma.employee.findFirst({
@@ -188,28 +225,43 @@ router.post(
     });
     if (!employee) return res.status(400).json({ error: 'employee not found' });
 
-    try {
-      const documents = await Promise.all(
-        files.map(async (file) => {
-          const key = buildDocumentKey(file.originalname);
-          await getStorage().put(key, file.buffer, file.mimetype);
-          return createDocumentRecord({
+    // Sequential on purpose: one file's storage failure must not abandon the
+    // rest of the batch after some rows already exist (the old Promise.all
+    // returned 400 while keeping the rows it had created — silent partial
+    // success). Object first, then row, so a failure can only orphan an
+    // unreferenced file, never leave a row whose download would 404.
+    const documents = [];
+    const failed: { name: string; error: string }[] = [];
+    for (const file of files) {
+      try {
+        const key = buildDocumentKey(file.originalname);
+        await getStorage().put(key, file.buffer, file.mimetype);
+        documents.push(
+          await createDocumentRecord({
             employeeId: employee.id,
             name: file.originalname.replace(/\.[^.]+$/, ''),
             path: key,
             type: 'PAYSLIP',
-          });
-        }),
-      );
-
-      res.json({
-        employeeId: employee.id,
-        uploadedCount: documents.length,
-        documents,
-      });
-    } catch (e: any) {
-      res.status(400).json({ error: e.message });
+          }),
+        );
+      } catch (e: any) {
+        failed.push({ name: file.originalname, error: e.message });
+      }
     }
+
+    if (documents.length === 0) {
+      return res
+        .status(400)
+        .json({ error: 'no files could be stored', skipped, failed });
+    }
+
+    res.json({
+      employeeId: employee.id,
+      uploadedCount: documents.length,
+      documents,
+      skipped,
+      failed,
+    });
   },
 );
 
@@ -228,7 +280,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
     // Delete the stored file (tolerant of already-missing objects)
     assertKeyInTenant(doc.path);
-    await getStorage().delete(doc.path).catch(() => undefined);
+    await getStorage()
+      .delete(doc.path)
+      .catch(() => undefined);
 
     // Delete the database record
     await prisma.document.deleteMany({ where: { id: parseInt(id) } });
@@ -244,6 +298,11 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
   const { employeeId } = req.params;
 
   try {
+    // A NaN id would throw inside Prisma and surface as a 500 from the catch
+    // below — reject it cleanly instead.
+    if (!Number.isInteger(Number(employeeId))) {
+      return res.status(400).json({ error: 'invalid employee id' });
+    }
     const user = (req as any).user;
     if (!canAccessDocument(user, parseInt(employeeId))) {
       return res.status(403).json({ error: 'Unauthorized' });
