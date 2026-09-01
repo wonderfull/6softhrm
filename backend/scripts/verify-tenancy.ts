@@ -114,7 +114,13 @@ async function main() {
   check('GET /projects is tenant-scoped', projects.status === 200 && projects.body.length === 1, `n=${projects.body.length}`)
 
   // 6. mutation round-trip through the updateMany codemod path
-  const pending = leaves.body.find((l: any) => l.status === 'PENDING')
+  // Defensive: two independent runs have seen a non-array body here once
+  // each (transient, never reproduced). A gate must FAIL legibly, not crash.
+  const leaveRows: any[] = Array.isArray(leaves.body) ? leaves.body : []
+  if (!Array.isArray(leaves.body)) {
+    check('GET /leave returned an array', false, JSON.stringify(leaves.body).slice(0, 120))
+  }
+  const pending = leaveRows.find((l: any) => l.status === 'PENDING')
   const approve = await request(app).put(`/api/leave/${pending.id}/approve`).set('Authorization', token)
   check('PUT /leave/:id/approve works', approve.status === 200 && approve.body.status === 'APPROVED')
 
