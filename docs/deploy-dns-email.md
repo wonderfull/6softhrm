@@ -4,9 +4,16 @@ Do these BEFORE the first real transactional email is sent, or leave-approval
 emails land in spam and the product looks broken.
 
 ## DNS on onsidehr.co.uk
+
+**Decision (2026-09-01): everything lives on the apex — the app IS
+`https://onsidehr.co.uk`.** `www` 301-redirects to the apex; no `app`
+subdomain. The domain is currently PARKED on Hostinger DNS — until the A
+records below replace the parking entries, nothing you deploy is reachable.
+
 | Record | Host | Value |
 |---|---|---|
-| A | `@` / `www` / `app` | VPS IP |
+| A | `@` | VPS IP |
+| A | `www` | VPS IP (Nginx redirects to apex) |
 | MX / mail | per your mailbox provider | — |
 
 ## Email authentication (SMTP sender: noreply@onsidehr.co.uk)

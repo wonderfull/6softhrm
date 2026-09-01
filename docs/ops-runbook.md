@@ -1,5 +1,7 @@
 # OnsideHR — Ops Runbook (P7)
 
+**Site: `https://onsidehr.co.uk`** — everything on the apex; `www` redirects; no `app` subdomain (decision 2026-09-01).
+
 ## Processes (PM2)
 `pm2 start ecosystem.config.js` starts:
 - **onsidehr-api** — production API on :4000 (single instance; cron jobs assume one runner)

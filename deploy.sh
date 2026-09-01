@@ -9,7 +9,7 @@ echo "🚀 Starting 6soft HRM Deployment..."
 
 ## Configuration - EDIT THESE VALUES BEFORE RUNNING
 ## MySQL credentials from Hostinger
-DOMAIN="hrm.yourdomain.com"          # UPDATE: Your subdomain
+DOMAIN="onsidehr.co.uk"              # Everything lives on the apex (www redirects)
 SERVER_IP="YOUR_SERVER_IP"           # UPDATE: Your VPS IP address
 DB_NAME="u104553007_sixsoft_hrm"
 DB_USER="YOUR_DB_USER"
@@ -118,6 +118,14 @@ echo "   ✓ Backend started"
 
 echo "🌐 Step 8: Configuring Nginx..."
 cat > /etc/nginx/sites-available/$DOMAIN <<'NGINXCONF'
+# www carries no content — one canonical origin (see nginx.conf in the repo).
+server {
+    listen 80;
+    listen [::]:80;
+    server_name www.DOMAIN_PLACEHOLDER;
+    return 301 https://DOMAIN_PLACEHOLDER$request_uri;
+}
+
 server {
     listen 80;
     listen [::]:80;
@@ -187,7 +195,7 @@ echo "   ✓ Nginx configured"
 
 echo "🔒 Step 9: Setting up SSL certificate..."
 echo "   Run this command manually after DNS propagation:"
-echo "   certbot --nginx -d $DOMAIN"
+echo "   certbot --nginx -d $DOMAIN -d www.$DOMAIN"
 
 echo "🔥 Step 10: Configuring firewall..."
 ufw allow 22/tcp
@@ -202,7 +210,7 @@ echo ""
 echo "📝 Next steps:"
 echo "   1. Update DNS A record: $DOMAIN → $SERVER_IP"
 echo "   2. Wait for DNS propagation (5-30 minutes)"
-echo "   3. Run: certbot --nginx -d $DOMAIN"
+echo "   3. Run: certbot --nginx -d $DOMAIN -d www.$DOMAIN"
 echo "   4. Visit: https://$DOMAIN"
 echo "   5. Login with: admin@example.com / password123"
 echo ""

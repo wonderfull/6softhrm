@@ -3,7 +3,7 @@
 set -euo pipefail
 
 HRM_REPO_DIR="${HRM_REPO_DIR:-/var/www/6softhrm}"
-HRM_FRONTEND_ROOT="${HRM_FRONTEND_ROOT:-/var/www/hrm.6soft.co.uk}"
+HRM_FRONTEND_ROOT="${HRM_FRONTEND_ROOT:-/var/www/onsidehr.co.uk}"
 MAIN_REPO_DIR="${MAIN_REPO_DIR:-/var/www/6soft-visionary-web}"
 MAIN_SITE_ROOT="${MAIN_SITE_ROOT:-/var/www/6soft-main}"
 
@@ -25,6 +25,7 @@ echo "[deploy] deploying HRM frontend"
 cd "$HRM_REPO_DIR/frontend"
 npm install
 npm run build
+mkdir -p "$HRM_FRONTEND_ROOT"
 rm -rf "${HRM_FRONTEND_ROOT:?}"/*
 cp -r dist/* "$HRM_FRONTEND_ROOT/"
 chown -R www-data:www-data "$HRM_FRONTEND_ROOT"
@@ -62,7 +63,9 @@ fi
 
 # Warn (don't auto-edit) if the live site config hasn't been wired to include
 # the security-headers snippet yet. Manual one-time step on first deploy.
-for SITE in /etc/nginx/sites-enabled/hrm.6soft.co.uk \
+for SITE in /etc/nginx/sites-enabled/onsidehr.co.uk \
+            /etc/nginx/sites-available/onsidehr.co.uk \
+            /etc/nginx/sites-enabled/hrm.6soft.co.uk \
             /etc/nginx/sites-available/hrm.6soft.co.uk; do
   if [ -f "$SITE" ] && ! grep -q '6soft-security-headers.conf' "$SITE"; then
     echo "[deploy] WARNING: $SITE is missing"
