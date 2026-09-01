@@ -10,13 +10,29 @@ import { reconcileSalaries } from './salarySweep';
 // In-memory cron status — surfaced via /api/notifications/cron-status so the
 // Notifications page can show a "last run" badge. Survives until process restart;
 // PM2 restarts are fine because we also write an AuditLog row on each run.
+export type SweepStatus = {
+  lastFinishedAt: string | null;
+  lastEventsCreated: number;
+  // Total failure of the run, or per-tenant errors the sweep survived —
+  // either way the badge must not read healthy.
+  lastError: string | null;
+};
+
 export type CronStatus = {
   lastStartedAt: string | null;
   lastFinishedAt: string | null;
   lastError: string | null;
   lastVisaNotifications: number;
   lastContractNotifications: number;
+  absenceSweep: SweepStatus;
+  salarySweep: SweepStatus;
 };
+
+const emptySweepStatus = (): SweepStatus => ({
+  lastFinishedAt: null,
+  lastEventsCreated: 0,
+  lastError: null,
+});
 
 const cronStatus: CronStatus = {
   lastStartedAt: null,
@@ -24,10 +40,16 @@ const cronStatus: CronStatus = {
   lastError: null,
   lastVisaNotifications: 0,
   lastContractNotifications: 0,
+  absenceSweep: emptySweepStatus(),
+  salarySweep: emptySweepStatus(),
 };
 
 export function getCronStatus(): CronStatus {
-  return { ...cronStatus };
+  return {
+    ...cronStatus,
+    absenceSweep: { ...cronStatus.absenceSweep },
+    salarySweep: { ...cronStatus.salarySweep },
+  };
 }
 
 /**
@@ -185,8 +207,18 @@ async function runAbsenceSweep() {
       `[CRON] Absence sweep complete. Tenants: ${result.tenantsScanned}, ` +
         `sponsorships: ${result.sponsorshipsScanned}, events raised: ${result.eventsCreated}`,
     );
+    cronStatus.absenceSweep = {
+      lastFinishedAt: new Date().toISOString(),
+      lastEventsCreated: result.eventsCreated,
+      lastError: result.errors.length ? result.errors.join('; ') : null,
+    };
   } catch (error: any) {
     console.error('[CRON] Error sweeping absence:', error);
+    cronStatus.absenceSweep = {
+      lastFinishedAt: new Date().toISOString(),
+      lastEventsCreated: 0,
+      lastError: error?.message || String(error),
+    };
   }
 }
 
@@ -210,8 +242,18 @@ async function runSalarySweep() {
       `[CRON] Salary reconciliation complete. Periods: ${result.periodsAssessed}, ` +
         `events raised: ${result.eventsCreated}, missing CoS terms: ${result.missingCosTerms}`,
     );
+    cronStatus.salarySweep = {
+      lastFinishedAt: new Date().toISOString(),
+      lastEventsCreated: result.eventsCreated,
+      lastError: result.errors.length ? result.errors.join('; ') : null,
+    };
   } catch (error: any) {
     console.error('[CRON] Error reconciling salaries:', error);
+    cronStatus.salarySweep = {
+      lastFinishedAt: new Date().toISOString(),
+      lastEventsCreated: 0,
+      lastError: error?.message || String(error),
+    };
   }
 }
 
