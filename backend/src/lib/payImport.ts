@@ -79,24 +79,46 @@ export type PayImportRow = {
   errors: string[];
 };
 
+// Only the first sheet is read. When it is empty but another sheet has rows,
+// saying "no data" would mislead — name the sheet the data is actually on.
+function firstSheetEmptyMessage(workbook: XLSX.WorkBook): string {
+  const populated = workbook.SheetNames.slice(1).find(
+    (name) =>
+      XLSX.utils.sheet_to_json(workbook.Sheets[name], { defval: '' }).length >
+      0,
+  );
+  return populated
+    ? `The first sheet ("${workbook.SheetNames[0]}") has no data rows, but sheet "${populated}" does. ` +
+        'Only the first sheet is imported — move the data there.'
+    : 'The file has no data rows.';
+}
+
 export function parsePayImportFile(buffer: Buffer): {
   rows: PayImportRow[];
   headerErrors: string[];
 } {
-  const workbook = XLSX.read(buffer, {
-    type: 'buffer',
-    raw: true,
-    cellDates: true,
-  });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    defval: '',
-    raw: true,
-  });
-
   const headerErrors: string[] = [];
+  let workbook: XLSX.WorkBook;
+  let records: Record<string, unknown>[];
+  try {
+    workbook = XLSX.read(buffer, {
+      type: 'buffer',
+      raw: true,
+      cellDates: true,
+    });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    records = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      defval: '',
+      raw: true,
+    });
+  } catch {
+    // Corrupt zip, truncated upload — anything XLSX cannot make sense of.
+    headerErrors.push('Could not read this file. Upload a CSV or XLSX export.');
+    return { rows: [], headerErrors };
+  }
+
   if (records.length === 0) {
-    headerErrors.push('The file has no data rows.');
+    headerErrors.push(firstSheetEmptyMessage(workbook));
     return { rows: [], headerErrors };
   }
 
@@ -141,6 +163,8 @@ export function parsePayImportFile(buffer: Buffer): {
       } else if (NUMBER_FIELDS.has(field)) {
         const n = parseAmount(value);
         if (isNaN(n)) errors.push(`${field}: "${value}" is not a number`);
+        else if (!Number.isFinite(n))
+          errors.push(`${field}: "${value}" is too large`);
         else if (n < 0) errors.push(`${field}: "${value}" cannot be negative`);
         else data[field] = n;
       } else {

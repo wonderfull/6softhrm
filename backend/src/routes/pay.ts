@@ -17,6 +17,22 @@ const importUpload = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
 });
 
+// Multer rejections (the size cap above all) must surface as clean JSON —
+// left to propagate they hit Express's default handler as an HTML 500.
+const uploadImportFile = (req: any, res: any, next: any) =>
+  importUpload.single('file')(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      const tooLarge = err.code === 'LIMIT_FILE_SIZE';
+      return res.status(tooLarge ? 413 : 400).json({
+        error: tooLarge
+          ? 'File too large — the import limit is 2MB.'
+          : err.message,
+      });
+    }
+    if (err) return next(err);
+    next();
+  });
+
 router.get(
   '/import/template',
   requireAuth,
@@ -37,7 +53,7 @@ router.post(
   '/import',
   requireAuth,
   requireRole('ADMIN', 'DIRECTOR'),
-  importUpload.single('file'),
+  uploadImportFile,
   rebindTenant,
   async (req: any, res) => {
     const file = req.file as Express.Multer.File | undefined;
@@ -112,32 +128,51 @@ router.post(
         });
       }
 
+      // All-or-nothing: dry-run-then-commit promises a batch that either
+      // fully lands or fully fails. Without the transaction, a constraint
+      // violation or dropped connection on row N silently keeps rows 1..N-1.
       let created = 0;
       let updated = 0;
-      for (const r of plan) {
-        if (r.action === 'error') continue;
-        const employeeId = employeeIdByEmail.get(r.email)!;
-        const payload = {
-          periodStart: r.data.periodStart,
-          periodEnd: r.data.periodEnd,
-          grossPay: r.data.grossPay,
-          hoursWorked: r.data.hoursWorked ?? null,
-          source: 'CSV_IMPORT',
-        };
-        const key = keyFor(r)!;
-        const existingId = existingKey.get(key);
-        if (existingId) {
-          await prisma.payRecord.updateMany({
-            where: { id: existingId },
-            data: payload,
-          });
-          updated += 1;
-        } else {
-          await prisma.payRecord.create({
-            data: { ...payload, employeeId, tenantId: currentTenantId() },
-          });
-          created += 1;
-        }
+      try {
+        await prisma.$transaction(
+          async (tx) => {
+            for (const r of plan) {
+              if (r.action === 'error') continue;
+              const employeeId = employeeIdByEmail.get(r.email)!;
+              const payload = {
+                periodStart: r.data.periodStart,
+                periodEnd: r.data.periodEnd,
+                grossPay: r.data.grossPay,
+                hoursWorked: r.data.hoursWorked ?? null,
+                source: 'CSV_IMPORT',
+              };
+              const key = keyFor(r)!;
+              const existingId = existingKey.get(key);
+              if (existingId) {
+                await tx.payRecord.updateMany({
+                  where: { id: existingId },
+                  data: payload,
+                });
+                updated += 1;
+              } else {
+                await tx.payRecord.create({
+                  data: { ...payload, employeeId, tenantId: currentTenantId() },
+                });
+                created += 1;
+              }
+            }
+          },
+          // Row-by-row writes on a big file can outlive the 5s default.
+          { timeout: 60_000 },
+        );
+      } catch (e: any) {
+        const reason = String(e?.message ?? '')
+          .trim()
+          .split('\n')
+          .pop();
+        return res.status(400).json({
+          error: `Import failed and no rows were imported. ${reason ?? ''}`,
+        });
       }
 
       await auditLog(req, 'IMPORT', 'PayRecord', undefined, {

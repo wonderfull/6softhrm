@@ -342,6 +342,22 @@ const importUpload = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
 });
 
+// Multer rejections (the size cap above all) must surface as clean JSON —
+// left to propagate they hit Express's default handler as an HTML 500.
+const uploadImportFile = (req: any, res: any, next: any) =>
+  importUpload.single('file')(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      const tooLarge = err.code === 'LIMIT_FILE_SIZE';
+      return res.status(tooLarge ? 413 : 400).json({
+        error: tooLarge
+          ? 'File too large — the import limit is 2MB.'
+          : err.message,
+      });
+    }
+    if (err) return next(err);
+    next();
+  });
+
 router.get(
   '/import/template',
   requireAuth,
@@ -360,7 +376,7 @@ router.post(
   '/import',
   requireAuth,
   requireRole('ADMIN', 'DIRECTOR'),
-  importUpload.single('file'),
+  uploadImportFile,
   rebindTenant,
   async (req: any, res) => {
     const file = req.file as Express.Multer.File | undefined;
@@ -370,7 +386,9 @@ router.post(
     try {
       const { rows, headerErrors } = parseImportFile(file.buffer);
       if (headerErrors.length) {
-        return res.status(400).json({ error: headerErrors.join(' ') , headerErrors});
+        return res
+          .status(400)
+          .json({ error: headerErrors.join(' '), headerErrors });
       }
 
       // Idempotency: an existing employee with the same email is updated.
@@ -378,13 +396,17 @@ router.post(
         where: { email: { in: rows.map((r) => r.email).filter(Boolean) } },
         select: { id: true, email: true },
       });
-      const existingByEmail = new Map(existing.map((e) => [e.email.toLowerCase(), e.id]));
+      const existingByEmail = new Map(
+        existing.map((e) => [e.email.toLowerCase(), e.id]),
+      );
 
       const plan = rows.map((r) => ({
         ...r,
-        action: r.errors.length ? ('error' as const)
-          : existingByEmail.has(r.email) ? ('update' as const)
-          : ('create' as const),
+        action: r.errors.length
+          ? ('error' as const)
+          : existingByEmail.has(r.email)
+            ? ('update' as const)
+            : ('create' as const),
       }));
       const creates = plan.filter((r) => r.action === 'create');
       const summary = {
@@ -404,20 +426,42 @@ router.post(
 
       await assertSeatsAvailable(creates.length);
 
+      // All-or-nothing: dry-run-then-commit promises a batch that either
+      // fully lands or fully fails. Without the transaction, a constraint
+      // violation or dropped connection on row N silently keeps rows 1..N-1.
       let created = 0;
       let updated = 0;
-      for (const r of plan) {
-        if (r.action === 'error') continue;
-        const existingId = existingByEmail.get(r.email);
-        if (existingId) {
-          await prisma.employee.updateMany({ where: { id: existingId }, data: r.data });
-          updated += 1;
-        } else {
-          await prisma.employee.create({
-            data: { ...(r.data as any), tenantId: currentTenantId() },
-          });
-          created += 1;
-        }
+      try {
+        await prisma.$transaction(
+          async (tx) => {
+            for (const r of plan) {
+              if (r.action === 'error') continue;
+              const existingId = existingByEmail.get(r.email);
+              if (existingId) {
+                await tx.employee.updateMany({
+                  where: { id: existingId },
+                  data: r.data,
+                });
+                updated += 1;
+              } else {
+                await tx.employee.create({
+                  data: { ...(r.data as any), tenantId: currentTenantId() },
+                });
+                created += 1;
+              }
+            }
+          },
+          // Row-by-row writes on a big file can outlive the 5s default.
+          { timeout: 60_000 },
+        );
+      } catch (e: any) {
+        const reason = String(e?.message ?? '')
+          .trim()
+          .split('\n')
+          .pop();
+        return res.status(400).json({
+          error: `Import failed and no rows were imported. ${reason ?? ''}`,
+        });
       }
 
       await auditLog(req, 'IMPORT', 'Employee', undefined, {
