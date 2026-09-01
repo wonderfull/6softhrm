@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://hrm.6soft.co.uk/login</loc></url>
-  <url><loc>https://hrm.6soft.co.uk/privacy</loc></url>
-  <url><loc>https://hrm.6soft.co.uk/terms</loc></url>
-  <url><loc>https://hrm.6soft.co.uk/gdpr</loc></url>
+  <url><loc>https://onsidehr.co.uk/</loc></url>
+  <url><loc>https://onsidehr.co.uk/privacy</loc></url>
+  <url><loc>https://onsidehr.co.uk/terms</loc></url>
+  <url><loc>https://onsidehr.co.uk/dpa</loc></url>
+  <url><loc>https://onsidehr.co.uk/gdpr</loc></url>
 </urlset>

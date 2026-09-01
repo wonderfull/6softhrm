@@ -31,6 +31,8 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Gdpr from './pages/Gdpr';
 import Dpa from './pages/Dpa';
+import Home from './pages/Home';
+import PublicLayout from './components/marketing/PublicLayout';
 import NavBar from './components/NavBar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
@@ -40,6 +42,7 @@ import './styles/tailwind.css';
 // Per-route document.title so browser tabs and screen-reader announcements are
 // disambiguated (test report B13: every page used to read "HRM Starter").
 const ROUTE_TITLES: Record<string, string> = {
+  '/': 'HR software for UK sponsor licence holders',
   '/dashboard': 'Dashboard',
   '/employees': 'People',
   '/sponsorships': 'Sponsorships',
@@ -107,6 +110,39 @@ function App() {
       <RouteTitle />
       <Routes>
         {/* Public Routes */}
+        <Route path="/" element={<Home />} />
+        <Route
+          path="/privacy"
+          element={
+            <PublicLayout>
+              <Privacy />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/terms"
+          element={
+            <PublicLayout>
+              <Terms />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/dpa"
+          element={
+            <PublicLayout>
+              <Dpa />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/gdpr"
+          element={
+            <PublicLayout>
+              <Gdpr />
+            </PublicLayout>
+          }
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -211,10 +247,6 @@ function App() {
                         }
                       />
                       <Route path="/consent" element={<Consent />} />
-                      <Route path="/privacy" element={<Privacy />} />
-                      <Route path="/terms" element={<Terms />} />
-                      <Route path="/dpa" element={<Dpa />} />
-                      <Route path="/gdpr" element={<Gdpr />} />
                       {/* B12: canonicalise common alt-paths back to /employees */}
                       <Route
                         path="/profile"
@@ -223,10 +255,6 @@ function App() {
                       <Route
                         path="/my-profile"
                         element={<Navigate to="/employees" replace />}
-                      />
-                      <Route
-                        path="/"
-                        element={<Navigate to="/dashboard" replace />}
                       />
                       <Route path="*" element={<NotFound />} />
                     </Routes>

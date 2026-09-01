@@ -1,5 +1,9 @@
 User-agent: *
+Allow: /$
+Allow: /privacy
+Allow: /terms
+Allow: /dpa
+Allow: /gdpr
 Disallow: /
 
-# HRM is an authenticated app — nothing useful for search engines to index.
-Sitemap: https://hrm.6soft.co.uk/sitemap.xml
+Sitemap: https://onsidehr.co.uk/sitemap.xml

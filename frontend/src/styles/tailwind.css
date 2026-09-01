@@ -5,6 +5,20 @@
 html, body { height: 100%; }
 body { @apply bg-gradient-to-br from-primary-50 to-white text-slate-900; font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
 
+/* Long-form legal pages (Privacy, Terms, DPA, GDPR). The typography plugin
+   isn't installed, so `.prose` is defined here. */
+.prose { @apply text-slate-700 dark:text-slate-300 leading-relaxed px-4 sm:px-6; }
+.prose h1 { @apply text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 dark:text-white mb-2; }
+.prose h2 { @apply text-xl font-semibold tracking-tight text-slate-900 dark:text-white mt-10 mb-3; }
+.prose h3 { @apply text-base font-semibold text-slate-900 dark:text-white mt-6 mb-2; }
+.prose p { @apply my-3; }
+.prose ul, .prose ol { @apply my-3 pl-6 space-y-1; }
+.prose ul { @apply list-disc; }
+.prose ol { @apply list-decimal; }
+.prose a { @apply underline underline-offset-4 decoration-slate-300 hover:decoration-[#5e6ad2] text-slate-900 dark:text-white; }
+.prose table { @apply w-full text-sm my-4 border-collapse; }
+.prose th, .prose td { @apply text-left align-top border-b border-slate-200 dark:border-slate-700 py-2 pr-4; }
+
 /* Card utility */
 .card {
 	@apply bg-white dark:bg-slate-800 rounded-xl p-4 shadow-card border border-slate-100 dark:border-slate-700;
