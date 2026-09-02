@@ -674,15 +674,35 @@ router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any,
 router.put('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
   const id = Number(req.params.id)
   try {
-    const { startDate, endDate, ...rest } = req.body
-    const data: any = { ...rest }
+    const { startDate, endDate } = req.body
+    // Explicit pick-list: spreading the body would let a caller move the
+    // record to another employee or tenant.
+    const data: any = {}
+    for (const field of [
+      'employeeId',
+      'visaType',
+      'casNumber',
+      'sponsorLicenseNumber',
+      'complianceNotes',
+      'socCode',
+      'jobTitleOnCos',
+      'workLocation',
+      'active',
+    ]) {
+      if (req.body[field] !== undefined) data[field] = req.body[field]
+    }
     if (startDate) data.startDate = new Date(startDate)
     if (endDate !== undefined) data.endDate = endDate ? new Date(endDate) : null
     // Numeric CoS fields arrive as strings from a form post.
     for (const field of ['cosSalary', 'cosWeeklyHours', 'goingRateSalary']) {
-      if (data[field] !== undefined) {
-        data[field] = data[field] === null || data[field] === '' ? null : Number(data[field])
+      if (req.body[field] !== undefined) {
+        data[field] = req.body[field] === null || req.body[field] === '' ? null : Number(req.body[field])
       }
+    }
+    if (data.employeeId !== undefined) {
+      data.employeeId = Number(data.employeeId)
+      const target = await prisma.employee.findFirst({ where: { id: data.employeeId } })
+      if (!target) return res.status(400).json({ error: 'employee not found' })
     }
     
     const updated = await prisma.sponsorship.updateMany({ where: { id }, data })

@@ -96,8 +96,8 @@ const PILLARS = [
     icon: CalendarDaysIcon,
     title: 'Leave & absence',
     items: [
-      'Requests, approvals and allowances',
-      'Company calendar of who is off',
+      'Requests and approvals with email notifications',
+      'Annual leave balance on every employee dashboard',
       'gov.uk bank holidays for England & Wales, Scotland and Northern Ireland',
       'Sickness and unauthorised absence ledger',
     ],
@@ -188,7 +188,7 @@ const STEPS = [
 const SECURITY = [
   {
     title: 'Two-factor authentication',
-    body: 'Time-based one-time codes for any user, single-use password reset links, and per-account login throttling.',
+    body: 'Time-based one-time codes for admin accounts, single-use password reset links, and per-account login throttling.',
   },
   {
     title: 'Field-level encryption',

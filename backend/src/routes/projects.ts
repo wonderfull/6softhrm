@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
+import { requireRole } from '../middleware/roles'
+import { auditLog } from '../middleware/audit'
 import { currentTenantId } from '../lib/tenantContext'
 
 const router = Router()
@@ -10,7 +12,9 @@ router.get('/', requireAuth, async (req, res) => {
   res.json(projects)
 })
 
-router.post('/', requireAuth, async (req, res) => {
+// Timesheets are booked against projects by everyone, so listing stays open;
+// changing the project list is an HR/management action.
+router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req, res) => {
   const { code, name, description, active } = req.body
   if (!code || !name) return res.status(400).json({ error: 'Code and name are required' })
 
@@ -18,13 +22,14 @@ router.post('/', requireAuth, async (req, res) => {
     const project = await prisma.project.create({
       data: { tenantId: currentTenantId(), code, name, description, active: active !== false }
     })
+    await auditLog(req, 'CREATE', 'Project', project.id, { code, name })
     res.json(project)
   } catch (e: any) {
     res.status(400).json({ error: e.message })
   }
 })
 
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req, res) => {
   const { id } = req.params
   // Explicit field pick — never spread req.body into update data.
   const { code, name, description, active } = req.body
@@ -40,17 +45,19 @@ router.put('/:id', requireAuth, async (req, res) => {
     })
     if (updated.count === 0) return res.status(404).json({ error: 'Project not found' })
     const project = await prisma.project.findFirst({ where: { id: parseInt(id) } })
+    await auditLog(req, 'UPDATE', 'Project', parseInt(id), data)
     res.json(project)
   } catch (e: any) {
     res.status(400).json({ error: e.message })
   }
 })
 
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req, res) => {
   const { id } = req.params
   try {
     const deleted = await prisma.project.deleteMany({ where: { id: parseInt(id) } })
     if (deleted.count === 0) return res.status(404).json({ error: 'Project not found' })
+    await auditLog(req, 'DELETE', 'Project', parseInt(id))
     res.json({ success: true })
   } catch (e: any) {
     res.status(400).json({ error: e.message })

@@ -20,9 +20,9 @@ src/index.ts   → entry point, starts Express server on PORT (default 4000)
 src/app.ts     → Express setup: CORS, JSON body parser, route mounting
 src/routes/    → route files mounted at /api/*
 src/middleware/
-  auth.ts      → verifyToken: extracts JWT, sets req.user
+  auth.ts      → requireAuth: extracts JWT, sets req.user, enters tenant context
   roles.ts     → requireRole(...roles): checks req.user.role
-  audit.ts     → logAudit: writes to AuditLog table (GDPR)
+  audit.ts     → auditLog(req, action, entity, entityId?, details?) / createAuditLog: write to AuditLog (GDPR)
 src/lib/
   emailService.ts  → sendEmail(), sendLeaveNotification(), etc.
   cronJobs.ts      → scheduled jobs (sponsorship expiry alerts)
@@ -31,11 +31,11 @@ src/lib/
 ## Route Patterns
 ```typescript
 // Standard authenticated route
-router.get('/', verifyToken, async (req, res) => { ... });
+router.get('/', requireAuth, async (req, res) => { ... });
 // Admin-only route
-router.post('/', verifyToken, requireRole('ADMIN'), async (req, res) => { ... });
+router.post('/', requireAuth, requireRole('ADMIN'), async (req, res) => { ... });
 // With audit logging
-await logAudit(prisma, { action: 'CREATE', entity: 'Employee', userId: req.user.id, ... });
+await auditLog(req, 'CREATE', 'Employee', employee.id, { firstName, lastName });
 ```
 
 ## Testing

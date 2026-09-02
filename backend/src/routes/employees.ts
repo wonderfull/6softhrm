@@ -66,6 +66,29 @@ function redactSensitiveEmployeeFields(employee: any) {
   };
 }
 
+// Keys that must never come from a request body on update: identity, tenant
+// pinning, timestamps and every relation the client cannot legitimately write.
+const EMPLOYEE_UPDATE_BLOCKLIST = [
+  'id',
+  'tenantId',
+  'tenant',
+  'createdAt',
+  'updatedAt',
+  'user',
+  'sponsorships',
+  'timesheets',
+  'leaveRequests',
+  'documents',
+  'absences',
+  'payRecords',
+];
+
+function stripProtectedEmployeeFields(data: any) {
+  const clean = { ...data };
+  for (const key of EMPLOYEE_UPDATE_BLOCKLIST) delete clean[key];
+  return clean;
+}
+
 function normalizeEmployeePayload(data: any) {
   const dateFields = [
     'startDate',
@@ -261,7 +284,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
   try {
     let data: any;
     if (role === ROLES.ADMIN || role === ROLES.DIRECTOR) {
-      data = normalizeEmployeePayload(req.body);
+      data = normalizeEmployeePayload(stripProtectedEmployeeFields(req.body));
     } else if (role === ROLES.EMPLOYEE) {
       const existing = await prisma.employee.findFirst({
         where: { id: employeeId },

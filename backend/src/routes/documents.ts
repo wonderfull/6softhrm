@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../prismaClient';
 import { currentTenantId } from '../lib/tenantContext';
 import { requireAuth, rebindTenant } from '../middleware/auth';
+import { auditLog } from '../middleware/audit';
 import multer from 'multer';
 import path from 'path';
 import archiver from 'archiver';
@@ -112,6 +113,15 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
+    // Staff opening someone else's file is the access worth a trail; an
+    // employee opening their own document is not.
+    if (req.user.employeeId !== document.employeeId) {
+      await auditLog(req, 'READ', 'Document', document.id, {
+        employeeId: document.employeeId,
+        name: document.name,
+      });
+    }
+
     assertKeyInTenant(document.path);
     const store = getStorage();
     if (!(await store.exists(document.path))) {
@@ -178,6 +188,11 @@ router.post(
         path: key,
         type,
         expiryDate,
+      });
+      await auditLog(req, 'UPLOAD', 'Document', d.id, {
+        employeeId: d.employeeId,
+        name,
+        type,
       });
       res.json(d);
     } catch (e: any) {
@@ -255,6 +270,14 @@ router.post(
         .json({ error: 'no files could be stored', skipped, failed });
     }
 
+    await auditLog(req, 'UPLOAD_PAYSLIPS', 'Document', undefined, {
+      employeeId: employee.id,
+      uploadedCount: documents.length,
+      documentIds: documents.map((d) => d.id),
+      skipped: skipped.length,
+      failed: failed.length,
+    });
+
     res.json({
       employeeId: employee.id,
       uploadedCount: documents.length,
@@ -286,6 +309,11 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
     // Delete the database record
     await prisma.document.deleteMany({ where: { id: parseInt(id) } });
+    await auditLog(req, 'DELETE', 'Document', doc.id, {
+      employeeId: doc.employeeId,
+      name: doc.name,
+      type: doc.type,
+    });
     res.json({ success: true });
   } catch (e: any) {
     console.error('Error deleting document:', e);
@@ -319,6 +347,11 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
         .status(404)
         .json({ error: 'No documents found for this employee' });
     }
+
+    await auditLog(req, 'DOWNLOAD_ALL', 'Document', undefined, {
+      employeeId: employee.id,
+      count: employee.documents.length,
+    });
 
     // Set response headers
     const filename = `${employee.firstName}_${employee.lastName}_Documents.zip`;

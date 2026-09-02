@@ -1,11 +1,11 @@
 import cron from 'node-cron';
-// Cron sweeps run outside any request, so they use the platform client.
-// TODO(multi-tenant P6): iterate tenants and run each sweep inside
-// runWithTenant() so alerts only reach that tenant's admins.
+// Cron sweeps run outside any request. Each one iterates tenants and does its
+// work inside runWithTenant(); the platform client here is only for the
+// cross-tenant audit rows that record a run happened.
 import { platformPrisma as prisma } from '../prismaClient';
-import { sendEmail, EmailTemplates } from './emailService';
 import { detectUnauthorisedAbsence } from './absenceDetection';
 import { reconcileSalaries } from './salarySweep';
+import { sweepAllTenantExpiries } from './expirySweep';
 
 // In-memory cron status — surfaced via /api/notifications/cron-status so the
 // Notifications page can show a "last run" badge. Survives until process restart;
@@ -53,131 +53,24 @@ export function getCronStatus(): CronStatus {
 }
 
 /**
- * Check for visas and contracts that are about to expire (30/60/90 day windows)
- * AND those that are already overdue, and email the admins/directors + employees.
- *
- * Tracks last-sent timestamp on each record (via AuditLog) so we don't re-email
- * the same item every day inside the same threshold band.
+ * Daily visa / contract expiry alerts, one pass per tenant (see expirySweep.ts).
+ * Per-tenant errors are surfaced in cronStatus.lastError like the other sweeps.
  */
 async function checkExpiringRecords() {
   console.log('[CRON] Running expiry check...');
   cronStatus.lastStartedAt = new Date().toISOString();
   cronStatus.lastError = null;
-  const now = new Date();
-  const thresholds = [30, 60, 90]; // upcoming-expiry alert windows
-
-  let visaNotifications = 0;
-  let contractNotifications = 0;
 
   try {
-    // Always-fresh recipient list (admins + directors). MANAGER is a legacy
-    // alias that no longer exists in our role enum — don't filter on it.
-    const recipients = await prisma.user.findMany({
-      where: { role: { in: ['ADMIN', 'DIRECTOR'] } },
-    });
-    const recipientEmails = recipients.map((r) => r.email).filter(Boolean);
-
-    // -------- Visas (Sponsorship.endDate) --------
-    const sponsorships = await prisma.sponsorship.findMany({
-      where: { active: true, endDate: { not: null } },
-      include: { employee: true },
-    });
-
-    for (const sponsorship of sponsorships) {
-      if (!sponsorship.endDate) continue;
-      const daysRemaining = Math.ceil(
-        (new Date(sponsorship.endDate).getTime() - now.getTime()) /
-          (1000 * 60 * 60 * 24),
-      );
-
-      const shouldAlert =
-        daysRemaining <= 0 || // overdue — alert every run until resolved
-        thresholds.some((t) => Math.abs(daysRemaining - t) <= 1);
-      if (!shouldAlert) continue;
-
-      const subjectLabel =
-        daysRemaining <= 0
-          ? `OVERDUE by ${Math.abs(daysRemaining)} days`
-          : `${daysRemaining} days remaining`;
-      const template = EmailTemplates.visaExpiry(
-        `${sponsorship.employee.firstName} ${sponsorship.employee.lastName}`,
-        sponsorship.visaType,
-        new Date(sponsorship.endDate).toISOString().split('T')[0],
-        daysRemaining,
-      );
-      const subject = `${template.subject} — ${subjectLabel}`;
-
-      const toList = [...recipientEmails];
-      if (sponsorship.employee.email) toList.push(sponsorship.employee.email);
-      for (const to of toList) {
-        try {
-          await sendEmail({ to, subject, html: template.html });
-          visaNotifications++;
-        } catch (err) {
-          console.error(`[CRON] visa email failed for ${to}:`, err);
-        }
-      }
-    }
-
-    // -------- Contracts (Employee.endDate) --------
-    const employeesWithEnd = await prisma.employee.findMany({
-      where: { endDate: { not: null } },
-    });
-
-    for (const employee of employeesWithEnd) {
-      if (!employee.endDate) continue;
-      const daysRemaining = Math.ceil(
-        (new Date(employee.endDate).getTime() - now.getTime()) /
-          (1000 * 60 * 60 * 24),
-      );
-
-      const shouldAlert =
-        daysRemaining <= 0 ||
-        thresholds.some((t) => Math.abs(daysRemaining - t) <= 1);
-      if (!shouldAlert) continue;
-
-      const subjectLabel =
-        daysRemaining <= 0
-          ? `OVERDUE by ${Math.abs(daysRemaining)} days`
-          : `${daysRemaining} days remaining`;
-      const template = EmailTemplates.contractExpiry(
-        `${employee.firstName} ${employee.lastName}`,
-        new Date(employee.endDate).toISOString().split('T')[0],
-        daysRemaining,
-      );
-      const subject = `${template.subject} — ${subjectLabel}`;
-
-      const toList = [...recipientEmails];
-      if (employee.email) toList.push(employee.email);
-      for (const to of toList) {
-        try {
-          await sendEmail({ to, subject, html: template.html });
-          contractNotifications++;
-        } catch (err) {
-          console.error(`[CRON] contract email failed for ${to}:`, err);
-        }
-      }
-    }
-
-    cronStatus.lastVisaNotifications = visaNotifications;
-    cronStatus.lastContractNotifications = contractNotifications;
-
-    // Write an AuditLog row so a "last run" timestamp survives restarts.
-    await prisma.auditLog.create({
-      data: {
-        userId: null,
-        userEmail: 'cron@system',
-        action: 'CRON_EXPIRY_CHECK',
-        entity: 'System',
-        entityId: null,
-        details: JSON.stringify({ visaNotifications, contractNotifications }),
-        ipAddress: null,
-        userAgent: 'node-cron',
-      },
-    });
-
+    const result = await sweepAllTenantExpiries();
+    cronStatus.lastVisaNotifications = result.visaNotifications;
+    cronStatus.lastContractNotifications = result.contractNotifications;
+    cronStatus.lastError = result.errors.length
+      ? result.errors.join('; ')
+      : null;
     console.log(
-      `[CRON] Expiry check complete. Visa notifications: ${visaNotifications}, Contract notifications: ${contractNotifications}`,
+      `[CRON] Expiry check complete. Tenants: ${result.tenantsScanned}, ` +
+        `visa notifications: ${result.visaNotifications}, contract notifications: ${result.contractNotifications}`,
     );
   } catch (error: any) {
     cronStatus.lastError = error?.message || String(error);
@@ -270,7 +163,9 @@ export function initializeCronJobs() {
     timezone: 'Europe/London',
   });
   console.log('[CRON] Scheduled daily absence sweep at 9:30 AM UK time');
-  console.log('[CRON] Scheduled daily salary reconciliation at 10:00 AM UK time');
+  console.log(
+    '[CRON] Scheduled daily salary reconciliation at 10:00 AM UK time',
+  );
 }
 
 // Exported for the manual "Check & Send Notifications" button.

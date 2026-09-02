@@ -8,7 +8,7 @@ import archiver from 'archiver'
 import path from 'path'
 import { getStorage, assertKeyInTenant } from '../lib/storage'
 import type { Document, LeaveRequest, Timesheet } from '@prisma/client'
-import { isHrAdminRole, normalizeRole, ROLES } from '../lib/roles'
+import { canViewAuditLogs, isHrAdminRole, isOwnerRole, normalizeRole, ROLES } from '../lib/roles'
 
 const router = Router()
 
@@ -16,20 +16,29 @@ function safeArchiveName(value: string) {
   return value.replace(/[<>:"/\\|?*\x00-\x1F]/g, '-').replace(/\s+/g, ' ').trim() || 'document'
 }
 
+function auditLogFilter(query: any) {
+  const { entity, action, userId, from, to } = query
+  const where: any = {}
+  if (entity) where.entity = entity
+  if (action) where.action = action
+  if (userId) where.userId = parseInt(userId as string)
+  if (from || to) {
+    where.timestamp = {}
+    if (from) where.timestamp.gte = new Date(`${from}T00:00:00.000Z`)
+    if (to) where.timestamp.lte = new Date(`${to}T23:59:59.999Z`)
+  }
+  return where
+}
+
 // Get audit logs (admin only)
 router.get('/audit-logs', requireAuth, async (req: any, res) => {
   try {
-    const userRole = req.user?.role || 'USER'
-    if (userRole !== 'ADMIN') {
+    if (!canViewAuditLogs(req.user?.role)) {
       return res.status(403).json({ error: 'Admin access required' })
     }
 
-    const { limit = 100, offset = 0, entity, action, userId } = req.query
-    
-    const where: any = {}
-    if (entity) where.entity = entity
-    if (action) where.action = action
-    if (userId) where.userId = parseInt(userId as string)
+    const { limit = 100, offset = 0 } = req.query
+    const where = auditLogFilter(req.query)
 
     const logs = await prisma.auditLog.findMany({
       where,
@@ -49,15 +58,60 @@ router.get('/audit-logs', requireAuth, async (req: any, res) => {
   }
 })
 
+// Same filters as the list, as a spreadsheet. Capped so a multi-year tenant
+// cannot pull the whole table into memory in one request.
+const AUDIT_EXPORT_CAP = 50000
+
+router.get('/audit-logs/export', requireAuth, async (req: any, res) => {
+  try {
+    if (!canViewAuditLogs(req.user?.role)) {
+      return res.status(403).json({ error: 'Admin access required' })
+    }
+
+    const where = auditLogFilter(req.query)
+    const logs = await prisma.auditLog.findMany({
+      where,
+      orderBy: { timestamp: 'desc' },
+      take: AUDIT_EXPORT_CAP,
+    })
+
+    const rows = logs.map((l) => ({
+      Timestamp: l.timestamp.toISOString(),
+      User: l.userEmail ?? '',
+      Action: l.action,
+      Entity: l.entity,
+      'Entity ID': l.entityId ?? '',
+      Details: l.details ?? '',
+      'IP Address': l.ipAddress ?? '',
+      'User Agent': l.userAgent ?? '',
+    }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Audit Log')
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+
+    await auditLog(req, 'EXPORT', 'AuditLog', undefined, {
+      count: logs.length,
+      truncated: logs.length === AUDIT_EXPORT_CAP,
+      filters: req.query,
+    })
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename=audit-log-${new Date().toISOString().split('T')[0]}.xlsx`)
+    res.send(buffer)
+  } catch (error: any) {
+    console.error('Error exporting audit logs:', error)
+    res.status(500).json({ error: 'Failed to export audit logs' })
+  }
+})
+
 // Subject Access Request - Export all personal data for an employee
 router.get('/subject-access-request/:employeeId', requireAuth, async (req: any, res) => {
   try {
     const { employeeId } = req.params
-    const userRole = req.user?.role || 'USER'
     const userEmail = req.user?.email
 
     // Check permissions - admin or the employee themselves
-    if (userRole !== 'ADMIN') {
+    if (!isOwnerRole(req.user?.role)) {
       const employee = await prisma.employee.findFirst({ where: { id: parseInt(employeeId) } })
       if (!employee || employee.email !== userEmail) {
         return res.status(403).json({ error: 'Access denied' })
@@ -136,11 +190,10 @@ router.get('/subject-access-request/:employeeId', requireAuth, async (req: any, 
 router.get('/export-employee-data/:employeeId', requireAuth, async (req: any, res) => {
   try {
     const { employeeId } = req.params
-    const userRole = req.user?.role || 'USER'
     const userEmail = req.user?.email
 
     // Check permissions
-    if (userRole !== 'ADMIN') {
+    if (!isOwnerRole(req.user?.role)) {
       const employee = await prisma.employee.findFirst({ where: { id: parseInt(employeeId) } })
       if (!employee || employee.email !== userEmail) {
         return res.status(403).json({ error: 'Access denied' })
@@ -404,11 +457,10 @@ router.post('/consent', requireAuth, async (req: any, res) => {
 router.get('/consent/:employeeId', requireAuth, async (req: any, res) => {
   try {
     const { employeeId } = req.params
-    const userRole = req.user?.role || 'USER'
     const userEmail = req.user?.email
 
     // Check permissions
-    if (userRole !== 'ADMIN') {
+    if (!isOwnerRole(req.user?.role)) {
       const employee = await prisma.employee.findFirst({ where: { id: parseInt(employeeId) } })
       if (!employee || employee.email !== userEmail) {
         return res.status(403).json({ error: 'Access denied' })

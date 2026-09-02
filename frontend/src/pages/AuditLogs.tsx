@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Card from '../components/Card'
-import { apiGet } from '../lib/api'
+import { API_BASE_URL, apiGet } from '../lib/api'
 
 interface AuditLog {
   id: number
@@ -20,23 +20,32 @@ const AuditLogs: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const [error, setError] = useState('')
+  const [exporting, setExporting] = useState(false)
   const [filters, setFilters] = useState({
     entity: '',
     action: '',
+    from: '',
+    to: '',
     limit: 50,
     offset: 0
   })
 
+  const activeFilterQuery = () => ({
+    ...(filters.entity ? { entity: filters.entity } : {}),
+    ...(filters.action ? { action: filters.action } : {}),
+    ...(filters.from ? { from: filters.from } : {}),
+    ...(filters.to ? { to: filters.to } : {}),
+  })
+
   const entities = ['User', 'Employee', 'Document', 'Timesheet', 'LeaveRequest', 'Project', 'AuditLog', 'DataConsent']
-  const actions = ['LOGIN_SUCCESS', 'LOGIN_FAILED', 'CREATE', 'READ', 'UPDATE', 'DELETE', 'DATA_EXPORT', 'CONSENT_GIVEN', 'CONSENT_WITHDRAWN']
+  const actions = ['LOGIN_SUCCESS', 'LOGIN_FAILED', 'CREATE', 'READ', 'UPDATE', 'DELETE', 'APPROVE', 'REJECT', 'UPLOAD', 'EXPORT', 'DATA_EXPORT', 'CONSENT_GIVEN', 'CONSENT_WITHDRAWN']
 
   const fetchLogs = async () => {
     try {
       setLoading(true)
       setError('')
       const response = await apiGet('/gdpr/audit-logs', {
-        ...(filters.entity ? { entity: filters.entity } : {}),
-        ...(filters.action ? { action: filters.action } : {}),
+        ...activeFilterQuery(),
         limit: filters.limit,
         offset: filters.offset,
       })
@@ -55,6 +64,36 @@ const AuditLogs: React.FC = () => {
   useEffect(() => {
     fetchLogs()
   }, [filters])
+
+  const exportLogs = async () => {
+    try {
+      setExporting(true)
+      setError('')
+      const token = localStorage.getItem('token')
+      const query = new URLSearchParams(activeFilterQuery()).toString()
+      const response = await fetch(
+        `${API_BASE_URL}/gdpr/audit-logs/export${query ? `?${query}` : ''}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        throw new Error(body.error || 'Export failed')
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `audit-log-${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      setError(err.message || 'Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -76,6 +115,10 @@ const AuditLogs: React.FC = () => {
       'READ': 'text-gray-600 bg-gray-100',
       'UPDATE': 'text-yellow-600 bg-yellow-100',
       'DELETE': 'text-red-600 bg-red-100',
+      'APPROVE': 'text-green-600 bg-green-100',
+      'REJECT': 'text-orange-600 bg-orange-100',
+      'UPLOAD': 'text-blue-600 bg-blue-100',
+      'EXPORT': 'text-purple-600 bg-purple-100',
       'DATA_EXPORT': 'text-purple-600 bg-purple-100',
       'CONSENT_GIVEN': 'text-green-600 bg-green-100',
       'CONSENT_WITHDRAWN': 'text-orange-600 bg-orange-100'
@@ -133,6 +176,28 @@ const AuditLogs: React.FC = () => {
             </select>
           </div>
 
+          <div className="w-40">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
+            <input
+              type="date"
+              value={filters.from}
+              max={filters.to || undefined}
+              onChange={(e) => setFilters(prev => ({ ...prev, from: e.target.value, offset: 0 }))}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+            />
+          </div>
+
+          <div className="w-40">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
+            <input
+              type="date"
+              value={filters.to}
+              min={filters.from || undefined}
+              onChange={(e) => setFilters(prev => ({ ...prev, to: e.target.value, offset: 0 }))}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+            />
+          </div>
+
           <div className="w-32">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Per Page</label>
             <select
@@ -148,10 +213,18 @@ const AuditLogs: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setFilters({ entity: '', action: '', limit: 50, offset: 0 })}
+            onClick={() => setFilters({ entity: '', action: '', from: '', to: '', limit: 50, offset: 0 })}
             className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
           >
             Clear Filters
+          </button>
+
+          <button
+            onClick={exportLogs}
+            disabled={exporting}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            {exporting ? 'Exporting…' : 'Export to Excel'}
           </button>
         </div>
 

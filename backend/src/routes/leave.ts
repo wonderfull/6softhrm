@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../prismaClient';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
+import { auditLog } from '../middleware/audit';
 import { sendEmail, EmailTemplates } from '../lib/emailService';
 import { canReviewLeaveAndTime, normalizeRole, ROLES } from '../lib/roles';
 import { currentTenantId } from '../lib/tenantContext';
@@ -68,6 +69,12 @@ router.post('/', requireAuth, async (req: any, res) => {
       },
       include: { employee: true },
     });
+    await auditLog(req, 'CREATE', 'LeaveRequest', lr.id, {
+      employeeId,
+      type,
+      startDate,
+      endDate,
+    });
 
     // Send notification to operational approvers
     try {
@@ -102,97 +109,97 @@ router.post('/', requireAuth, async (req: any, res) => {
   }
 });
 
+// Approve/reject share one path: only a PENDING request can be decided (a
+// second decision on the same request is a 409, not a silent overwrite), and
+// nobody decides their own leave whatever their role.
+async function decideLeave(
+  req: any,
+  res: any,
+  status: 'APPROVED' | 'REJECTED',
+) {
+  const id = Number(req.params.id);
+  try {
+    const existing = await prisma.leaveRequest.findFirst({ where: { id } });
+    if (!existing)
+      return res.status(404).json({ error: 'Leave request not found' });
+    if (req.user.employeeId && existing.employeeId === req.user.employeeId)
+      return res
+        .status(403)
+        .json({ error: 'You cannot decide your own leave request' });
+    if (existing.status !== 'PENDING')
+      return res
+        .status(409)
+        .json({
+          error: `Leave request already ${existing.status.toLowerCase()}`,
+        });
+
+    const updated = await prisma.leaveRequest.updateMany({
+      where: { id, status: 'PENDING' },
+      data: { status },
+    });
+    if (updated.count === 0)
+      return res.status(409).json({ error: 'Leave request already decided' });
+    const lr = await prisma.leaveRequest.findFirst({
+      where: { id },
+      include: { employee: true },
+    });
+    if (!lr) return res.status(404).json({ error: 'Leave request not found' });
+
+    await auditLog(
+      req,
+      status === 'APPROVED' ? 'APPROVE' : 'REJECT',
+      'LeaveRequest',
+      id,
+      {
+        employeeId: lr.employeeId,
+        reason: req.body?.reason,
+      },
+    );
+
+    // Send notification to employee
+    try {
+      if (lr.employee.email) {
+        const name = `${lr.employee.firstName} ${lr.employee.lastName}`;
+        const start = lr.startDate.toISOString().split('T')[0];
+        const end = lr.endDate.toISOString().split('T')[0];
+        const template =
+          status === 'APPROVED'
+            ? EmailTemplates.leaveRequestApproved(name, lr.type, start, end)
+            : EmailTemplates.leaveRequestRejected(
+                name,
+                lr.type,
+                start,
+                end,
+                req.body?.reason || 'No reason provided',
+              );
+        await sendEmail({
+          to: lr.employee.email,
+          subject: template.subject,
+          html: template.html,
+        });
+      }
+    } catch (emailError) {
+      console.error('Failed to send leave decision notification:', emailError);
+    }
+
+    res.json(lr);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+}
+
 router.put(
   '/:id/approve',
   requireAuth,
   requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'),
-  async (req, res) => {
-    const id = Number(req.params.id);
-    try {
-      const updated = await prisma.leaveRequest.updateMany({
-        where: { id },
-        data: { status: 'APPROVED' },
-      });
-      if (updated.count === 0)
-        return res.status(404).json({ error: 'Leave request not found' });
-      const lr = await prisma.leaveRequest.findFirst({
-        where: { id },
-        include: { employee: true },
-      });
-      if (!lr)
-        return res.status(404).json({ error: 'Leave request not found' });
-
-      // Send notification to employee
-      try {
-        if (lr.employee.email) {
-          const template = EmailTemplates.leaveRequestApproved(
-            `${lr.employee.firstName} ${lr.employee.lastName}`,
-            lr.type,
-            lr.startDate.toISOString().split('T')[0],
-            lr.endDate.toISOString().split('T')[0],
-          );
-          await sendEmail({
-            to: lr.employee.email,
-            subject: template.subject,
-            html: template.html,
-          });
-        }
-      } catch (emailError) {
-        console.error('Failed to send approval notification:', emailError);
-      }
-
-      res.json(lr);
-    } catch (e: any) {
-      res.status(400).json({ error: e.message });
-    }
-  },
+  (req, res) => decideLeave(req, res, 'APPROVED'),
 );
 
 router.put(
   '/:id/reject',
   requireAuth,
   requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'),
-  async (req, res) => {
-    const id = Number(req.params.id);
-    try {
-      const updated = await prisma.leaveRequest.updateMany({
-        where: { id },
-        data: { status: 'REJECTED' },
-      });
-      if (updated.count === 0)
-        return res.status(404).json({ error: 'Leave request not found' });
-      const lr = await prisma.leaveRequest.findFirst({
-        where: { id },
-        include: { employee: true },
-      });
-      if (!lr)
-        return res.status(404).json({ error: 'Leave request not found' });
-
-      // Send notification to employee
-      try {
-        if (lr.employee.email) {
-          const template = EmailTemplates.leaveRequestRejected(
-            `${lr.employee.firstName} ${lr.employee.lastName}`,
-            lr.type,
-            lr.startDate.toISOString().split('T')[0],
-            lr.endDate.toISOString().split('T')[0],
-            req.body.reason || 'No reason provided',
-          );
-          await sendEmail({
-            to: lr.employee.email,
-            subject: template.subject,
-            html: template.html,
-          });
-        }
-      } catch (emailError) {
-        console.error('Failed to send rejection notification:', emailError);
-      }
-
-      res.json(lr);
-    } catch (e: any) {
-      res.status(400).json({ error: e.message });
-    }
-  },
+  (req, res) => decideLeave(req, res, 'REJECTED'),
 );
 
 export default router;
