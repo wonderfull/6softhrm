@@ -42,7 +42,7 @@ import './styles/tailwind.css';
 // Per-route document.title so browser tabs and screen-reader announcements are
 // disambiguated (test report B13: every page used to read "HRM Starter").
 const ROUTE_TITLES: Record<string, string> = {
-  '/': 'HR software for UK sponsor licence holders',
+  '/': 'HR software for UK companies',
   '/dashboard': 'Dashboard',
   '/employees': 'People',
   '/sponsorships': 'Sponsorships',

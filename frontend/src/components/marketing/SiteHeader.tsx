@@ -4,7 +4,7 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const NAV = [
   { label: 'Product', href: '/#product' },
-  { label: 'Compliance', href: '/#compliance' },
+  { label: 'For teams', href: '/#teams' },
   { label: 'Security', href: '/#security' },
   { label: 'Pricing', href: '/#pricing' },
   { label: 'FAQ', href: '/#faq' },

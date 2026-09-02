@@ -4,6 +4,8 @@ import {
   ArrowRightIcon,
   CalendarDaysIcon,
   CheckIcon,
+  ClockIcon,
+  DocumentTextIcon,
   LockClosedIcon,
   ShieldCheckIcon,
   UsersIcon,
@@ -52,90 +54,116 @@ function SectionHeading({
 }
 
 const STATS = [
-  { value: '10 working days', label: 'reporting deadline tracked on every event' },
-  { value: '12 items', label: 'of Appendix D evidence checked per sponsored worker' },
-  { value: 'AES-256-GCM', label: 'field-level encryption for NI, passport and bank details' },
+  { value: 'One portal', label: 'for HR, managers and every employee' },
   { value: 'UK hosted', label: 'data held in Manchester, England' },
+  {
+    value: 'AES-256-GCM',
+    label: 'field-level encryption for NI, passport and bank details',
+  },
+  {
+    value: 'Full audit trail',
+    label: 'every sensitive action logged for UK GDPR',
+  },
 ];
 
 const STAKES = [
   {
-    title: 'The ten-day absence',
-    body: 'Ten consecutive working days of unauthorised absence is a reportable event, and the clock for reporting it is ten working days. Spreadsheets miss it because nobody counts bank holidays.',
+    title: 'Leave lives in inboxes',
+    body: 'Requests arrive by email, approvals happen in chat, and the allowance is a spreadsheet only one person understands. Nobody can say who is off next Tuesday.',
   },
   {
-    title: 'Salary below the CoS',
-    body: 'From 8 April 2026 a sponsored worker must be paid at least the Certificate of Sponsorship salary in every pay period, not on average across the year. One short month is a report.',
+    title: 'Documents live in drives',
+    body: 'Contracts, right-to-work checks and ID sit in shared folders with no expiry dates and no record of who has looked at them. The audit is a scramble.',
   },
   {
-    title: 'Evidence gaps at audit',
-    body: 'A compliance visit asks for the Appendix D file on each worker. If the right-to-work check or twelve months of payslips are not to hand, it is recorded as a finding against you.',
+    title: 'Compliance lives in one head',
+    body: 'GDPR consent, retention and — if you sponsor workers — Home Office reporting all depend on one person remembering. When they are away, the company is exposed.',
   },
 ];
 
 const PILLARS = [
   {
-    icon: ShieldCheckIcon,
-    title: 'Sponsor compliance',
-    items: [
-      'Audit readiness score for the whole licence',
-      'Automatic absence and salary sweeps every morning',
-      'Reportable event register with deadlines',
-      'One-click compliance pack (ZIP) for a visit',
-    ],
-  },
-  {
     icon: UsersIcon,
-    title: 'People & documents',
+    title: 'People records',
     items: [
-      'Employee records with CSV import',
-      'Right-to-work, visa and contract documents',
+      'One profile per employee, imported from CSV',
+      'Job, contract, pay and emergency details',
       'Roles: admin, director, office assistant, employee',
-      'Data-subject export in a click',
+      'Self-service for every member of staff',
     ],
   },
   {
     icon: CalendarDaysIcon,
-    title: 'Leave & time',
+    title: 'Leave & absence',
     items: [
-      'Leave requests and approvals',
-      'Timesheets and projects',
-      'gov.uk bank-holiday calendars for England & Wales, Scotland and Northern Ireland',
-      'Absence ledger derived from leave and time',
+      'Requests, approvals and allowances',
+      'Company calendar of who is off',
+      'gov.uk bank holidays for England & Wales, Scotland and Northern Ireland',
+      'Sickness and unauthorised absence ledger',
+    ],
+  },
+  {
+    icon: ClockIcon,
+    title: 'Time & projects',
+    items: [
+      'Weekly timesheets with approval',
+      'Projects and hours by client',
+      'Working-day calendar built in',
+      'Export for payroll and billing',
+    ],
+  },
+  {
+    icon: DocumentTextIcon,
+    title: 'Documents',
+    items: [
+      'Contracts, right-to-work, visas and ID per employee',
+      'PDF, Word and image uploads',
+      'Who uploaded and who viewed, recorded',
+      'Employee-visible or HR-only',
+    ],
+  },
+  {
+    icon: ShieldCheckIcon,
+    title: 'Compliance',
+    items: [
+      'UK GDPR consent and data-subject export',
+      'Retention and audit logs',
+      'Sponsor licence toolkit for employers of Skilled Workers',
+      'Compliance pack export for an inspection',
     ],
   },
   {
     icon: LockClosedIcon,
-    title: 'Audit trail & privacy',
+    title: 'Security',
     items: [
-      'Every sensitive action written to the audit log',
-      'Employee consent records',
-      'UK GDPR processor agreement included',
-      'Two-factor authentication on any account',
+      'Two-factor authentication',
+      'Encrypted NI, passport and bank fields',
+      'Each company isolated at the data layer',
+      'Nightly backups, hosted in the UK',
     ],
   },
 ];
 
-const COMPLIANCE = [
+const TEAMS = [
   {
-    title: 'Unauthorised absence detection',
-    ref: 'Sponsor guidance Part 3, C1.15',
-    body: 'Leave, timesheets and manual records are combined into one absence ledger per worker. When ten consecutive working days of unauthorised absence appear — counted against the correct regional bank-holiday calendar — a reportable event is raised with its deadline.',
+    title: 'Employees',
+    ref: 'Self-service',
+    body: 'Book leave, submit timesheets, upload documents and see their own record — nothing else. Consent and data-export requests are a button, not an email to HR.',
   },
   {
-    title: 'Salary reconciliation',
-    ref: 'Per-pay-period rule from 8 April 2026',
-    body: 'Import your payroll export. Each pay period is annualised and checked against the higher of the CoS salary and the going rate for the role. A shortfall becomes a reportable event at the next morning\'s sweep.',
+    title: 'Managers and directors',
+    ref: 'Approvals and visibility',
+    body: 'Approve leave and time from one queue, see who is off across the team, and open any report without asking HR to run it.',
   },
   {
-    title: 'Appendix D evidence',
-    ref: 'Appendix D, version 08/26',
-    body: 'A twelve-item evidence checklist on every sponsored worker — right-to-work check, CoS record, contract, payslips, bank transfer evidence and the rest — with the retention date calculated for you.',
+    title: 'HR and office administrators',
+    ref: 'Control',
+    body: 'Own the employee records, documents, roles and settings. Import from CSV, export for payroll, and answer an audit or a subject-access request from the audit log.',
   },
   {
-    title: 'Versioned rules',
-    ref: 'Reviewed monthly',
-    body: 'Every rule carries the version of the guidance it implements and shows it in the product. When the Home Office changes the rules, you can see when we caught up.',
+    title: 'Sponsor licence holders',
+    ref: 'Included in Core + Compliance',
+    body: 'If you employ Skilled Workers, the same records feed an audit readiness score, automatic absence and salary checks against the Certificate of Sponsorship, and an Appendix D evidence checklist. It is a feature, not a separate product.',
   },
 ];
 
@@ -147,13 +175,13 @@ const STEPS = [
   },
   {
     n: '02',
-    title: 'Add sponsorship and pay',
-    body: 'Record each Certificate of Sponsorship, its salary and going rate, then import payroll periods as you run them.',
+    title: 'Invite the company',
+    body: 'Everyone gets a login with the right role. Employees see themselves, managers see their team, admins see the lot.',
   },
   {
     n: '03',
-    title: 'Watch the score',
-    body: 'The dashboard shows a readiness band — Ready, At risk, Not ready — and what to fix. Export the compliance pack when the Home Office calls.',
+    title: 'Run HR from one place',
+    body: 'Leave, time, documents and compliance happen in the portal from day one — with an audit trail from the first click.',
   },
 ];
 
@@ -167,8 +195,8 @@ const SECURITY = [
     body: 'National Insurance numbers, passport numbers, sort codes and account numbers are encrypted with AES-256-GCM.',
   },
   {
-    title: 'Tenant isolation',
-    body: 'Every customer is separated at the data-access layer, not just the login screen. Cross-tenant queries are refused by design.',
+    title: 'Company isolation',
+    body: 'Every customer is separated at the data-access layer, not just the login screen. Cross-company queries are refused by design.',
   },
   {
     title: 'Complete audit log',
@@ -187,16 +215,16 @@ const SECURITY = [
 const PLANS = [
   {
     name: 'Core',
-    tagline: 'People, leave, time and documents for any UK employer.',
+    tagline: 'The HR portal for any UK company.',
     features: [
       'Employee records and CSV import',
       'Leave, timesheets and projects',
       'Document storage',
-      'Roles and self-service',
+      'Roles and employee self-service',
       'Audit log and data export',
       'Two-factor authentication',
     ],
-    highlight: false,
+    highlight: true,
   },
   {
     name: 'Core + Compliance',
@@ -209,15 +237,11 @@ const PLANS = [
       'Reportable event register',
       'Compliance pack export',
     ],
-    highlight: true,
+    highlight: false,
   },
 ];
 
 const FAQ = [
-  {
-    q: 'Is OnsideHR legal or immigration advice?',
-    a: 'No. OnsideHR applies the published sponsor guidance to your records and tells you what it finds. Decisions about reporting, and anything unusual, should go to your immigration adviser. We make that easier by giving them the evidence in one place.',
-  },
   {
     q: 'Who controls the data?',
     a: 'Your company is the data controller. 6soft Ltd is the processor and acts only on your instructions under the data processing agreement you sign at onboarding.',
@@ -235,12 +259,44 @@ const FAQ = [
     a: 'Yes. Employees see and manage only their own leave, time, documents and consent. Directors and office assistants see the wider team; admins see everything.',
   },
   {
-    q: 'How do you keep up with guidance changes?',
-    a: 'Each compliance rule is pinned to the version of the guidance it implements and reviewed monthly. The version is shown in the product so you always know which rules are running.',
+    q: 'We sponsor workers. Does OnsideHR cover that?',
+    a: 'Yes, on the Core + Compliance plan. The same employee, absence and pay records feed an audit readiness score, automatic checks against the published sponsor guidance, and an Appendix D evidence checklist. It supports your reporting decisions; it is not legal or immigration advice.',
+  },
+  {
+    q: 'How is the product kept up to date?',
+    a: 'Bank-holiday calendars, compliance rules and legal templates carry the version they implement and are reviewed monthly. Updates ship to every customer at once; there is nothing to install.',
   },
 ];
 
-function ReadinessPanel() {
+function PortalPanel() {
+  const stats = [
+    { label: 'Headcount', value: '42' },
+    { label: 'Off today', value: '3' },
+    { label: 'To approve', value: '5' },
+    { label: 'Expiring', value: '2' },
+  ];
+  const queue = [
+    {
+      title: 'Leave request — P. Mensah',
+      sub: '14–18 Sep · 5 days annual leave',
+      meta: 'Approve',
+    },
+    {
+      title: 'Timesheet — week 36 — R. Iqbal',
+      sub: '37.5 h across two projects',
+      meta: 'Approve',
+    },
+    {
+      title: 'Right-to-work check — L. Novak',
+      sub: 'Expires 30 Sep · reminder sent',
+      meta: 'Documents',
+    },
+    {
+      title: 'Sponsor licence — salary check',
+      sub: '18 workers checked · no shortfalls',
+      meta: 'Today 10:00',
+    },
+  ];
   return (
     <div
       aria-hidden="true"
@@ -249,92 +305,47 @@ function ReadinessPanel() {
       <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-slate-900 dark:text-white">
-            Sponsor audit readiness
+            This week
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Guidance 05/26 · Appendix D 08/26
+            Ashworth Engineering Ltd · Admin view
           </p>
         </div>
-        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          At risk
+        <span className="whitespace-nowrap text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          Mon 7 Sep
         </span>
       </div>
-      <div className="px-5 py-5 grid grid-cols-3 gap-4 border-b border-slate-200 dark:border-slate-800">
-        <div className="col-span-1">
-          <p className="text-5xl font-semibold tracking-tight text-slate-900 dark:text-white">
-            74
-          </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            out of 100
-          </p>
-        </div>
-        <div className="col-span-2 grid grid-cols-2 gap-3 text-xs">
-          <div>
-            <p className="text-slate-500 dark:text-slate-400">Sponsored</p>
-            <p className="text-lg font-semibold text-slate-900 dark:text-white">
-              18
-            </p>
+      <dl className="px-5 py-5 grid grid-cols-4 gap-3 border-b border-slate-200 dark:border-slate-800">
+        {stats.map((s) => (
+          <div key={s.label}>
+            <dt className="text-xs text-slate-500 dark:text-slate-400">
+              {s.label}
+            </dt>
+            <dd className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              {s.value}
+            </dd>
           </div>
-          <div>
-            <p className="text-slate-500 dark:text-slate-400">Open events</p>
-            <p className="text-lg font-semibold text-slate-900 dark:text-white">
-              2
-            </p>
-          </div>
-          <div>
-            <p className="text-slate-500 dark:text-slate-400">Evidence</p>
-            <p className="text-lg font-semibold text-slate-900 dark:text-white">
-              91%
-            </p>
-          </div>
-          <div>
-            <p className="text-slate-500 dark:text-slate-400">Overdue</p>
-            <p className="text-lg font-semibold text-slate-900 dark:text-white">
-              0
-            </p>
-          </div>
-        </div>
-      </div>
+        ))}
+      </dl>
       <ul className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
-        <li className="px-5 py-3 flex items-start justify-between gap-4">
-          <div>
-            <p className="font-medium text-slate-900 dark:text-white">
-              Salary below CoS — A. Okafor
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              July pay period annualises to £29,120 vs £30,960 CoS
-            </p>
-          </div>
-          <span className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
-            Due in 6 working days
-          </span>
-        </li>
-        <li className="px-5 py-3 flex items-start justify-between gap-4">
-          <div>
-            <p className="font-medium text-slate-900 dark:text-white">
-              Missing evidence — M. Kowalski
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Payslips (12 months) not on file
-            </p>
-          </div>
-          <span className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
-            Appendix D
-          </span>
-        </li>
-        <li className="px-5 py-3 flex items-start justify-between gap-4">
-          <div>
-            <p className="font-medium text-slate-900 dark:text-white">
-              Absence sweep
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              18 workers checked · no ten-day spells
-            </p>
-          </div>
-          <span className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
-            Today 09:30
-          </span>
-        </li>
+        {queue.map((q) => (
+          <li
+            key={q.title}
+            className="px-5 py-3 flex items-start justify-between gap-4"
+          >
+            <div>
+              <p className="font-medium text-slate-900 dark:text-white">
+                {q.title}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {q.sub}
+              </p>
+            </div>
+            <span className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
+              {q.meta}
+            </span>
+          </li>
+        ))}
       </ul>
     </div>
   );
@@ -348,15 +359,14 @@ export default function Home() {
       {/* Hero */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-20 lg:pt-24 lg:pb-28 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-6">
-          <Eyebrow>For UK sponsor licence holders</Eyebrow>
+          <Eyebrow>HR software for UK companies</Eyebrow>
           <h1 className="mt-4 text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05] text-slate-900 dark:text-white">
-            HR software that keeps your sponsor licence safe.
+            One HR portal for the whole company.
           </h1>
           <p className="mt-6 text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-[60ch]">
-            OnsideHR runs the people admin every employer needs — leave, time,
-            documents — and watches the two things that get licences revoked:
-            unauthorised absence and salary slipping below the Certificate of
-            Sponsorship.
+            Employee records, leave, timesheets, documents and compliance in one
+            UK-hosted portal — with a login for the people team, for managers,
+            and for every employee.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
             <a href={DEMO_HREF} className={PRIMARY_BTN}>
@@ -369,11 +379,11 @@ export default function Home() {
           </div>
           <p className="mt-6 text-sm text-slate-500 dark:text-slate-400">
             Built and hosted in the UK · UK GDPR processor agreement included ·
-            Existing data imports from CSV
+            Live in an afternoon from a CSV
           </p>
         </div>
         <div className="lg:col-span-6">
-          <ReadinessPanel />
+          <PortalPanel />
         </div>
       </section>
 
@@ -394,11 +404,14 @@ export default function Home() {
       </section>
 
       {/* Stakes */}
-      <section id="why" className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24">
+      <section
+        id="why"
+        className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24"
+      >
         <SectionHeading
           eyebrow="Why it matters"
-          title="Licences are not lost to bad intent. They are lost to missed dates."
-          lede="The failures below are not exotic. They are arithmetic — and all three are checkable every morning, if something is counting."
+          title="HR without a system is a set of habits. Habits do not survive an audit."
+          lede="Most UK companies under two hundred people run HR on email, spreadsheets and a shared drive. It works until the day it is checked."
         />
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
           {STAKES.map((s) => (
@@ -425,19 +438,16 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24">
           <SectionHeading
             eyebrow="Product"
-            title="One system for the people work, with compliance built in."
-            lede="Most HR tools bolt sponsorship on as a custom field. In OnsideHR the sponsorship record, the absence ledger and the payroll periods are the same data the compliance engine reads."
+            title="Everything HR, in one place."
+            lede="Six areas, one employee record underneath them all. What you enter once — a start date, a contract, a day off — is what every report, calendar and compliance check reads."
           />
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-slate-200 dark:bg-slate-800 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-slate-200 dark:bg-slate-800 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
             {PILLARS.map((p) => (
               <div
                 key={p.title}
                 className="bg-white dark:bg-slate-950 p-6 lg:p-7"
               >
-                <p.icon
-                  className="h-6 w-6 text-[#5e6ad2]"
-                  strokeWidth={1.5}
-                />
+                <p.icon className="h-6 w-6 text-[#5e6ad2]" strokeWidth={1.5} />
                 <h3 className="mt-4 text-base font-semibold tracking-tight text-slate-900 dark:text-white">
                   {p.title}
                 </h3>
@@ -461,17 +471,17 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Compliance deep-dive */}
+      {/* For every role */}
       <section
-        id="compliance"
+        id="teams"
         className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12"
       >
         <div className="lg:col-span-5">
           <div className="lg:sticky lg:top-24">
             <SectionHeading
-              eyebrow="Sponsor compliance"
-              title="The rules, applied to your records, every morning."
-              lede="Two sweeps run every morning — one for absence, one for salary. Anything they find lands in the reportable event register with its deadline already counted in working days."
+              eyebrow="For every role"
+              title="One portal, four views of it."
+              lede="Everyone in the company uses the same system and sees exactly what their role allows. No second tool for managers, no PDF forms for staff."
             />
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <a href={DEMO_HREF} className={PRIMARY_BTN}>
@@ -481,8 +491,11 @@ export default function Home() {
           </div>
         </div>
         <ul className="lg:col-span-7 divide-y divide-slate-200 dark:divide-slate-800 border-t border-slate-200 dark:border-slate-800">
-          {COMPLIANCE.map((c) => (
-            <li key={c.title} className="py-7 grid grid-cols-1 sm:grid-cols-12 gap-3">
+          {TEAMS.map((c) => (
+            <li
+              key={c.title}
+              className="py-7 grid grid-cols-1 sm:grid-cols-12 gap-3"
+            >
               <div className="sm:col-span-4">
                 <h3 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
                   {c.title}
@@ -531,7 +544,10 @@ export default function Home() {
       </section>
 
       {/* Security */}
-      <section id="security" className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24">
+      <section
+        id="security"
+        className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24"
+      >
         <SectionHeading
           eyebrow="Security"
           title="Answers your procurement questionnaire will accept."
@@ -577,7 +593,7 @@ export default function Home() {
           <SectionHeading
             eyebrow="Pricing"
             title="Two plans. Priced per seat."
-            lede="Tell us your headcount and how many workers you sponsor, and we will send a quote and a data processing agreement together."
+            lede="Tell us your headcount and we will send a quote and a data processing agreement together. Add Compliance only if you hold a sponsor licence."
           />
           <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
             {PLANS.map((p) => (
@@ -595,7 +611,7 @@ export default function Home() {
                   </h3>
                   {p.highlight && (
                     <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[#5e6ad2]/10 text-[#5e6ad2]">
-                      For sponsors
+                      Most companies
                     </span>
                   )}
                 </div>
@@ -629,7 +645,10 @@ export default function Home() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <section
+        id="faq"
+        className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12"
+      >
         <div className="lg:col-span-4">
           <SectionHeading eyebrow="FAQ" title="Straight answers." />
         </div>
@@ -658,11 +677,11 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
           <div className="max-w-2xl">
             <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight leading-[1.1] text-slate-900 dark:text-white">
-              See your readiness score on your own data.
+              See OnsideHR running on your own data.
             </h2>
             <p className="mt-4 text-base sm:text-lg text-slate-600 dark:text-slate-400">
-              A 30-minute call, your employee CSV, and you will know where you
-              stand before the Home Office does.
+              A 30-minute call and your employee CSV. We set the portal up with
+              your people in it, so the demo is your company, not ours.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">

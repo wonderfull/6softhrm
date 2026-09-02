@@ -21,10 +21,10 @@ describe('Home page', () => {
     ;(localStorage.getItem as any).mockReturnValue(null)
   })
 
-  it('leads with the sponsor-licence proposition', () => {
+  it('leads with the HR-portal proposition', () => {
     renderHome()
     expect(
-      screen.getByRole('heading', { level: 1, name: /sponsor licence/i }),
+      screen.getByRole('heading', { level: 1, name: /hr portal/i }),
     ).toBeInTheDocument()
   })
 

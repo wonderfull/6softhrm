@@ -9,8 +9,8 @@ const COLUMNS: Array<{
   {
     heading: 'Product',
     links: [
-      { label: 'Sponsor compliance', to: '/#compliance' },
-      { label: 'People & documents', to: '/#product' },
+      { label: 'Everything HR', to: '/#product' },
+      { label: 'For teams', to: '/#teams' },
       { label: 'Security', to: '/#security' },
       { label: 'Pricing', to: '/#pricing' },
     ],
@@ -28,7 +28,11 @@ const COLUMNS: Array<{
     heading: 'Company',
     links: [
       { label: 'Book a demo', to: DEMO_HREF, external: true },
-      { label: 'hello@onsidehr.co.uk', to: 'mailto:hello@onsidehr.co.uk', external: true },
+      {
+        label: 'hello@onsidehr.co.uk',
+        to: 'mailto:hello@onsidehr.co.uk',
+        external: true,
+      },
       { label: 'Sign in', to: '/login' },
     ],
   },
@@ -48,8 +52,8 @@ export default function SiteFooter() {
             OnsideHR
           </div>
           <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 max-w-sm leading-relaxed">
-            HR software for UK employers that hold a sponsor licence. Built and
-            hosted in the United Kingdom by 6soft Ltd.
+            The HR portal for UK companies. Built and hosted in the United
+            Kingdom by 6soft Ltd.
           </p>
         </div>
         {COLUMNS.map((col) => (
@@ -83,11 +87,11 @@ export default function SiteFooter() {
       </div>
       <div className="border-t border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-          <p>© {year} 6soft Ltd. OnsideHR is operated by 6soft Ltd, United Kingdom.</p>
           <p>
-            OnsideHR supports sponsor compliance; it is not legal or
-            immigration advice.
+            © {year} 6soft Ltd. OnsideHR is operated by 6soft Ltd, United
+            Kingdom.
           </p>
+          <p>Registered in England and Wales.</p>
         </div>
       </div>
     </footer>
