@@ -23,7 +23,11 @@ export default defineConfig({
       // 429s that look like empty pages rather than throttling.
       env: { ...process.env, E2E_RELAX_RATE_LIMITS: '1' } as Record<string, string>,
       url: 'http://localhost:4000/api/health',
-      reuseExistingServer: true,
+      // Never reuse a backend this config did not start: the rate-limit
+      // opt-out above only reaches a process Playwright launched itself, and
+      // a reused one throttles the suite into failures that look like empty
+      // pages. Stop any backend on :4000 before running these.
+      reuseExistingServer: false,
       timeout: 120_000,
     },
     {
