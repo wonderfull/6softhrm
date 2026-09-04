@@ -18,6 +18,10 @@ export default defineConfig({
     {
       command: 'npm run dev',
       cwd: '../backend',
+      // A browser suite drives far more requests through one IP than the
+      // production limits allow, so without this the last specs to run get
+      // 429s that look like empty pages rather than throttling.
+      env: { ...process.env, E2E_RELAX_RATE_LIMITS: '1' } as Record<string, string>,
       url: 'http://localhost:4000/api/health',
       reuseExistingServer: true,
       timeout: 120_000,

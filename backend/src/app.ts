@@ -28,6 +28,7 @@ import trainingRoutes from './routes/training';
 import caseRoutes from './routes/cases';
 import { requireFeature } from './lib/tenantPolicy';
 import { requireAuth } from './middleware/auth';
+import { shouldRelaxRateLimits } from './lib/rateLimitPolicy';
 import { verifyEmailConfig } from './lib/emailService';
 import { initializeCronJobs } from './lib/cronJobs';
 
@@ -120,13 +121,12 @@ app.use((req, res, next) => {
 // Brute-force protection on credential endpoints; a lenient global limit
 // backstops everything else. Keyed by IP (trust proxy is on above).
 // Disabled under Jest so test suites don't trip the counters.
-const isTestEnv = process.env.NODE_ENV === 'test' || !!process.env.JEST_WORKER_ID;
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => isTestEnv,
+  skip: () => shouldRelaxRateLimits(),
   message: { error: 'Too many attempts. Try again in 15 minutes.' },
 });
 const apiLimiter = rateLimit({
@@ -134,7 +134,7 @@ const apiLimiter = rateLimit({
   limit: 300,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => isTestEnv,
+  skip: () => shouldRelaxRateLimits(),
   message: { error: 'Too many requests. Slow down.' },
 });
 app.use('/api/auth/login', authLimiter);

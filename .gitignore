@@ -42,3 +42,7 @@ kingfisher-dashboard.png
 
 # Database backups (local copies)
 backend/backups/
+
+# Playwright run artifacts (traces, screenshots)
+frontend/test-results/
+frontend/playwright-report/
