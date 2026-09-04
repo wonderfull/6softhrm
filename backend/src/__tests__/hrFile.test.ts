@@ -1,5 +1,5 @@
 import express from 'express';
-import request from 'supertest';
+import request from './helpers/http';
 import bcrypt from 'bcryptjs';
 import employeesRouter from '../routes/employees';
 import reviewsRouter from '../routes/reviews';

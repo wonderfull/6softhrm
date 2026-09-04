@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import express from 'express';
-import request from 'supertest';
+import request from './helpers/http';
 import adminRouter from '../routes/admin';
 import notificationsRouter from '../routes/notifications';
 import projectsRouter from '../routes/projects';

@@ -1,6 +1,6 @@
 import path from 'path'
 import { afterEach, beforeEach, describe, expect } from '@jest/globals'
-import request from 'supertest'
+import request from '../helpers/http';
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'
 import { testPrisma as prisma } from '../helpers/tenantTest'

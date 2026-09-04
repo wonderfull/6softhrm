@@ -10,7 +10,12 @@ import { auditLog } from '../middleware/audit';
 import { requireRole } from '../middleware/roles';
 import * as XLSX from 'xlsx';
 import type { DataConsent, Employee } from '@prisma/client';
-import { normalizeRole, ROLES } from '../lib/roles';
+import {
+  canViewSensitiveEmployeeFields,
+  canViewSponsorships,
+  normalizeRole,
+  ROLES,
+} from '../lib/roles';
 import { computeRetainUntil } from '../lib/retention';
 import { assertNoCycle } from '../lib/reportingLine';
 import { ensureProbationReview } from '../lib/probationReview';
@@ -588,18 +593,28 @@ router.post(
 // Export employees to Excel
 router.get('/export/excel', requireAuth, async (req: any, res) => {
   try {
-    const userRole = req.user?.role || 'USER';
+    const userRole = normalizeRole(req.user?.role);
     const userEmail = req.user?.email;
+    const employeeId = req.user?.employeeId;
 
+    // This sheet carries NI numbers, bank details and salaries in the clear.
+    // The old check compared the raw role against 'MANAGER' — a value
+    // normalizeRole never produces — and fell through to exporting every
+    // employee whenever the token carried no email.
     let employees;
-    // If user is not ADMIN/MANAGER, show only their own employee record
-    if (userRole !== 'ADMIN' && userRole !== 'MANAGER' && userEmail) {
+    if (canViewSponsorships(userRole)) {
+      employees = await prisma.employee.findMany();
+      if (!canViewSensitiveEmployeeFields(userRole)) {
+        employees = employees.map(redactSensitiveEmployeeFields);
+      }
+    } else {
+      if (!employeeId && !userEmail) {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
       const employee = await prisma.employee.findFirst({
-        where: { email: userEmail },
+        where: employeeId ? { id: employeeId } : { email: userEmail },
       });
       employees = employee ? [employee] : [];
-    } else {
-      employees = await prisma.employee.findMany();
     }
 
     // Format data for Excel

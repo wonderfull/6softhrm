@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import express from 'express';
-import request from 'supertest';
+import request from './helpers/http';
 import * as XLSX from 'xlsx';
 import documentsRouter from '../routes/documents';
 import employeesRouter from '../routes/employees';

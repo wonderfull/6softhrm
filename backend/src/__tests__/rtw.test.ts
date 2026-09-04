@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import express from 'express';
-import request from 'supertest';
+import request from './helpers/http';
 import employeesRouter from '../routes/employees';
 import sponsorshipsRouter from '../routes/sponsorships';
 import { platformPrisma } from '../prismaClient';

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from '@jest/globals';
-import request from 'supertest';
+import request from './helpers/http';
 import bcrypt from 'bcryptjs';
 import app from '../app';
 import { testPrisma as prisma, testTenantId } from './helpers/tenantTest';

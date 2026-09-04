@@ -34,6 +34,7 @@ const TENANT_MODELS = new Set([
   'DataConsent',
   'RightToWorkCheck',
   'SponsorLicence',
+  'TenantSettings',
   'Notification',
   'PerformanceReview',
   'ChecklistItem',

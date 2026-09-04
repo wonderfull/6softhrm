@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import request from 'supertest';
+import request from './helpers/http';
 import fs from 'fs';
 import path from 'path';
 import app from '../app';

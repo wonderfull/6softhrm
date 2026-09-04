@@ -1,5 +1,5 @@
 import express from 'express';
-import request from 'supertest';
+import request from './helpers/http';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import authRouter from '../routes/auth';

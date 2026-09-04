@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
-import request from 'supertest';
+import request from './helpers/http';
 import * as XLSX from 'xlsx';
 import mysql from 'mysql2/promise';
 // The real app, not a hand-rolled router harness: upload-size failures are

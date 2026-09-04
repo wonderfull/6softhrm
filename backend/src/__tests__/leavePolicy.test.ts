@@ -1,5 +1,5 @@
 import express from 'express';
-import request from 'supertest';
+import request from './helpers/http';
 import leaveRouter from '../routes/leave';
 import tenantRouter from '../routes/tenant';
 import employeesRouter from '../routes/employees';

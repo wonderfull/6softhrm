@@ -24,7 +24,8 @@
     "encrypt:fields": "ts-node --transpile-only scripts/encrypt-existing-fields.ts",
     "verify:onboarding": "NODE_ENV=test ts-node --transpile-only scripts/verify-onboarding.ts",
     "verify:all": "npm run check:tenancy && npm run test && npm run verify:tenancy && npm run verify:onboarding && npm run verify:compliance",
-    "verify:compliance": "NODE_ENV=test ts-node --transpile-only scripts/verify-compliance.ts"
+    "verify:compliance": "NODE_ENV=test ts-node --transpile-only scripts/verify-compliance.ts",
+    "test:flake": "bash scripts/flake-check.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1118.0",

@@ -356,7 +356,9 @@ export default function Documents() {
 
   async function upload(e: React.FormEvent) {
     e.preventDefault();
-    if (!validateUploadForm()) return;
+    // validateUploadForm already refuses a missing file; naming it again is
+    // what tells the compiler the append below is safe.
+    if (!validateUploadForm() || !file) return;
 
     const fd = new FormData();
     fd.append('file', file);

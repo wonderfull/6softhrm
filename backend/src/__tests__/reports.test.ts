@@ -1,5 +1,5 @@
 import express from 'express';
-import request from 'supertest';
+import request from './helpers/http';
 import * as XLSX from 'xlsx';
 import reportsRouter from '../routes/reports';
 import {

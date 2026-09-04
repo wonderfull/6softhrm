@@ -1,4 +1,4 @@
-import request from 'supertest';
+import request from './helpers/http';
 import app from '../app';
 import { signTestToken } from './helpers/tenantTest';
 
