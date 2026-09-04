@@ -424,8 +424,8 @@ const Consent: React.FC = () => {
             </li>
             <li>
               Request your data via the{' '}
-              <a href="/data-export" className="text-blue-600 hover:underline">
-                Data Export
+              <a href="/account" className="text-blue-600 hover:underline">
+                My Account
               </a>{' '}
               page
             </li>

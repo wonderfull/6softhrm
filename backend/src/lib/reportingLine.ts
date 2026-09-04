@@ -61,3 +61,16 @@ export async function assertNoCycle(
     cursor = next?.managerId ?? null;
   }
 }
+
+/**
+ * Employee ids this user may see records for: `null` means "everyone" (an
+ * elevated role), otherwise their own record plus anyone reporting to them.
+ */
+export async function visibleEmployeeIds(
+  user: { role?: unknown; employeeId?: number | null } | undefined,
+): Promise<number[] | null> {
+  if (!user) return [];
+  if (canReviewLeaveAndTime(normalizeRole(user.role))) return null;
+  if (!user.employeeId) return [];
+  return [user.employeeId, ...(await directReportIds(user.employeeId))];
+}

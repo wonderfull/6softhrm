@@ -35,6 +35,13 @@ const TENANT_MODELS = new Set([
   'RightToWorkCheck',
   'SponsorLicence',
   'Notification',
+  'PerformanceReview',
+  'ChecklistItem',
+  'DocumentTemplate',
+  'DocumentAcknowledgement',
+  'ExpenseClaim',
+  'TrainingRecord',
+  'CaseRecord',
 ]);
 
 // Ops whose `where` accepts arbitrary filters — tenantId is injected in place.

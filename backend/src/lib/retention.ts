@@ -109,7 +109,19 @@ export async function anonymiseEmployee(
   });
   await prisma.rightToWorkCheck.deleteMany({ where: { employeeId } });
   await prisma.dataConsent.deleteMany({ where: { employeeId } });
+  // The rest of the HR file. Reviews, cases and expenses are all personal
+  // data about a named person and none of them survive erasure.
+  await prisma.performanceReview.deleteMany({ where: { employeeId } });
+  await prisma.checklistItem.deleteMany({ where: { employeeId } });
+  await prisma.documentAcknowledgement.deleteMany({ where: { employeeId } });
+  await prisma.expenseClaim.deleteMany({ where: { employeeId } });
+  await prisma.trainingRecord.deleteMany({ where: { employeeId } });
+  await prisma.caseRecord.deleteMany({ where: { employeeId } });
   // Evidence and reportable events cascade from the sponsorship.
+  await prisma.performanceReview.updateMany({
+    where: { reviewerId: employeeId },
+    data: { reviewerId: null },
+  });
   const sponsorships = await prisma.sponsorship.deleteMany({
     where: { employeeId },
   });

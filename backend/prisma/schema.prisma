@@ -42,6 +42,13 @@ model Tenant {
   rightToWorkChecks  RightToWorkCheck[]
   sponsorLicence     SponsorLicence?
   notifications      Notification[]
+  performanceReviews PerformanceReview[]
+  checklistItems     ChecklistItem[]
+  documentTemplates  DocumentTemplate[]
+  acknowledgements   DocumentAcknowledgement[]
+  expenseClaims      ExpenseClaim[]
+  trainingRecords    TrainingRecord[]
+  caseRecords        CaseRecord[]
 }
 
 model TenantSettings {
@@ -191,6 +198,9 @@ model Employee {
   retainUntil  DateTime?
   anonymisedAt DateTime?
 
+  // Profile photo, stored through lib/storage like every other upload.
+  photoPath String?
+
   // Reporting line. A manager approves their own reports' leave without
   // needing an elevated role; SetNull so removing a manager never orphans
   // the people who reported to them.
@@ -207,8 +217,8 @@ model Employee {
   emergencyContactRelation String?
   emergencyContactAddress  String?
 
-  manager           Employee?          @relation("ReportingLine", fields: [managerId], references: [id], onDelete: SetNull)
-  reports           Employee[]         @relation("ReportingLine")
+  manager           Employee?                 @relation("ReportingLine", fields: [managerId], references: [id], onDelete: SetNull)
+  reports           Employee[]                @relation("ReportingLine")
   user              User?
   sponsorships      Sponsorship[]
   documents         Document[]
@@ -217,6 +227,13 @@ model Employee {
   absences          AbsenceRecord[]
   payRecords        PayRecord[]
   rightToWorkChecks RightToWorkCheck[]
+  reviews           PerformanceReview[]       @relation("ReviewSubject")
+  reviewsGiven      PerformanceReview[]       @relation("Reviewer")
+  checklistItems    ChecklistItem[]
+  acknowledgements  DocumentAcknowledgement[]
+  expenseClaims     ExpenseClaim[]
+  trainingRecords   TrainingRecord[]
+  caseRecords       CaseRecord[]
 
   @@unique([tenantId, email])
   @@index([tenantId, managerId])
@@ -423,8 +440,14 @@ model Document {
   type                          String? // Document type (e.g., CONTRACT, PASSPORT, etc.)
   expiryDate                    DateTime? // Optional expiry date for documents
   uploadedAt                    DateTime                        @default(now())
+  // Contracts and policies the employee has to confirm they have read. This
+  // is an acknowledgement, not a qualified electronic signature.
+  requiresAcknowledgement       Boolean                         @default(false)
   sponsorshipComplianceEvidence SponsorshipComplianceEvidence[]
   rightToWorkChecks             RightToWorkCheck[]
+  acknowledgements              DocumentAcknowledgement[]
+  expenseClaims                 ExpenseClaim[]
+  trainingRecords               TrainingRecord[]
 
   @@index([tenantId])
 }
@@ -495,4 +518,139 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([tenantId, userId, readAt])
+}
+
+// --- Phase 5: the rest of the HR file --------------------------------------
+// Each of these is deliberately small. They exist so the work is recorded and
+// findable at audit, not to be a workflow engine.
+
+model PerformanceReview {
+  id          Int       @id @default(autoincrement())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    Int
+  employee    Employee  @relation("ReviewSubject", fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId  Int
+  reviewer    Employee? @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewerId  Int?
+  type        String // PROBATION | ANNUAL | MID_YEAR
+  dueDate     DateTime
+  completedAt DateTime?
+  rating      String? // e.g. EXCEEDS | MEETS | BELOW
+  summary     String?   @db.Text
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, dueDate])
+}
+
+model ChecklistItem {
+  id          Int       @id @default(autoincrement())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    Int
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId  Int
+  kind        String // ONBOARDING | OFFBOARDING
+  /// Matches a key in lib/checklists.ts when the item performs an action.
+  actionKey   String?
+  title       String
+  dueDate     DateTime?
+  completedAt DateTime?
+  completedBy String?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, employeeId, kind])
+}
+
+model DocumentTemplate {
+  id                      Int      @id @default(autoincrement())
+  tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId                Int
+  name                    String
+  /// Document type generated documents are filed under, e.g. CONTRACT.
+  documentType            String   @default("CONTRACT")
+  /// HTML with {{firstName}}-style placeholders.
+  body                    String   @db.Text
+  requiresAcknowledgement Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model DocumentAcknowledgement {
+  id             Int      @id @default(autoincrement())
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId       Int
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId     Int
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId     Int
+  /// What the person typed as their name — the whole of the "signature".
+  typedName      String
+  ip             String?
+  userAgent      String?  @db.Text
+  acknowledgedAt DateTime @default(now())
+
+  @@unique([documentId, employeeId])
+  @@index([tenantId, employeeId])
+}
+
+model ExpenseClaim {
+  id                Int       @id @default(autoincrement())
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId          Int
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId        Int
+  date              DateTime
+  category          String // TRAVEL | SUBSISTENCE | EQUIPMENT | TRAINING | OTHER
+  amount            Float
+  description       String?   @db.Text
+  receipt           Document? @relation(fields: [receiptDocumentId], references: [id], onDelete: SetNull)
+  receiptDocumentId Int?
+  status            String    @default("PENDING") // PENDING | APPROVED | REJECTED | PAID
+  decidedBy         String?
+  decidedAt         DateTime?
+  decisionNote      String?
+  createdAt         DateTime  @default(now())
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, status])
+}
+
+model TrainingRecord {
+  id                    Int       @id @default(autoincrement())
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId              Int
+  employee              Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId            Int
+  title                 String
+  provider              String?
+  completedAt           DateTime
+  /// Feeds the nightly expiry sweep, so a lapsed certificate is chased.
+  expiresAt             DateTime?
+  certificate           Document? @relation(fields: [certificateDocumentId], references: [id], onDelete: SetNull)
+  certificateDocumentId Int?
+  createdAt             DateTime  @default(now())
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, expiresAt])
+}
+
+model CaseRecord {
+  id         Int       @id @default(autoincrement())
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId   Int
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId Int
+  type       String // DISCIPLINARY | GRIEVANCE | CAPABILITY
+  openedAt   DateTime
+  closedAt   DateTime?
+  stage      String // INFORMAL | INVESTIGATION | HEARING | APPEAL | CLOSED
+  outcome    String?
+  notes      String?   @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([tenantId, employeeId])
 }

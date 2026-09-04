@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-import { createAuditLog } from '../middleware/audit';
+import { auditLog, createAuditLog } from '../middleware/audit';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import { getJwtSecret } from '../lib/authConfig';
@@ -202,6 +202,7 @@ function issueSessionToken(user: any) {
       id: user.id,
       email: user.email,
       role,
+      name: user.name,
       employeeId: user.employeeId,
       tenantId: user.tenantId,
       tokenVersion: user.tokenVersion,
@@ -511,6 +512,90 @@ router.post('/2fa/disable', requireAuth, async (req: any, res) => {
 });
 
 // Get all users
+// The signed-in user's own account. Every role has one, so none of this is
+// role-gated — it only ever reads or writes the caller's own row.
+const SELF_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  employeeId: true,
+  totpEnabled: true,
+  tenant: {
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      plan: true,
+      features: true,
+      logoUrl: true,
+      primaryColor: true,
+    },
+  },
+} as const;
+
+router.get('/me', requireAuth, async (req: any, res) => {
+  const user = await prisma.user.findFirst({
+    where: { id: req.user.id },
+    select: SELF_SELECT,
+  });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json({ ...user, role: normalizeRole(user.role) });
+});
+
+router.put('/me', requireAuth, async (req: any, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  if (!name) return res.status(400).json({ error: 'Name cannot be empty' });
+
+  await prisma.user.updateMany({
+    where: { id: req.user.id },
+    data: { name },
+  });
+  const user = await prisma.user.findFirst({
+    where: { id: req.user.id },
+    select: SELF_SELECT,
+  });
+  await auditLog(req, 'UPDATE', 'User', req.user.id, { fields: ['name'] });
+  res.json({ ...user, role: normalizeRole(user!.role) });
+});
+
+// Changing a password ends every other session for that account — bumping
+// tokenVersion is what makes a stolen token stop working — so the caller is
+// handed a fresh one to carry on with.
+router.post('/change-password', requireAuth, async (req: any, res) => {
+  const { currentPassword, newPassword } = req.body ?? {};
+  if (!currentPassword || !newPassword)
+    return res
+      .status(400)
+      .json({ error: 'Current and new passwords are required' });
+  if (String(newPassword).length < 8)
+    return res
+      .status(400)
+      .json({ error: 'New password must be at least 8 characters' });
+
+  const user = await prisma.user.findFirst({ where: { id: req.user.id } });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const matches = await bcrypt.compare(String(currentPassword), user.password);
+  if (!matches)
+    return res.status(400).json({ error: 'Current password is incorrect' });
+
+  await prisma.user.updateMany({
+    where: { id: user.id },
+    data: {
+      password: await bcrypt.hash(String(newPassword), 10),
+      tokenVersion: (user.tokenVersion ?? 0) + 1,
+    },
+  });
+  await auditLog(req, 'PASSWORD_CHANGED', 'User', user.id, { self: true });
+
+  const refreshed = await prisma.user.findFirst({
+    where: { id: user.id },
+    include: { tenant: true },
+  });
+  res.json(issueSessionToken(refreshed));
+});
+
 router.get(
   '/users',
   requireAuth,

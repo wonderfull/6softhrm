@@ -79,13 +79,15 @@ async function createDocumentRecord(data: {
 router.get('/', requireAuth, async (req: any, res) => {
   const user = req.user;
   const role = normalizeRole(user.role);
+  // Both branches honour it, so "My Payslips" is the same query as HR's.
+  const type = req.query.type ? { type: String(req.query.type) } : {};
 
   if (role === ROLES.EMPLOYEE) {
     if (!user.employeeId) {
       return res.json([]);
     }
     const docs = await prisma.document.findMany({
-      where: { employeeId: user.employeeId },
+      where: { employeeId: user.employeeId, ...type },
       include: { employee: true },
     });
     return res.json(docs);
@@ -96,10 +98,76 @@ router.get('/', requireAuth, async (req: any, res) => {
 
   const employeeId = req.query.employeeId ? Number(req.query.employeeId) : null;
   const docs = await prisma.document.findMany({
-    where: employeeId ? { employeeId } : undefined,
+    where: { ...(employeeId ? { employeeId } : {}), ...type },
     include: { employee: true },
   });
   res.json(docs);
+});
+
+// Read-and-acknowledge. Deliberately not a qualified electronic signature:
+// what is stored is that this person, signed in, typed their name against
+// this document at this time from this address.
+router.post('/:id/acknowledge', requireAuth, async (req: any, res) => {
+  const documentId = Number(req.params.id);
+  const employeeId = Number(req.user?.employeeId);
+  if (!employeeId)
+    return res
+      .status(403)
+      .json({ error: 'User account is not linked to an employee record' });
+
+  const document = await prisma.document.findFirst({
+    where: { id: documentId },
+    select: { id: true, employeeId: true, requiresAcknowledgement: true },
+  });
+  if (!document || document.employeeId !== employeeId)
+    return res.status(404).json({ error: 'Document not found' });
+  if (!document.requiresAcknowledgement)
+    return res
+      .status(400)
+      .json({ error: 'This document does not need acknowledging' });
+
+  const typedName = String(req.body?.typedName ?? '').trim();
+  if (!typedName)
+    return res.status(400).json({ error: 'Type your full name to acknowledge' });
+
+  const already = await prisma.documentAcknowledgement.findFirst({
+    where: { documentId, employeeId },
+  });
+  if (already)
+    return res.status(409).json({ error: 'You have already acknowledged this' });
+
+  const acknowledgement = await prisma.documentAcknowledgement.create({
+    data: {
+      tenantId: currentTenantId(),
+      documentId,
+      employeeId,
+      typedName,
+      ip: req.ip ?? null,
+      userAgent: req.get('user-agent') ?? null,
+    },
+  });
+  await auditLog(req, 'ACKNOWLEDGE', 'Document', documentId, {
+    employeeId,
+    typedName,
+  });
+  res.json(acknowledgement);
+});
+
+router.get('/:id/acknowledgements', requireAuth, async (req: any, res) => {
+  const documentId = Number(req.params.id);
+  const document = await prisma.document.findFirst({
+    where: { id: documentId },
+    select: { employeeId: true },
+  });
+  if (!document) return res.status(404).json({ error: 'Document not found' });
+  if (!canAccessDocument(req.user, document.employeeId))
+    return res.status(403).json({ error: 'Unauthorized' });
+
+  const rows = await prisma.documentAcknowledgement.findMany({
+    where: { documentId },
+    orderBy: { acknowledgedAt: 'desc' },
+  });
+  res.json(rows);
 });
 
 router.get('/:id/file', requireAuth, async (req: any, res) => {

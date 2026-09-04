@@ -90,6 +90,43 @@ router.get(
   },
 );
 
+// The bell. Own rows only — a notification is addressed to one person, and
+// no role escalates that.
+router.get('/inbox', requireAuth, async (req: any, res) => {
+  const unreadOnly = req.query.unread === '1' || req.query.unread === 'true';
+  const take = Math.min(Number(req.query.limit) || 50, 200);
+
+  const rows = await prisma.notification.findMany({
+    where: { userId: req.user.id, ...(unreadOnly ? { readAt: null } : {}) },
+    orderBy: { createdAt: 'desc' },
+    take,
+  });
+  res.json(rows);
+});
+
+router.put('/inbox/read-all', requireAuth, async (req: any, res) => {
+  const updated = await prisma.notification.updateMany({
+    where: { userId: req.user.id, readAt: null },
+    data: { readAt: new Date() },
+  });
+  res.json({ updated: updated.count });
+});
+
+router.put('/inbox/:id/read', requireAuth, async (req: any, res) => {
+  const id = Number(req.params.id);
+  const updated = await prisma.notification.updateMany({
+    where: { id, userId: req.user.id },
+    data: { readAt: new Date() },
+  });
+  if (updated.count === 0)
+    return res.status(404).json({ error: 'Notification not found' });
+
+  const row = await prisma.notification.findFirst({
+    where: { id, userId: req.user.id },
+  });
+  res.json(row);
+});
+
 // Test email configuration
 router.post(
   '/test-email',

@@ -1,7 +1,6 @@
 import React from 'react'
 import { apiGet, apiPost, API_BASE_URL } from '../lib/api'
 import Card from '../components/Card'
-import SecuritySettingsCard from '../components/SecuritySettingsCard'
 import CompanyProfileCard from '../components/CompanyProfileCard'
 import SponsorLicenceCard from '../components/SponsorLicenceCard'
 import LeavePolicyCard from '../components/LeavePolicyCard'
@@ -168,7 +167,6 @@ export default function Settings() {
         {isAdmin && <CompanyProfileCard />}
         {hasFeature('compliance') && <SponsorLicenceCard canEdit={isAdmin} />}
         <LeavePolicyCard canEdit={isAdmin} />
-        <SecuritySettingsCard />
 
         {/* Backup & Restore (Admin Only) */}
         {isAdmin && (

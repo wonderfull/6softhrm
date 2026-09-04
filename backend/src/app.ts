@@ -19,6 +19,13 @@ import gdprRoutes from './routes/gdpr';
 import notificationsRoutes from './routes/notifications';
 import platformRoutes from './routes/platform';
 import tenantRoutes from './routes/tenant';
+import reportRoutes from './routes/reports';
+import reviewRoutes from './routes/reviews';
+import checklistRoutes from './routes/checklists';
+import documentTemplateRoutes from './routes/documentTemplates';
+import expenseRoutes from './routes/expenses';
+import trainingRoutes from './routes/training';
+import caseRoutes from './routes/cases';
 import { requireFeature } from './lib/tenantPolicy';
 import { requireAuth } from './middleware/auth';
 import { verifyEmailConfig } from './lib/emailService';
@@ -210,6 +217,13 @@ app.use('/api/gdpr', gdprRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/platform', platformRoutes);
 app.use('/api/tenant', tenantRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/checklists', checklistRoutes);
+app.use('/api/document-templates', documentTemplateRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/training', trainingRoutes);
+app.use('/api/cases', caseRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

@@ -19,7 +19,8 @@ export type ExpiryKind =
   | 'RTW_RECHECK'
   | 'LICENCE'
   | 'ACTION_PLAN'
-  | 'COS_START_BY';
+  | 'COS_START_BY'
+  | 'TRAINING';
 
 // Everything with a date the company must act before, in one shape so the
 // sweep, the Notifications page and the inbox all read the same list.
@@ -91,6 +92,7 @@ const KIND_LABEL: Record<ExpiryKind, string> = {
   LICENCE: 'Sponsor licence expiry',
   ACTION_PLAN: 'Sponsor licence action plan deadline',
   COS_START_BY: 'CoS start-by date',
+  TRAINING: 'Training certificate expiry',
 };
 
 const KIND_ACTION: Record<ExpiryKind, string> = {
@@ -106,6 +108,7 @@ const KIND_ACTION: Record<ExpiryKind, string> = {
     'Complete every action on the Home Office action plan before the deadline.',
   COS_START_BY:
     'Confirm the worker has started, or report the delayed start via SMS.',
+  TRAINING: 'Book the refresher before the certificate lapses.',
 };
 
 /**
@@ -232,6 +235,23 @@ export async function collectTenantExpiringItems(
     }
   }
 
+  const training = await prisma.trainingRecord.findMany({
+    where: {
+      expiresAt: { not: null, lte: horizon },
+      employee: { anonymisedAt: null },
+    },
+    include: { employee: true },
+  });
+  for (const record of training) {
+    push('TRAINING', record.id, record.expiresAt!, `/employees?id=${record.employeeId}`, {
+      employeeId: record.employeeId,
+      employeeName: employeeName(record.employee),
+      employeeEmail: record.employee.email,
+      jobTitle: record.employee.jobTitle,
+      detail: record.title,
+    });
+  }
+
   const licence = await prisma.sponsorLicence.findFirst({});
   if (licence) {
     if (licence.expiryDate && licence.expiryDate <= horizon)
@@ -255,6 +275,7 @@ const EMPLOYEE_COPY: ReadonlySet<ExpiryKind> = new Set([
   'VISA_DOCUMENT',
   'PASSPORT',
   'RTW_RECHECK',
+  'TRAINING',
 ]);
 
 function buildEmail(item: ExpiringItem) {

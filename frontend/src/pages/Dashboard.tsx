@@ -64,14 +64,48 @@ export default function Dashboard() {
   );
   const [readiness, setReadiness] = React.useState<any>(null);
   const [balance, setBalance] = React.useState<any>(null);
+  const [summary, setSummary] = React.useState<any>(null);
 
   const user = getCurrentUser();
   const isAdmin = hasRole(user, 'ADMIN');
+  const isElevated = hasRole(user, 'ADMIN', 'DIRECTOR');
   const linkedEmployeeId = user?.employeeId ? Number(user.employeeId) : null;
   const hasEmployeeProfile = linkedEmployeeId !== null;
   const today = formatDashboardDate();
 
   React.useEffect(() => {
+    // Elevated users read the organisation-wide numbers from the reporting
+    // endpoint rather than counting four collections client-side. Leave and
+    // timesheets are still fetched, but only for their own summary card.
+    if (isElevated) {
+      Promise.all([
+        apiGet('/reports/summary').catch(() => null),
+        apiGet('/documents/expiring').catch(() => []),
+        apiGet('/sponsorships/expiring').catch(() => []),
+        hasEmployeeProfile
+          ? apiGet('/leave').catch(() => [])
+          : Promise.resolve([]),
+        hasEmployeeProfile
+          ? apiGet('/timesheets').catch(() => [])
+          : Promise.resolve([]),
+      ]).then(
+        ([
+          reportSummary,
+          expiringDocs,
+          expiringSponsorships,
+          leave,
+          timesheets,
+        ]) => {
+          setSummary(reportSummary);
+          setExpiringDocs(expiringDocs);
+          setExpiringSponsorships(expiringSponsorships);
+          setLeaveRequests(leave);
+          setTimesheets(timesheets);
+        },
+      );
+      return;
+    }
+
     // Load dashboard statistics
     Promise.all([
       apiGet('/employees').catch(() => []),
@@ -103,7 +137,7 @@ export default function Dashboard() {
         setExpiringSponsorships(expiringSponsorships);
       },
     );
-  }, []);
+  }, [isElevated, hasEmployeeProfile]);
 
   React.useEffect(() => {
     // Compliance is a paid feature; a 403 here simply means no tile.
@@ -247,46 +281,133 @@ export default function Dashboard() {
 
       {/* Statistics Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-blue-100 text-sm mb-1">Total Employees</div>
-              <div className="text-4xl font-bold">{stats.totalEmployees}</div>
-            </div>
-            <div className="text-5xl opacity-20">👥</div>
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-purple-100 text-sm mb-1">
-                Active Projects
+        {isElevated ? (
+          <>
+            <Link
+              to="/reports"
+              className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-blue-100 text-sm mb-1">
+                    Active Headcount
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {summary?.headcount?.active ?? 0}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">👥</div>
               </div>
-              <div className="text-4xl font-bold">{stats.totalProjects}</div>
+            </Link>
+            <Link
+              to="/reports"
+              className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-purple-100 text-sm mb-1">
+                    Starters / Leavers
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {summary?.headcount?.starters30d ?? 0} /{' '}
+                    {summary?.headcount?.leavers30d ?? 0}
+                  </div>
+                  <div className="text-purple-100 text-xs mt-1">
+                    Last 30 days
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">📊</div>
+              </div>
+            </Link>
+            <Link
+              to="/reports"
+              className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-green-100 text-sm mb-1">
+                    Hours This Month
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {formatNumber(summary?.timesheets?.hours ?? 0)}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">⏱</div>
+              </div>
+            </Link>
+            <Link
+              to="/reports"
+              className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-orange-100 text-sm mb-1">
+                    Pending Leave
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {summary?.leave?.pending ?? 0}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20 flex-shrink-0" aria-hidden>
+                  🗓
+                </div>
+              </div>
+            </Link>
+          </>
+        ) : (
+          <>
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-blue-100 text-sm mb-1">
+                    Total Employees
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {stats.totalEmployees}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">👥</div>
+              </div>
             </div>
-            <div className="text-5xl opacity-20">📊</div>
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-green-100 text-sm mb-1">Documents</div>
-              <div className="text-4xl font-bold">{stats.totalDocuments}</div>
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-purple-100 text-sm mb-1">
+                    Active Projects
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {stats.totalProjects}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">📊</div>
+              </div>
             </div>
-            <div className="text-5xl opacity-20">📁</div>
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="text-orange-100 text-sm mb-1">Pending Leave</div>
-              <div className="text-4xl font-bold">{stats.pendingLeave}</div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-green-100 text-sm mb-1">Documents</div>
+                  <div className="text-4xl font-bold">
+                    {stats.totalDocuments}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">📁</div>
+              </div>
             </div>
-            <div className="text-5xl opacity-20 flex-shrink-0" aria-hidden>
-              🗓
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-orange-100 text-sm mb-1">
+                    Pending Leave
+                  </div>
+                  <div className="text-4xl font-bold">{stats.pendingLeave}</div>
+                </div>
+                <div className="text-5xl opacity-20 flex-shrink-0" aria-hidden>
+                  🗓
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {hasEmployeeProfile && (

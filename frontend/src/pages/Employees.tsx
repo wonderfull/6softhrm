@@ -91,6 +91,8 @@ type Employee = {
   managerId?: number | null;
   leaveAllowanceDays?: number | null;
   leaveCarriedOverDays?: number | null;
+  photoPath?: string | null;
+  user?: UserAccount | null;
 };
 
 type UserAccount = {
@@ -265,10 +267,91 @@ function maskAccountNumber(value?: string) {
 }
 
 function accountForEmployee(employee: Employee, users: UserAccount[]) {
-  return users.find(
+  const match = users.find(
     (user) =>
       user.employeeId === employee.id ||
       user.email.toLowerCase() === employee.email.toLowerCase(),
+  );
+  if (match) return match;
+  // An employee can't list /auth/users, so their own record carries the
+  // account inline — without this their profile claims "No login".
+  return employee.user
+    ? { ...employee.user, role: normalizeRole(employee.user.role) }
+    : undefined;
+}
+
+// Photos live in a private bucket and the endpoint wants a bearer token, so
+// an <img src> cannot fetch one by itself. Pull the bytes once per employee
+// and hand the tag an object URL; the cache survives re-renders and list
+// filtering, which is why the URLs are deliberately never revoked.
+const photoCache = new Map<number, string>();
+
+function useEmployeePhoto(employee: Employee) {
+  const [url, setUrl] = React.useState<string | null>(
+    () => photoCache.get(employee.id) ?? null,
+  );
+
+  React.useEffect(() => {
+    if (!employee.photoPath) {
+      setUrl(null);
+      return;
+    }
+    const cached = photoCache.get(employee.id);
+    if (cached) {
+      setUrl(cached);
+      return;
+    }
+
+    let cancelled = false;
+    const token =
+      typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    fetch(`${API_BASE_URL}/employees/${employee.id}/photo/raw`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((res) => (res.ok ? res.blob() : Promise.reject(res.status)))
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        photoCache.set(employee.id, objectUrl);
+        if (!cancelled) setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setUrl(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employee.id, employee.photoPath]);
+
+  return url;
+}
+
+function Avatar({
+  employee,
+  size = 'sm',
+}: {
+  employee: Employee;
+  size?: 'sm' | 'lg';
+}) {
+  const photo = useEmployeePhoto(employee);
+  const box = size === 'lg' ? 'h-11 w-11 text-sm' : 'h-9 w-9 text-xs';
+
+  if (photo) {
+    return (
+      <img
+        src={photo}
+        alt=""
+        className={`${box} shrink-0 rounded-lg object-cover`}
+      />
+    );
+  }
+  return (
+    <div
+      className={`${box} flex shrink-0 items-center justify-center rounded-lg bg-primary-50 font-bold text-primary-700 dark:bg-primary-900 dark:text-primary-200`}
+    >
+      {employee.firstName.charAt(0)}
+      {employee.lastName.charAt(0)}
+    </div>
   );
 }
 
@@ -976,7 +1059,7 @@ export default function Employees() {
               </div>
               <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Pending Reviews
+                  Consent gaps
                 </div>
                 <div className="mt-2 text-2xl font-bold">{pendingReviews}</div>
               </div>
@@ -1037,13 +1120,16 @@ export default function Employees() {
                             <button
                               type="button"
                               onClick={() => setSelectedId(employee.id)}
-                              className="text-left focus:outline-none focus:ring-2 focus:ring-primary-400"
+                              className="flex items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-primary-400"
                             >
-                              <span className="block font-semibold text-slate-950 dark:text-white">
-                                {fullName(employee)}
-                              </span>
-                              <span className="block text-xs text-slate-500 dark:text-slate-400">
-                                {employee.email}
+                              <Avatar employee={employee} />
+                              <span>
+                                <span className="block font-semibold text-slate-950 dark:text-white">
+                                  {fullName(employee)}
+                                </span>
+                                <span className="block text-xs text-slate-500 dark:text-slate-400">
+                                  {employee.email}
+                                </span>
                               </span>
                             </button>
                           </td>
@@ -1144,9 +1230,8 @@ export default function Employees() {
               {selectedEmployee ? (
                 <>
                   <div className="border-b border-slate-200 p-5 dark:border-slate-700">
-                    <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-primary-50 text-sm font-bold text-primary-700 dark:bg-primary-900 dark:text-primary-200">
-                      {selectedEmployee.firstName.charAt(0)}
-                      {selectedEmployee.lastName.charAt(0)}
+                    <div className="mb-3">
+                      <Avatar employee={selectedEmployee} size="lg" />
                     </div>
                     <h3 className="text-lg font-semibold text-slate-950 dark:text-white">
                       {fullName(selectedEmployee)}

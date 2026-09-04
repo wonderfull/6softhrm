@@ -9,11 +9,14 @@ import {
   HiOutlineSquares2X2,
   HiCalendar,
   HiFolder,
+  HiChartBar,
   HiClipboardDocumentList,
   HiArrowDownTray,
   HiShieldCheck,
   HiBell,
   HiCog6Tooth,
+  HiUserCircle,
+  HiBanknotes,
 } from 'react-icons/hi2';
 import { getCurrentUser } from '../lib/api';
 import { normalizeRole } from '../lib/roles';
@@ -43,6 +46,7 @@ const adminMenu = [
   },
   { to: '/leave', label: 'Leave', icon: <HiCalendar size={18} /> },
   { to: '/documents', label: 'Documents', icon: <HiFolder size={18} /> },
+  { to: '/reports', label: 'Reports', icon: <HiChartBar size={18} /> },
   { to: '/notifications', label: 'Notifications', icon: <HiBell size={18} /> },
   {
     to: '/audit-logs',
@@ -55,6 +59,7 @@ const adminMenu = [
     icon: <HiArrowDownTray size={18} />,
   },
   { to: '/settings', label: 'Settings', icon: <HiCog6Tooth size={18} /> },
+  { to: '/account', label: 'My Account', icon: <HiUserCircle size={18} /> },
 ];
 
 const managerMenu = [
@@ -82,7 +87,9 @@ const managerMenu = [
   },
   { to: '/leave', label: 'Leave', icon: <HiCalendar size={18} /> },
   { to: '/documents', label: 'Documents', icon: <HiFolder size={18} /> },
+  { to: '/reports', label: 'Reports', icon: <HiChartBar size={18} /> },
   { to: '/notifications', label: 'Notifications', icon: <HiBell size={18} /> },
+  { to: '/account', label: 'My Account', icon: <HiUserCircle size={18} /> },
 ];
 
 const assistantMenu = [
@@ -102,6 +109,7 @@ const assistantMenu = [
   { to: '/leave', label: 'Leave Support', icon: <HiCalendar size={18} /> },
   { to: '/documents', label: 'Document Support', icon: <HiFolder size={18} /> },
   { to: '/notifications', label: 'Notifications', icon: <HiBell size={18} /> },
+  { to: '/account', label: 'My Account', icon: <HiUserCircle size={18} /> },
 ];
 
 const userMenu = [
@@ -110,7 +118,9 @@ const userMenu = [
   { to: '/time', label: 'Timesheet', icon: <HiClock size={18} /> },
   { to: '/leave', label: 'Leave Requests', icon: <HiCalendar size={18} /> },
   { to: '/documents', label: 'My Documents', icon: <HiFolder size={18} /> },
+  { to: '/payslips', label: 'My Payslips', icon: <HiBanknotes size={18} /> },
   { to: '/consent', label: 'My Consent', icon: <HiShieldCheck size={18} /> },
+  { to: '/account', label: 'My Account', icon: <HiUserCircle size={18} /> },
 ];
 
 export default function Sidebar() {

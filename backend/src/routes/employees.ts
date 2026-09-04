@@ -13,7 +13,9 @@ import type { DataConsent, Employee } from '@prisma/client';
 import { normalizeRole, ROLES } from '../lib/roles';
 import { computeRetainUntil } from '../lib/retention';
 import { assertNoCycle } from '../lib/reportingLine';
+import { ensureProbationReview } from '../lib/probationReview';
 import rightToWorkRoutes from './rightToWork';
+import employeePhotoRoutes from './employeePhoto';
 
 const router = Router();
 
@@ -186,10 +188,12 @@ router.get('/', requireAuth, async (req: any, res) => {
   ) {
     const employee = await prisma.employee.findFirst({
       where: { email: userEmail },
-      include: { sponsorships: true, documents: true },
+      include: employeeListInclude,
     });
     await auditLog(req, 'READ', 'Employee', employee?.id, { selfAccess: true });
-    return res.json(employee ? [employee] : []);
+    // Without the linked account the employee's own profile claimed they had
+    // no login, while they were reading it from that very login.
+    return res.json(employee ? [normalizeEmployeeUserRole(employee)] : []);
   }
 
   // Admin, Director, and Office Assistant users see all employees.
@@ -277,6 +281,7 @@ router.post(
         lastName: emp.lastName,
         email: emp.email,
       });
+      await ensureProbationReview(emp);
       // Auto-link to user if email matches
       const user = await prisma.user.findFirst({
         where: { email: emp.email },
@@ -377,6 +382,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
       updatedFields: Object.keys(data).filter((k) => data[k] !== undefined),
       selfService: role === ROLES.EMPLOYEE,
     });
+    if (data.probationEndDate !== undefined) await ensureProbationReview(emp);
     res.json(emp);
   } catch (e: any) {
     console.error('Error updating employee:', e);
@@ -385,6 +391,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
 });
 
 router.use('/:id/rtw', rightToWorkRoutes);
+router.use('/:id/photo', employeePhotoRoutes);
 
 router.delete(
   '/:id',
