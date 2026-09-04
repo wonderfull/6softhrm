@@ -26,9 +26,8 @@ import {
 } from '../lib/appendixD'
 import { loadWorkingDayConfig } from '../lib/tenantSettings'
 import { getStorage, assertKeyInTenant } from '../lib/storage'
-import { scoreReadiness } from '../lib/auditReadiness'
+import { computeAuditReadiness } from '../lib/auditReadiness'
 import { guidanceSummary } from '../lib/guidanceVersion'
-import { assessPeriods } from '../lib/salaryReconciliation'
 
 const router = Router()
 
@@ -220,98 +219,8 @@ router.get('/', requireAuth, async (req: any, res) => {
 router.get('/audit-readiness', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req: any, res) => {
   try {
     const now = new Date()
-    const in30Days = addUtcDays(now, 30)
-
-    // Scoring only needs evidence presence and verification, so the evidence
-    // documents themselves are deliberately not selected.
-    const sponsorships = await prisma.sponsorship.findMany({
-      where: { active: true },
-      include: {
-        employee: {
-          select: {
-            niNumber: true,
-            rightToWorkChecks: {
-              orderBy: { checkDate: 'desc' },
-              take: 1,
-              select: { id: true, checkDate: true, outcome: true, method: true },
-            },
-          },
-        },
-        complianceEvidence: {
-          select: { evidenceType: true, verifiedAt: true },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    })
-
-    const sponsoredEmployeeIds = sponsorships.map((s) => s.employeeId)
-    const withCosTerms = sponsorships.filter((s) => s.cosSalary || s.goingRateSalary)
-
-    // One query for every sponsored worker's pay, grouped in memory — this ran
-    // per sponsorship, so a 60-worker tenant issued 60 serial queries per load.
-    const payRecords = await prisma.payRecord.findMany({
-      where: { employeeId: { in: withCosTerms.map((s) => s.employeeId) } },
-    })
-    const payByEmployee = new Map<number, typeof payRecords>()
-    for (const record of payRecords) {
-      const list = payByEmployee.get(record.employeeId)
-      if (list) list.push(record)
-      else payByEmployee.set(record.employeeId, [record])
-    }
-
-    let completenessTotal = 0
-    let missingCosTerms = 0
-    let salaryFailures = 0
-
-    for (const sponsorship of sponsorships) {
-      completenessTotal += assessCompleteness(collectLatestEvidence(sponsorship), {
-        sponsored: isSponsoredRoute(sponsorship),
-      }).percentage
-
-      if (!sponsorship.cosSalary && !sponsorship.goingRateSalary) {
-        missingCosTerms += 1
-        continue
-      }
-      salaryFailures += assessPeriods(payByEmployee.get(sponsorship.employeeId) ?? [], {
-        cosSalary: sponsorship.cosSalary,
-        goingRateSalary: sponsorship.goingRateSalary,
-      }).filter((a) => !a.compliant).length
-    }
-
-    const [openEvents, overdueEvents, expiringVisas, unknownAbsences] = await Promise.all([
-      prisma.sponsorshipReportableEvent.count({ where: { status: 'OPEN' } }),
-      prisma.sponsorshipReportableEvent.count({
-        where: { status: 'OPEN', dueDate: { lt: now } },
-      }),
-      prisma.employee.count({
-        where: {
-          id: { in: sponsoredEmployeeIds },
-          visaExpiryDate: { gte: now, lte: in30Days },
-        },
-      }),
-      prisma.absenceRecord.count({ where: { status: 'UNKNOWN' } }),
-    ])
-
-    const report = scoreReadiness({
-      evidenceCompleteness: sponsorships.length
-        ? completenessTotal / sponsorships.length
-        : 100,
-      overdueEvents,
-      // Overdue events are already penalised far more heavily; don't count twice.
-      openEvents: Math.max(0, openEvents - overdueEvents),
-      expiringDocuments: expiringVisas,
-      unresolvedAbsenceFlags: unknownAbsences,
-      salaryFailures,
-      sponsorshipsMissingCosTerms: missingCosTerms,
-      activeSponsorships: sponsorships.length,
-    })
-
-    res.json({
-      ...report,
-      activeSponsorships: sponsorships.length,
-      generatedAt: now,
-      guidance: guidanceSummary(),
-    })
+    const report = await computeAuditReadiness(now)
+    res.json({ ...report, generatedAt: now, guidance: guidanceSummary() })
   } catch (e: any) {
     res.status(500).json({ error: e.message })
   }

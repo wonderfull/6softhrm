@@ -203,8 +203,8 @@ router.post('/seed-data', requireAuth, requireRole('ADMIN'), async (req: any, re
     // Create sample leave requests
     console.log('[SEED] Creating leave requests...')
     const leaveRequests = [
-      { employeeId: (empRecords[0] as Employee).id, type: 'Annual Leave', startDate: new Date('2025-12-23'), endDate: new Date('2025-12-27'), status: 'PENDING', reason: 'Christmas holiday' },
-      { employeeId: (empRecords[1] as Employee).id, type: 'Sick Leave', startDate: new Date('2025-11-10'), endDate: new Date('2025-11-11'), status: 'APPROVED', reason: 'Flu' }
+      { employeeId: (empRecords[0] as Employee).id, type: 'ANNUAL', startDate: new Date('2025-12-23'), endDate: new Date('2025-12-27'), status: 'PENDING', reason: 'Christmas holiday' },
+      { employeeId: (empRecords[1] as Employee).id, type: 'SICK', startDate: new Date('2025-11-10'), endDate: new Date('2025-11-11'), status: 'APPROVED', reason: 'Flu' }
     ]
 
     for (const lr of leaveRequests) {

@@ -12,6 +12,7 @@ import * as XLSX from 'xlsx';
 import type { DataConsent, Employee } from '@prisma/client';
 import { normalizeRole, ROLES } from '../lib/roles';
 import { computeRetainUntil } from '../lib/retention';
+import { assertNoCycle } from '../lib/reportingLine';
 import rightToWorkRoutes from './rightToWork';
 
 const router = Router();
@@ -85,6 +86,8 @@ const EMPLOYEE_UPDATE_BLOCKLIST = [
   'absences',
   'payRecords',
   'rightToWorkChecks',
+  'manager',
+  'reports',
   'anonymisedAt',
 ];
 
@@ -120,6 +123,17 @@ function normalizeEmployeePayload(data: any) {
   if (data.salary === '') data.salary = null;
   if (data.salary !== undefined && data.salary !== null)
     data.salary = Number(data.salary);
+
+  // A cleared select or number input arrives as '', which means "no value"
+  // rather than zero.
+  for (const field of [
+    'managerId',
+    'leaveAllowanceDays',
+    'leaveCarriedOverDays',
+  ]) {
+    if (data[field] === '' || data[field] === null) data[field] = null;
+    else if (data[field] !== undefined) data[field] = Number(data[field]);
+  }
 
   return data;
 }
@@ -313,6 +327,29 @@ router.put('/:id', requireAuth, async (req: any, res) => {
           });
           data.retainUntil = computeRetainUntil(data.endDate, sponsorships);
         }
+      }
+      if (data.managerId !== undefined && data.managerId !== null) {
+        if (!Number.isInteger(data.managerId))
+          return res.status(400).json({ error: 'managerId must be an employee id' });
+        const manager = await prisma.employee.findFirst({
+          where: { id: data.managerId },
+          select: { id: true },
+        });
+        if (!manager)
+          return res.status(400).json({ error: 'Manager not found' });
+        try {
+          await assertNoCycle(employeeId, data.managerId);
+        } catch (cycle: any) {
+          return res.status(400).json({ error: cycle.message });
+        }
+      }
+      for (const field of ['leaveAllowanceDays', 'leaveCarriedOverDays']) {
+        const value = data[field];
+        if (value === undefined || value === null) continue;
+        if (!Number.isFinite(value) || value < 0 || value > 365)
+          return res
+            .status(400)
+            .json({ error: `${field} must be between 0 and 365` });
       }
     } else if (role === ROLES.EMPLOYEE) {
       const existing = await prisma.employee.findFirst({

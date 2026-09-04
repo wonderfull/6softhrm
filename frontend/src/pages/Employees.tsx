@@ -88,6 +88,9 @@ type Employee = {
   emergencyContactRelation?: string;
   emergencyContactAddress?: string;
   consentCount?: number;
+  managerId?: number | null;
+  leaveAllowanceDays?: number | null;
+  leaveCarriedOverDays?: number | null;
 };
 
 type UserAccount = {
@@ -152,6 +155,9 @@ type EmployeeFormData = {
   emergencyContactPhone: string;
   emergencyContactRelation: string;
   emergencyContactAddress: string;
+  managerId: string;
+  leaveAllowanceDays: string;
+  leaveCarriedOverDays: string;
 };
 
 type AccountFormData = {
@@ -217,6 +223,9 @@ const emptyEmployeeForm: EmployeeFormData = {
   emergencyContactPhone: '',
   emergencyContactRelation: '',
   emergencyContactAddress: '',
+  managerId: '',
+  leaveAllowanceDays: '',
+  leaveCarriedOverDays: '',
 };
 
 const emptyAccountForm: AccountFormData = {
@@ -244,6 +253,10 @@ function formatDate(value?: string) {
 
 function dateInputValue(value?: string | null) {
   return value ? value.split('T')[0] : '';
+}
+
+function numberInputValue(value?: number | null) {
+  return value === undefined || value === null ? '' : String(value);
 }
 
 function maskAccountNumber(value?: string) {
@@ -497,6 +510,19 @@ export default function Employees() {
     );
   }, [selectedId, visibleEmployees]);
 
+  const managerOptions = React.useMemo(
+    () => [
+      { value: '', label: 'Nobody' },
+      ...employees
+        .filter((employee) => employee.id !== editingEmployeeId)
+        .map((employee) => ({
+          value: String(employee.id),
+          label: fullName(employee),
+        })),
+    ],
+    [employees, editingEmployeeId],
+  );
+
   const canEditOwnProfile = React.useCallback(
     (employee?: Employee | null) => {
       return (
@@ -513,6 +539,16 @@ export default function Employees() {
   const selectedAccount = selectedEmployee
     ? accountForEmployee(selectedEmployee, users)
     : undefined;
+  const selectedManager = selectedEmployee?.managerId
+    ? employees.find(
+        (employee) => employee.id === selectedEmployee.managerId,
+      )
+    : undefined;
+  const directReports = selectedEmployee
+    ? employees.filter(
+        (employee) => employee.managerId === selectedEmployee.id,
+      )
+    : [];
   const missingAccountCount = employees.filter(
     (employee) => !accountForEmployee(employee, users),
   ).length;
@@ -598,6 +634,9 @@ export default function Employees() {
       emergencyContactPhone: employee.emergencyContactPhone || '',
       emergencyContactRelation: employee.emergencyContactRelation || '',
       emergencyContactAddress: employee.emergencyContactAddress || '',
+      managerId: employee.managerId ? String(employee.managerId) : '',
+      leaveAllowanceDays: numberInputValue(employee.leaveAllowanceDays),
+      leaveCarriedOverDays: numberInputValue(employee.leaveCarriedOverDays),
     });
     setShowEmployeeForm(true);
   };
@@ -628,12 +667,21 @@ export default function Employees() {
   };
 
   const employeePayload = React.useMemo(() => {
-    return Object.fromEntries(
+    const trimmed = Object.fromEntries(
       Object.entries(employeeForm).map(([key, value]) => [
         key,
         typeof value === 'string' ? value.trim() : value,
       ]),
     );
+    // These three are numeric on the API; an empty select or input means
+    // "cleared", which has to travel as null rather than ''.
+    const numeric = (value: string) => (value === '' ? null : Number(value));
+    return {
+      ...trimmed,
+      managerId: numeric(employeeForm.managerId.trim()),
+      leaveAllowanceDays: numeric(employeeForm.leaveAllowanceDays.trim()),
+      leaveCarriedOverDays: numeric(employeeForm.leaveCarriedOverDays.trim()),
+    };
   }, [employeeForm]);
 
   const [employeeFormErrors, setEmployeeFormErrors] = React.useState<string[]>(
@@ -1160,6 +1208,26 @@ export default function Employees() {
                       value={selectedEmployee.employeeType || 'EMPLOYEE'}
                     />
                     <Field
+                      label="Reports To"
+                      value={
+                        selectedManager ? fullName(selectedManager) : 'Nobody'
+                      }
+                    />
+                    <Field
+                      label="Direct Reports"
+                      value={
+                        directReports.length ? (
+                          <ul className="space-y-1">
+                            {directReports.map((report) => (
+                              <li key={report.id}>{fullName(report)}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          'None'
+                        )
+                      }
+                    />
+                    <Field
                       label="Address"
                       value={
                         [
@@ -1572,6 +1640,30 @@ export default function Employees() {
                     onChange={updateEmployeeField}
                     type="date"
                     helper="Setting this starts the data-retention clock."
+                  />
+                  <EmployeeInput
+                    id="managerId"
+                    label="Reports to"
+                    value={employeeForm.managerId}
+                    onChange={updateEmployeeField}
+                    options={managerOptions}
+                    helper="Their manager approves their leave and sees it on the calendar."
+                  />
+                  <EmployeeInput
+                    id="leaveAllowanceDays"
+                    label="Leave allowance (days)"
+                    value={employeeForm.leaveAllowanceDays}
+                    onChange={updateEmployeeField}
+                    type="number"
+                    placeholder="Company default"
+                  />
+                  <EmployeeInput
+                    id="leaveCarriedOverDays"
+                    label="Carried over (days)"
+                    value={employeeForm.leaveCarriedOverDays}
+                    onChange={updateEmployeeField}
+                    type="number"
+                    placeholder="0"
                   />
                 </>
               )}

@@ -125,8 +125,8 @@ describe('Leave API permissions', () => {
       .set('Authorization', linkedDirectorToken)
       .send({
         type: 'ANNUAL',
-        startDate: '2026-08-01',
-        endDate: '2026-08-02',
+        startDate: '2026-08-03',
+        endDate: '2026-08-04',
         reason: 'Director self-service leave',
       });
 

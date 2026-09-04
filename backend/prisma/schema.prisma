@@ -52,6 +52,9 @@ model TenantSettings {
   defaultLeaveDays  Float   @default(28) // UK statutory minimum incl. bank holidays
   bankHolidayRegion String  @default("england-and-wales") // | scotland | northern-ireland
   workingDays       String  @default("1,2,3,4,5") // ISO weekday numbers
+  // Days an employee may carry into the next leave year. 0 = no carryover;
+  // an employee-level override still wins over this cap.
+  carryoverCapDays  Float   @default(0)
   companyAddress    String?
 }
 
@@ -188,12 +191,24 @@ model Employee {
   retainUntil  DateTime?
   anonymisedAt DateTime?
 
+  // Reporting line. A manager approves their own reports' leave without
+  // needing an elevated role; SetNull so removing a manager never orphans
+  // the people who reported to them.
+  managerId Int?
+
+  // Per-employee overrides for the tenant leave policy. Null falls back to
+  // TenantSettings.
+  leaveAllowanceDays   Float?
+  leaveCarriedOverDays Float?
+
   // Emergency Contact Information
   emergencyContactName     String?
   emergencyContactPhone    String?
   emergencyContactRelation String?
   emergencyContactAddress  String?
 
+  manager           Employee?          @relation("ReportingLine", fields: [managerId], references: [id], onDelete: SetNull)
+  reports           Employee[]         @relation("ReportingLine")
   user              User?
   sponsorships      Sponsorship[]
   documents         Document[]
@@ -204,6 +219,7 @@ model Employee {
   rightToWorkChecks RightToWorkCheck[]
 
   @@unique([tenantId, email])
+  @@index([tenantId, managerId])
 }
 
 // Every right-to-work check ever performed, not just the latest: the statutory
@@ -330,18 +346,27 @@ model Timesheet {
 }
 
 model LeaveRequest {
-  id         Int      @id @default(autoincrement())
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tenantId   Int
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  employeeId Int
-  type       String
-  startDate  DateTime
-  endDate    DateTime
-  status     String   @default("PENDING")
-  reason     String?
+  id           Int       @id @default(autoincrement())
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId     Int
+  employee     Employee  @relation(fields: [employeeId], references: [id])
+  employeeId   Int
+  type         String
+  startDate    DateTime
+  endDate      DateTime
+  // Working days the request consumes, counted against the tenant's calendar
+  // when it is raised so history survives a later calendar change. Legacy
+  // rows carry 0 and are counted on the fly.
+  days         Float     @default(0)
+  status       String    @default("PENDING")
+  reason       String?
+  createdAt    DateTime  @default(now())
+  decidedAt    DateTime?
+  decidedBy    String?
+  decisionNote String?
 
   @@index([tenantId])
+  @@index([tenantId, employeeId, startDate])
 }
 
 // One row per employee per calendar day, only for days that are not plain

@@ -46,6 +46,15 @@ describe('Dashboard Page', () => {
     const token = makeToken({ role: 'EMPLOYEE', email: 'employee@example.com', employeeId: 42 })
     ;(localStorage.getItem as any).mockImplementation((key: string) => (key === 'token' ? token : null))
     ;(api.apiGet as any).mockImplementation((endpoint: string) => {
+      if (endpoint === '/leave/balance') return Promise.resolve({
+        leaveYear: { start: '2026-04-06', end: '2027-04-05', label: '6 Apr 2026 to 5 Apr 2027' },
+        allowance: 28,
+        prorated: 26,
+        carriedOver: 2,
+        used: 9.5,
+        pending: 1,
+        remaining: 18.5,
+      })
       if (endpoint === '/employees') return Promise.resolve([{ id: 42, firstName: 'Employee', lastName: 'User' }])
       if (endpoint === '/projects') return Promise.resolve([])
       if (endpoint === '/documents') return Promise.resolve([])
@@ -79,8 +88,9 @@ describe('Dashboard Page', () => {
     render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     expect(await screen.findByText('My summary')).toBeInTheDocument()
-    expect(screen.getByText('25 days remaining')).toBeInTheDocument()
-    expect(screen.getByText('3 days approved')).toBeInTheDocument()
+    expect(await screen.findByText('18.5 days remaining')).toBeInTheDocument()
+    expect(screen.getByText('9.5 days approved')).toBeInTheDocument()
+    expect(screen.getByText('28 days allowance · 2 carried over · 6 Apr 2026 to 5 Apr 2027')).toBeInTheDocument()
     expect(screen.getByText('1 pending request')).toBeInTheDocument()
     expect(screen.getByText(/Next up/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Overtime' }))
@@ -92,6 +102,15 @@ describe('Dashboard Page', () => {
     const token = makeToken({ role: 'DIRECTOR', email: 'director@example.com', employeeId: 42 })
     ;(localStorage.getItem as any).mockImplementation((key: string) => (key === 'token' ? token : null))
     ;(api.apiGet as any).mockImplementation((endpoint: string) => {
+      if (endpoint === '/leave/balance') return Promise.resolve({
+        leaveYear: { start: '2026-04-06', end: '2027-04-05', label: '6 Apr 2026 to 5 Apr 2027' },
+        allowance: 28,
+        prorated: 28,
+        carriedOver: 0,
+        used: 2,
+        pending: 0,
+        remaining: 26,
+      })
       if (endpoint === '/employees') return Promise.resolve([{ id: 42 }, { id: 99 }])
       if (endpoint === '/projects') return Promise.resolve([])
       if (endpoint === '/documents') return Promise.resolve([])
@@ -125,12 +144,24 @@ describe('Dashboard Page', () => {
     render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     expect(await screen.findByText('My summary')).toBeInTheDocument()
-    expect(screen.getByText('26 days remaining')).toBeInTheDocument()
+    expect(await screen.findByText('26 days remaining')).toBeInTheDocument()
     expect(screen.getByText('2 days approved')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Overtime' }))
     expect(screen.getByText('2 overtime hours this month')).toBeInTheDocument()
     expect(screen.getByText('10 total hours recorded')).toBeInTheDocument()
   })
+  it('says the balance is unavailable when the leave balance cannot be read', async () => {
+    const token = makeToken({ role: 'EMPLOYEE', email: 'employee@example.com', employeeId: 42 })
+    ;(localStorage.getItem as any).mockImplementation((key: string) => (key === 'token' ? token : null))
+    ;(api.apiGet as any).mockImplementation((endpoint: string) =>
+      endpoint === '/leave/balance' ? Promise.reject(new Error('nope')) : Promise.resolve([]),
+    )
+
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
+
+    expect(await screen.findByText('Balance unavailable')).toBeInTheDocument()
+  })
+
   it('shows the audit readiness tile and its penalty breakdown', async () => {
     const token = makeToken({ role: 'ADMIN', email: 'admin@example.com' })
     ;(localStorage.getItem as any).mockImplementation((key: string) => (key === 'token' ? token : null))

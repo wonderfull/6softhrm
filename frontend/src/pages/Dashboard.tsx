@@ -3,8 +3,6 @@ import Card from '../components/Card';
 import { apiGet, getCurrentUser, hasRole } from '../lib/api';
 import { Link } from 'react-router-dom';
 
-const ANNUAL_LEAVE_ALLOWANCE_DAYS = 28;
-
 function formatDashboardDate(date = new Date()) {
   return date.toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -14,24 +12,8 @@ function formatDashboardDate(date = new Date()) {
   });
 }
 
-function dayCountInclusive(startDate: string, endDate: string) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const millisecondsPerDay = 1000 * 60 * 60 * 24;
-  return Math.max(
-    1,
-    Math.floor((end.getTime() - start.getTime()) / millisecondsPerDay) + 1,
-  );
-}
-
 function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-function isAnnualLeave(leave: any) {
-  return String(leave.type || '')
-    .toLowerCase()
-    .includes('annual');
 }
 
 function calculateMonthlyOvertime(timesheets: any[], now = new Date()) {
@@ -81,6 +63,7 @@ export default function Dashboard() {
     'leave',
   );
   const [readiness, setReadiness] = React.useState<any>(null);
+  const [balance, setBalance] = React.useState<any>(null);
 
   const user = getCurrentUser();
   const isAdmin = hasRole(user, 'ADMIN');
@@ -130,6 +113,13 @@ export default function Dashboard() {
       .catch(() => setReadiness(null));
   }, [isAdmin]);
 
+  React.useEffect(() => {
+    if (!hasEmployeeProfile) return;
+    apiGet('/leave/balance')
+      .then((r) => setBalance(typeof r?.remaining === 'number' ? r : null))
+      .catch(() => setBalance(null));
+  }, [hasEmployeeProfile]);
+
   const ownLeaveRequests = hasEmployeeProfile
     ? leaveRequests.filter(
         (leave) => Number(leave.employeeId) === linkedEmployeeId,
@@ -141,16 +131,20 @@ export default function Dashboard() {
       )
     : [];
 
-  const approvedAnnualLeaveDays = ownLeaveRequests
-    .filter((leave) => leave.status === 'APPROVED' && isAnnualLeave(leave))
-    .reduce(
-      (sum, leave) => sum + dayCountInclusive(leave.startDate, leave.endDate),
-      0,
-    );
-  const remainingAnnualLeaveDays = Math.max(
-    0,
-    ANNUAL_LEAVE_ALLOWANCE_DAYS - approvedAnnualLeaveDays,
-  );
+  // Entitlement is the allowance actually available this leave year: the
+  // prorated allowance plus anything carried over from last year.
+  const leaveEntitlement = balance ? balance.prorated + balance.carriedOver : 0;
+  const leaveAllowanceLabel = balance
+    ? [
+        `${formatNumber(leaveEntitlement)} days allowance`,
+        balance.carriedOver
+          ? `${formatNumber(balance.carriedOver)} carried over`
+          : null,
+        balance.leaveYear?.label,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
   const pendingLeaveCount = ownLeaveRequests.filter(
     (leave) => leave.status === 'PENDING',
   ).length;
@@ -182,7 +176,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-{/* Audit readiness — the number a director checks weekly. Home Office
+      {/* Audit readiness — the number a director checks weekly. Home Office
           visits can be unannounced, so readiness is the product, not records. */}
       {readiness && typeof readiness.score === 'number' && readiness.band && (
         <div className="mb-8">
@@ -331,21 +325,23 @@ export default function Dashboard() {
                   Annual leave
                 </div>
                 <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {remainingAnnualLeaveDays} days remaining
+                  {balance
+                    ? `${formatNumber(balance.remaining)} days remaining`
+                    : 'Balance unavailable'}
                 </div>
                 <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  {approvedAnnualLeaveDays} days approved
+                  {balance ? `${formatNumber(balance.used)} days approved` : ''}
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-blue-100 dark:bg-blue-950">
                   <div
                     className="h-2 rounded-full bg-blue-600"
                     style={{
-                      width: `${Math.min(100, (remainingAnnualLeaveDays / ANNUAL_LEAVE_ALLOWANCE_DAYS) * 100)}%`,
+                      width: `${leaveEntitlement > 0 ? Math.min(100, (balance.remaining / leaveEntitlement) * 100) : 0}%`,
                     }}
                   />
                 </div>
                 <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  {ANNUAL_LEAVE_ALLOWANCE_DAYS} days allowance
+                  {leaveAllowanceLabel}
                 </div>
               </div>
               <div className="rounded-lg bg-orange-50 p-4 dark:bg-orange-900/20">

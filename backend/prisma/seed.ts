@@ -302,7 +302,7 @@ async function main() {
     data: {
       tenantId,
       employeeId: alice.id,
-      type: 'Annual Leave',
+      type: 'ANNUAL',
       startDate: nextWeek,
       endDate: new Date(nextWeek.getTime() + 2 * 24 * 60 * 60 * 1000),
       status: 'PENDING',
@@ -314,7 +314,7 @@ async function main() {
     data: {
       tenantId,
       employeeId: bob.id,
-      type: 'Sick Leave',
+      type: 'SICK',
       startDate: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000),
       endDate: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000),
       status: 'APPROVED',
@@ -326,7 +326,7 @@ async function main() {
     data: {
       tenantId,
       employeeId: charlie.id,
-      type: 'Annual Leave',
+      type: 'ANNUAL',
       startDate: weekAfter,
       endDate: new Date(weekAfter.getTime() + 5 * 24 * 60 * 60 * 1000),
       status: 'PENDING',
