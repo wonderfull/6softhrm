@@ -18,6 +18,8 @@ export const ENCRYPTED_FIELDS = [
   'passportNumber',
   'accountNumber',
   'sortCode',
+  'shareCode',
+  'dbsCertificateNumber',
 ] as const;
 
 const FIELD_SET: ReadonlySet<string> = new Set(ENCRYPTED_FIELDS);

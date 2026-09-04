@@ -27,6 +27,8 @@ import {
   HiXMark,
 } from 'react-icons/hi2';
 import Dialog from '../components/Dialog';
+import RightToWorkPanel from '../components/RightToWorkPanel';
+import DataRetentionPanel from '../components/DataRetentionPanel';
 import PasswordRevealField from '../components/PasswordRevealField';
 
 type Employee = {
@@ -46,6 +48,7 @@ type Employee = {
   department?: string;
   niNumber?: string;
   startDate?: string;
+  endDate?: string | null;
   bankName?: string;
   probationEndDate?: string;
   address1?: string;
@@ -74,6 +77,12 @@ type Employee = {
   licenceExpiryDate?: string;
   visaNumber?: string;
   visaExpiryDate?: string;
+  dbsLevel?: string | null;
+  dbsCertificateNumber?: string | null;
+  dbsIssueDate?: string | null;
+  dbsRecheckDate?: string | null;
+  retainUntil?: string | null;
+  anonymisedAt?: string | null;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   emergencyContactRelation?: string;
@@ -106,6 +115,7 @@ type EmployeeFormData = {
   department: string;
   niNumber: string;
   startDate: string;
+  endDate: string;
   probationEndDate: string;
   address1: string;
   address2: string;
@@ -134,6 +144,10 @@ type EmployeeFormData = {
   licenceExpiryDate: string;
   visaNumber: string;
   visaExpiryDate: string;
+  dbsLevel: string;
+  dbsCertificateNumber: string;
+  dbsIssueDate: string;
+  dbsRecheckDate: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
   emergencyContactRelation: string;
@@ -166,6 +180,7 @@ const emptyEmployeeForm: EmployeeFormData = {
   department: '',
   niNumber: '',
   startDate: '',
+  endDate: '',
   probationEndDate: '',
   address1: '',
   address2: '',
@@ -194,6 +209,10 @@ const emptyEmployeeForm: EmployeeFormData = {
   licenceExpiryDate: '',
   visaNumber: '',
   visaExpiryDate: '',
+  dbsLevel: '',
+  dbsCertificateNumber: '',
+  dbsIssueDate: '',
+  dbsRecheckDate: '',
   emergencyContactName: '',
   emergencyContactPhone: '',
   emergencyContactRelation: '',
@@ -223,7 +242,7 @@ function formatDate(value?: string) {
   return new Date(value).toLocaleDateString();
 }
 
-function dateInputValue(value?: string) {
+function dateInputValue(value?: string | null) {
   return value ? value.split('T')[0] : '';
 }
 
@@ -539,6 +558,7 @@ export default function Employees() {
       department: employee.department || '',
       niNumber: employee.niNumber || '',
       startDate: dateInputValue(employee.startDate),
+      endDate: dateInputValue(employee.endDate),
       probationEndDate: dateInputValue(employee.probationEndDate),
       address1: employee.address1 || '',
       address2: employee.address2 || '',
@@ -570,6 +590,10 @@ export default function Employees() {
       licenceExpiryDate: dateInputValue(employee.licenceExpiryDate),
       visaNumber: employee.visaNumber || '',
       visaExpiryDate: dateInputValue(employee.visaExpiryDate),
+      dbsLevel: employee.dbsLevel || '',
+      dbsCertificateNumber: employee.dbsCertificateNumber || '',
+      dbsIssueDate: dateInputValue(employee.dbsIssueDate),
+      dbsRecheckDate: dateInputValue(employee.dbsRecheckDate),
       emergencyContactName: employee.emergencyContactName || '',
       emergencyContactPhone: employee.emergencyContactPhone || '',
       emergencyContactRelation: employee.emergencyContactRelation || '',
@@ -1095,6 +1119,15 @@ export default function Employees() {
                       <Badge className="border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">
                         {selectedEmployee.department || 'Unassigned'}
                       </Badge>
+                      {selectedEmployee.anonymisedAt ? (
+                        <Badge className="border-slate-300 bg-slate-200 text-slate-700 dark:border-slate-500 dark:bg-slate-600 dark:text-slate-100">
+                          Anonymised
+                        </Badge>
+                      ) : selectedEmployee.endDate ? (
+                        <Badge className="border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-900/30 dark:text-rose-200">
+                          Left {formatDate(selectedEmployee.endDate)}
+                        </Badge>
+                      ) : null}
                     </div>
                   </div>
 
@@ -1112,6 +1145,12 @@ export default function Employees() {
                       label="Start Date"
                       value={formatDate(selectedEmployee.startDate)}
                     />
+                    {selectedEmployee.endDate && (
+                      <Field
+                        label="End Date"
+                        value={formatDate(selectedEmployee.endDate)}
+                      />
+                    )}
                     <Field
                       label="Probation End"
                       value={formatDate(selectedEmployee.probationEndDate)}
@@ -1175,9 +1214,45 @@ export default function Employees() {
                           label="Visa Expiry"
                           value={formatDate(selectedEmployee.visaExpiryDate)}
                         />
+                        <Field
+                          label="DBS Check"
+                          value={
+                            selectedEmployee.dbsLevel
+                              ? `${selectedEmployee.dbsLevel}${
+                                  selectedEmployee.dbsIssueDate
+                                    ? ` · issued ${formatDate(selectedEmployee.dbsIssueDate)}`
+                                    : ''
+                                }`
+                              : 'Not recorded'
+                          }
+                        />
+                        {selectedEmployee.dbsRecheckDate && (
+                          <Field
+                            label="DBS Recheck Due"
+                            value={formatDate(selectedEmployee.dbsRecheckDate)}
+                          />
+                        )}
                       </>
                     )}
                   </dl>
+
+                  {!selectedEmployee.anonymisedAt && (
+                    <RightToWorkPanel
+                      key={selectedEmployee.id}
+                      employeeId={selectedEmployee.id}
+                      visaExpiryDate={selectedEmployee.visaExpiryDate}
+                      canRecord={isElevated}
+                      canDelete={currentRole === 'ADMIN'}
+                    />
+                  )}
+
+                  {isElevated && (
+                    <DataRetentionPanel
+                      employee={selectedEmployee}
+                      isAdmin={currentRole === 'ADMIN'}
+                      onChange={loadEmployees}
+                    />
+                  )}
 
                   <div className="border-b border-slate-200 p-5 dark:border-slate-700">
                     <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -1490,6 +1565,14 @@ export default function Employees() {
                     onChange={updateEmployeeField}
                     type="date"
                   />
+                  <EmployeeInput
+                    id="endDate"
+                    label="Employment end date"
+                    value={employeeForm.endDate}
+                    onChange={updateEmployeeField}
+                    type="date"
+                    helper="Setting this starts the data-retention clock."
+                  />
                 </>
               )}
             </FormSection>
@@ -1790,6 +1873,46 @@ export default function Employees() {
                   value={employeeForm.visaExpiryDate}
                   onChange={updateEmployeeField}
                   type="date"
+                />
+                <div className="md:col-span-2">
+                  <h5 className="pt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    DBS check
+                  </h5>
+                </div>
+                <EmployeeInput
+                  id="dbsLevel"
+                  label="Level"
+                  value={employeeForm.dbsLevel}
+                  onChange={updateEmployeeField}
+                  options={[
+                    { value: '', label: 'Not required' },
+                    { value: 'BASIC', label: 'Basic' },
+                    { value: 'STANDARD', label: 'Standard' },
+                    { value: 'ENHANCED', label: 'Enhanced' },
+                    { value: 'ENHANCED_BARRED', label: 'Enhanced with barred lists' },
+                  ]}
+                />
+                <EmployeeInput
+                  id="dbsCertificateNumber"
+                  label="Certificate number"
+                  value={employeeForm.dbsCertificateNumber}
+                  onChange={updateEmployeeField}
+                  placeholder="Certificate number"
+                />
+                <EmployeeInput
+                  id="dbsIssueDate"
+                  label="Issue date"
+                  value={employeeForm.dbsIssueDate}
+                  onChange={updateEmployeeField}
+                  type="date"
+                />
+                <EmployeeInput
+                  id="dbsRecheckDate"
+                  label="Recheck due"
+                  value={employeeForm.dbsRecheckDate}
+                  onChange={updateEmployeeField}
+                  type="date"
+                  helper="Reminders go out 90 days before."
                 />
               </FormSection>
             )}

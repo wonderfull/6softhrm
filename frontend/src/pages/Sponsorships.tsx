@@ -120,6 +120,7 @@ export default function Sponsorships() {
     documentName: string;
     notes: string;
     file: File | null;
+    verified: boolean;
     error: string;
     submitting: boolean;
     replacing: boolean;
@@ -130,6 +131,7 @@ export default function Sponsorships() {
     documentName: '',
     notes: '',
     file: null,
+    verified: false,
     error: '',
     submitting: false,
     replacing: false,
@@ -139,6 +141,10 @@ export default function Sponsorships() {
     visaType: '',
     casNumber: '',
     sponsorLicenseNumber: '',
+    cosType: '',
+    cosAssignedDate: '',
+    cosStartBy: '',
+    iscAmount: '',
     socCode: '',
     jobTitleOnCos: '',
     cosSalary: '',
@@ -204,6 +210,10 @@ export default function Sponsorships() {
       visaType: '',
       casNumber: '',
       sponsorLicenseNumber: '',
+      cosType: '',
+      cosAssignedDate: '',
+      cosStartBy: '',
+      iscAmount: '',
       socCode: '',
       jobTitleOnCos: '',
       cosSalary: '',
@@ -266,6 +276,14 @@ export default function Sponsorships() {
       visaType: sponsorship.visaType || '',
       casNumber: sponsorship.casNumber || '',
       sponsorLicenseNumber: sponsorship.sponsorLicenseNumber || '',
+      cosType: sponsorship.cosType || '',
+      cosAssignedDate: sponsorship.cosAssignedDate
+        ? sponsorship.cosAssignedDate.split('T')[0]
+        : '',
+      cosStartBy: sponsorship.cosStartBy
+        ? sponsorship.cosStartBy.split('T')[0]
+        : '',
+      iscAmount: sponsorship.iscAmount?.toString() || '',
       socCode: sponsorship.socCode || '',
       jobTitleOnCos: sponsorship.jobTitleOnCos || '',
       cosSalary: sponsorship.cosSalary?.toString() || '',
@@ -377,6 +395,7 @@ export default function Sponsorships() {
       ),
       notes: item.evidence?.notes || '',
       file: null,
+      verified: false,
       error: '',
       submitting: false,
       replacing: item.status === 'COMPLETE',
@@ -391,6 +410,7 @@ export default function Sponsorships() {
       documentName: '',
       notes: '',
       file: null,
+      verified: false,
       error: '',
       submitting: false,
       replacing: false,
@@ -463,6 +483,7 @@ export default function Sponsorships() {
           evidenceType: evidenceForm.evidenceType,
           documentId: document.id,
           notes: evidenceForm.notes.trim(),
+          verifiedAt: evidenceForm.verified ? new Date().toISOString() : undefined,
         },
       );
 
@@ -605,6 +626,90 @@ export default function Sponsorships() {
                   })
                 }
                 placeholder="Company Sponsor License"
+                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+              />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Leave blank to use the licence recorded in Settings.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="sponsorship-cos-type"
+                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                CoS type
+              </label>
+              <select
+                id="sponsorship-cos-type"
+                value={formData.cosType}
+                onChange={(e) =>
+                  setFormData({ ...formData, cosType: e.target.value })
+                }
+                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+              >
+                <option value="">Not recorded</option>
+                <option value="DEFINED">Defined (worker applying from outside the UK)</option>
+                <option value="UNDEFINED">Undefined (in-country application)</option>
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="sponsorship-cos-assigned"
+                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                CoS assigned on
+              </label>
+              <input
+                id="sponsorship-cos-assigned"
+                type="date"
+                value={formData.cosAssignedDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, cosAssignedDate: e.target.value })
+                }
+                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="sponsorship-cos-start-by"
+                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                Worker must start by
+              </label>
+              <input
+                id="sponsorship-cos-start-by"
+                type="date"
+                value={formData.cosStartBy}
+                onChange={(e) =>
+                  setFormData({ ...formData, cosStartBy: e.target.value })
+                }
+                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
+              />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Defaults to three months after assignment.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="sponsorship-isc"
+                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                Immigration Skills Charge paid (£)
+              </label>
+              <input
+                id="sponsorship-isc"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.iscAmount}
+                onChange={(e) =>
+                  setFormData({ ...formData, iscAmount: e.target.value })
+                }
+                placeholder="e.g. 1000"
                 className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
               />
             </div>
@@ -851,6 +956,11 @@ export default function Sponsorships() {
                     <div className="text-xs text-slate-500 dark:text-slate-400">
                       {sponsorship.sponsorLicenseNumber ||
                         'No licence recorded'}
+                      {sponsorship.cosType &&
+                        ` · ${sponsorship.cosType === 'DEFINED' ? 'Defined' : 'Undefined'} CoS`}
+                      {sponsorship.cosStartBy &&
+                        !sponsorship.employee?.startDate &&
+                        ` · start by ${formatDate(sponsorship.cosStartBy)}`}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
@@ -1074,6 +1184,23 @@ export default function Sponsorships() {
                       className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
                     />
                   </div>
+                  <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300 md:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={evidenceForm.verified}
+                      onChange={(event) =>
+                        setEvidenceForm((current) => ({
+                          ...current,
+                          verified: event.target.checked,
+                        }))
+                      }
+                      className="mt-0.5"
+                    />
+                    <span>
+                      I have checked this document against the original and it is
+                      genuine. Marks the evidence as verified today, under my name.
+                    </span>
+                  </label>
                 </div>
 
                 {evidenceForm.error && (

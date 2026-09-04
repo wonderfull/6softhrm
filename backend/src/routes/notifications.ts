@@ -5,8 +5,10 @@ import { requireRole } from '../middleware/roles';
 import { auditLog } from '../middleware/audit';
 import { sendEmail } from '../lib/emailService';
 import { getCronStatus } from '../lib/cronJobs';
-import { sweepTenantExpiries } from '../lib/expirySweep';
-import type { Employee, Sponsorship } from '@prisma/client';
+import {
+  collectTenantExpiringItems,
+  sweepTenantExpiries,
+} from '../lib/expirySweep';
 
 const router = Router();
 
@@ -28,6 +30,8 @@ router.post(
           contractsChecked: 0,
           visaNotifications: result.visaNotifications,
           contractNotifications: result.contractNotifications,
+          otherNotifications: result.otherNotifications,
+          inAppNotifications: result.inAppNotifications,
         },
       });
     } catch (error: any) {
@@ -39,6 +43,8 @@ router.post(
 
 // Get upcoming expiries (for dashboard/reports)
 // Includes already-expired but still-active sponsorships/contracts under `overdue*`.
+// `other` carries every further dated obligation (passport, DBS, RTW recheck,
+// licence, action plan, CoS start-by) in the sweep's own shape.
 router.get(
   '/upcoming-expiries',
   requireAuth,
@@ -46,86 +52,36 @@ router.get(
   async (req, res) => {
     try {
       const days = parseInt(req.query.days as string) || 90;
-      const today = new Date();
-      const futureDate = new Date();
-      futureDate.setDate(today.getDate() + days);
+      const items = await collectTenantExpiringItems(new Date(), days);
 
-      const daysBetween = (date: Date) =>
-        Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-      // Visa expiries — overdue (already past) and upcoming
-      const visaRecords = await prisma.sponsorship.findMany({
-        where: {
-          active: true,
-          endDate: { not: null, lte: futureDate },
-        },
-        include: {
-          employee: {
-            select: { id: true, firstName: true, lastName: true, email: true },
-          },
-        },
-        orderBy: { endDate: 'asc' },
-      });
-
-      const visaMapped = visaRecords.map(
-        (
-          v: Sponsorship & {
-            employee: Pick<Employee, 'id' | 'firstName' | 'lastName' | 'email'>;
-          },
-        ) => ({
-          id: v.id,
-          employeeId: v.employee.id,
-          employeeName: `${v.employee.firstName} ${v.employee.lastName}`,
-          email: v.employee.email,
-          visaType: v.visaType,
-          expiryDate: v.endDate,
-          daysRemaining: daysBetween(v.endDate!),
-        }),
-      );
-      const overdueVisas = visaMapped.filter((v) => v.daysRemaining < 0);
-      const visaExpiries = visaMapped.filter((v) => v.daysRemaining >= 0);
-
-      // Contract expiries — overdue and upcoming
-      const contractRecords = await prisma.employee.findMany({
-        where: { endDate: { not: null, lte: futureDate } },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          jobTitle: true,
-          endDate: true,
-        },
-        orderBy: { endDate: 'asc' },
-      });
-
-      const contractMapped = contractRecords.map(
-        (
-          e: Pick<
-            Employee,
-            'id' | 'firstName' | 'lastName' | 'email' | 'jobTitle' | 'endDate'
-          >,
-        ) => ({
-          id: e.id,
-          employeeName: `${e.firstName} ${e.lastName}`,
-          email: e.email,
-          jobTitle: e.jobTitle,
-          expiryDate: e.endDate,
-          daysRemaining: daysBetween(e.endDate!),
-        }),
-      );
-      const overdueContracts = contractMapped.filter(
-        (c) => c.daysRemaining < 0,
-      );
-      const contractExpiries = contractMapped.filter(
-        (c) => c.daysRemaining >= 0,
-      );
+      const visaMapped = items
+        .filter((i) => i.kind === 'VISA')
+        .map((i) => ({
+          id: i.id,
+          employeeId: i.employeeId,
+          employeeName: i.employeeName,
+          email: i.employeeEmail,
+          visaType: i.detail,
+          expiryDate: i.expiryDate,
+          daysRemaining: i.daysRemaining,
+        }));
+      const contractMapped = items
+        .filter((i) => i.kind === 'CONTRACT')
+        .map((i) => ({
+          id: i.id,
+          employeeName: i.employeeName,
+          email: i.employeeEmail,
+          jobTitle: i.jobTitle,
+          expiryDate: i.expiryDate,
+          daysRemaining: i.daysRemaining,
+        }));
 
       res.json({
-        overdueVisas,
-        overdueContracts,
-        visaExpiries,
-        contractExpiries,
+        overdueVisas: visaMapped.filter((v) => v.daysRemaining < 0),
+        overdueContracts: contractMapped.filter((c) => c.daysRemaining < 0),
+        visaExpiries: visaMapped.filter((v) => v.daysRemaining >= 0),
+        contractExpiries: contractMapped.filter((c) => c.daysRemaining >= 0),
+        other: items.filter((i) => i.kind !== 'VISA' && i.kind !== 'CONTRACT'),
       });
     } catch (error: any) {
       console.error('Error fetching upcoming expiries:', error);

@@ -11,6 +11,8 @@ import { requireRole } from '../middleware/roles';
 import * as XLSX from 'xlsx';
 import type { DataConsent, Employee } from '@prisma/client';
 import { normalizeRole, ROLES } from '../lib/roles';
+import { computeRetainUntil } from '../lib/retention';
+import rightToWorkRoutes from './rightToWork';
 
 const router = Router();
 
@@ -62,6 +64,7 @@ function redactSensitiveEmployeeFields(employee: any) {
     licenceExpiryDate: null,
     visaNumber: null,
     visaExpiryDate: null,
+    dbsCertificateNumber: null,
     emergencyContactAddress: null,
   };
 }
@@ -81,6 +84,8 @@ const EMPLOYEE_UPDATE_BLOCKLIST = [
   'documents',
   'absences',
   'payRecords',
+  'rightToWorkChecks',
+  'anonymisedAt',
 ];
 
 function stripProtectedEmployeeFields(data: any) {
@@ -99,6 +104,9 @@ function normalizeEmployeePayload(data: any) {
     'passportExpiryDate',
     'licenceExpiryDate',
     'visaExpiryDate',
+    'dbsIssueDate',
+    'dbsRecheckDate',
+    'retainUntil',
   ];
 
   for (const field of dateFields) {
@@ -285,6 +293,27 @@ router.put('/:id', requireAuth, async (req: any, res) => {
     let data: any;
     if (role === ROLES.ADMIN || role === ROLES.DIRECTOR) {
       data = normalizeEmployeePayload(stripProtectedEmployeeFields(req.body));
+      // The retention date is a legal-hold decision, so only the owner sets
+      // it by hand; everyone else gets the computed default when a leaving
+      // date is recorded.
+      if (role !== ROLES.ADMIN) delete data.retainUntil;
+      if (data.endDate && data.retainUntil === undefined) {
+        // Recompute only when the leaving date is new or has moved, so a
+        // hand-set retention date survives unrelated edits to the record.
+        const current = await prisma.employee.findFirst({
+          where: { id: employeeId },
+          select: { endDate: true, retainUntil: true },
+        });
+        const endDateChanged =
+          current?.endDate?.getTime() !== data.endDate.getTime();
+        if (!current?.retainUntil || endDateChanged) {
+          const sponsorships = await prisma.sponsorship.findMany({
+            where: { employeeId },
+            select: { endDate: true },
+          });
+          data.retainUntil = computeRetainUntil(data.endDate, sponsorships);
+        }
+      }
     } else if (role === ROLES.EMPLOYEE) {
       const existing = await prisma.employee.findFirst({
         where: { id: employeeId },
@@ -317,6 +346,8 @@ router.put('/:id', requireAuth, async (req: any, res) => {
     res.status(400).json({ error: e.message });
   }
 });
+
+router.use('/:id/rtw', rightToWorkRoutes);
 
 router.delete(
   '/:id',

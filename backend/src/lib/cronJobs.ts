@@ -6,6 +6,7 @@ import { platformPrisma as prisma } from '../prismaClient';
 import { detectUnauthorisedAbsence } from './absenceDetection';
 import { reconcileSalaries } from './salarySweep';
 import { sweepAllTenantExpiries } from './expirySweep';
+import { runRetentionSweep } from './retention';
 
 // In-memory cron status — surfaced via /api/notifications/cron-status so the
 // Notifications page can show a "last run" badge. Survives until process restart;
@@ -26,6 +27,7 @@ export type CronStatus = {
   lastContractNotifications: number;
   absenceSweep: SweepStatus;
   salarySweep: SweepStatus;
+  retentionSweep: SweepStatus;
 };
 
 const emptySweepStatus = (): SweepStatus => ({
@@ -42,6 +44,7 @@ const cronStatus: CronStatus = {
   lastContractNotifications: 0,
   absenceSweep: emptySweepStatus(),
   salarySweep: emptySweepStatus(),
+  retentionSweep: emptySweepStatus(),
 };
 
 export function getCronStatus(): CronStatus {
@@ -49,6 +52,7 @@ export function getCronStatus(): CronStatus {
     ...cronStatus,
     absenceSweep: { ...cronStatus.absenceSweep },
     salarySweep: { ...cronStatus.salarySweep },
+    retentionSweep: { ...cronStatus.retentionSweep },
   };
 }
 
@@ -150,8 +154,47 @@ async function runSalarySweep() {
   }
 }
 
+async function runRetention() {
+  console.log('[CRON] Running retention sweep...');
+  try {
+    const result = await runRetentionSweep();
+    await prisma.auditLog.create({
+      data: {
+        userId: null,
+        userEmail: 'cron@system',
+        action: 'CRON_RETENTION_SWEEP',
+        entity: 'System',
+        entityId: null,
+        details: JSON.stringify(result),
+        ipAddress: null,
+        userAgent: 'node-cron',
+      },
+    });
+    console.log(
+      `[CRON] Retention sweep complete. Tenants: ${result.tenantsScanned}, ` +
+        `anonymised: ${result.employeesAnonymised}, tenants purged: ${result.tenantsPurged}`,
+    );
+    cronStatus.retentionSweep = {
+      lastFinishedAt: new Date().toISOString(),
+      lastEventsCreated: result.employeesAnonymised + result.tenantsPurged,
+      lastError: result.errors.length ? result.errors.join('; ') : null,
+    };
+  } catch (error: any) {
+    console.error('[CRON] Error running retention sweep:', error);
+    cronStatus.retentionSweep = {
+      lastFinishedAt: new Date().toISOString(),
+      lastEventsCreated: 0,
+      lastError: error?.message || String(error),
+    };
+  }
+}
+
 export function initializeCronJobs() {
   console.log('[CRON] Initializing scheduled tasks...');
+  cron.schedule('0 2 * * *', runRetention, {
+    timezone: 'Europe/London',
+  });
+  console.log('[CRON] Scheduled nightly retention sweep at 2:00 AM UK time');
   cron.schedule('0 9 * * *', checkExpiringRecords, {
     timezone: 'Europe/London',
   });
@@ -169,4 +212,4 @@ export function initializeCronJobs() {
 }
 
 // Exported for the manual "Check & Send Notifications" button.
-export { checkExpiringRecords, runAbsenceSweep, runSalarySweep };
+export { checkExpiringRecords, runAbsenceSweep, runSalarySweep, runRetention };

@@ -9,6 +9,8 @@ import path from 'path'
 import { getStorage, assertKeyInTenant } from '../lib/storage'
 import type { Document, LeaveRequest, Timesheet } from '@prisma/client'
 import { canViewAuditLogs, isHrAdminRole, isOwnerRole, normalizeRole, ROLES } from '../lib/roles'
+import { requireRole } from '../middleware/roles'
+import { anonymiseEmployee } from '../lib/retention'
 
 const router = Router()
 
@@ -476,6 +478,45 @@ router.get('/consent/:employeeId', requireAuth, async (req: any, res) => {
   } catch (error: any) {
     console.error('Error fetching consents:', error)
     res.status(500).json({ error: 'Failed to fetch consents' })
+  }
+})
+
+// Right to erasure. Refused while a legal duty to keep the record is live —
+// an active sponsorship (Appendix D) or an unexpired retention date — unless
+// the owner overrides with `force`, which the audit row records.
+router.post('/erase/:employeeId', requireAuth, requireRole('ADMIN'), async (req: any, res) => {
+  const employeeId = Number(req.params.employeeId)
+  const { reason, force } = req.body ?? {}
+  if (!reason || !String(reason).trim()) return res.status(400).json({ error: 'reason is required' })
+
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId },
+    include: { sponsorships: { where: { active: true }, select: { id: true } } },
+  })
+  if (!employee) return res.status(404).json({ error: 'Employee not found' })
+  if (employee.anonymisedAt) return res.status(409).json({ error: 'Employee record is already anonymised' })
+  if (employee.id === req.user?.employeeId) return res.status(400).json({ error: 'You cannot erase your own record' })
+
+  const blockers: string[] = []
+  if (employee.sponsorships.length > 0) blockers.push('active sponsorship')
+  if (employee.retainUntil && employee.retainUntil > new Date())
+    blockers.push(`retention period runs until ${employee.retainUntil.toISOString().slice(0, 10)}`)
+  if (!employee.endDate) blockers.push('employment has not ended')
+  if (blockers.length && !force) {
+    return res.status(409).json({ error: `Cannot erase: ${blockers.join('; ')}`, blockers })
+  }
+
+  try {
+    const outcome = await anonymiseEmployee(employeeId)
+    await auditLog(req, 'ERASURE', 'Employee', employeeId, {
+      reason: String(reason).trim(),
+      forced: Boolean(force) && blockers.length > 0,
+      overriddenBlockers: force ? blockers : [],
+      ...outcome,
+    })
+    res.json({ success: true, ...outcome })
+  } catch (e: any) {
+    res.status(400).json({ error: e.message })
   }
 })
 

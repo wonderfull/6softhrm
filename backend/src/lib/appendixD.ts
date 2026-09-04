@@ -70,6 +70,11 @@ export const APPENDIX_D_EVIDENCE: EvidenceItem[] = [
     reference: 'Appendix D 6(a)',
   },
   {
+    key: 'NI_NUMBER',
+    label: 'National Insurance number',
+    reference: 'Appendix D 6(a)',
+  },
+  {
     key: 'ABSENCE_RECORDS',
     label: 'Absence records',
     reference: 'Appendix D 6(b)',
@@ -79,6 +84,75 @@ export const APPENDIX_D_EVIDENCE: EvidenceItem[] = [
 export const APPENDIX_D_KEYS = new Set(
   APPENDIX_D_EVIDENCE.map((item) => item.key),
 );
+
+// Routes that carry no Certificate of Sponsorship. Anything else — or any row
+// with CoS data on it — is treated as sponsored, because under-asking for
+// evidence is the expensive mistake.
+const UNSPONSORED_ROUTE =
+  /\b(graduate(?! trainee)|dependant|dependent|student|indefinite leave|ilr|settled|settlement|youth mobility|ancestry|global talent|high potential|hpi|bno|british national|family|spouse|partner|refugee|humanitarian|eea)\b/i;
+
+export function isSponsoredRoute(sponsorship: {
+  visaType?: string | null;
+  casNumber?: string | null;
+  cosType?: string | null;
+  cosAssignedDate?: Date | null;
+}): boolean {
+  if (
+    sponsorship.casNumber ||
+    sponsorship.cosType ||
+    sponsorship.cosAssignedDate
+  )
+    return true;
+  return !UNSPONSORED_ROUTE.test(sponsorship.visaType ?? '');
+}
+
+/**
+ * Latest evidence row per type, plus evidence the system already holds
+ * elsewhere: a stored NI number is the NI number, and a logged right-to-work
+ * check is the check, whether or not someone also filed an evidence row.
+ * Callers pass `complianceEvidence` ordered newest first.
+ */
+export function collectLatestEvidence(sponsorship: {
+  complianceEvidence?: any[] | null;
+  employee?: {
+    niNumber?: string | null;
+    rightToWorkChecks?: any[] | null;
+  } | null;
+}): Map<string, any> {
+  const latest = new Map<string, any>();
+  for (const evidence of sponsorship.complianceEvidence ?? []) {
+    if (!latest.has(evidence.evidenceType))
+      latest.set(evidence.evidenceType, evidence);
+  }
+
+  const employee = sponsorship.employee;
+  if (!latest.has('NI_NUMBER') && employee?.niNumber) {
+    latest.set('NI_NUMBER', {
+      evidenceType: 'NI_NUMBER',
+      source: 'EMPLOYEE_RECORD',
+      verifiedAt: null,
+      document: null,
+    });
+  }
+
+  const check = employee?.rightToWorkChecks?.[0];
+  if (!latest.has('RIGHT_TO_WORK_CHECK') && check && check.outcome === 'PASS') {
+    latest.set('RIGHT_TO_WORK_CHECK', {
+      evidenceType: 'RIGHT_TO_WORK_CHECK',
+      source: 'RTW_CHECK',
+      rightToWorkCheckId: check.id,
+      checkDate: check.checkDate,
+      method: check.method,
+      recheckDue: check.recheckDue ?? null,
+      verifiedAt: check.checkDate,
+      documentId: check.documentId ?? null,
+      document: check.document ?? null,
+      notes: check.notes ?? null,
+    });
+  }
+
+  return latest;
+}
 
 export type EvidenceStatus = {
   key: string;
@@ -100,12 +174,18 @@ export type CompletenessReport = {
 
 /**
  * Score a sponsorship's evidence against the manifest. `latestByType` should
- * hold the most recent evidence row per type.
+ * hold the most recent evidence row per type. Unsponsored routes are not
+ * asked for CoS evidence they cannot have.
  */
 export function assessCompleteness(
   latestByType: Map<string, any>,
+  options: { sponsored?: boolean } = {},
 ): CompletenessReport {
-  const items: EvidenceStatus[] = APPENDIX_D_EVIDENCE.map((item) => {
+  const sponsored = options.sponsored ?? true;
+  const required = APPENDIX_D_EVIDENCE.filter(
+    (item) => sponsored || !item.sponsoredOnly,
+  );
+  const items: EvidenceStatus[] = required.map((item) => {
     const evidence = latestByType.get(item.key) ?? null;
     return {
       key: item.key,

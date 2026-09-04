@@ -32,6 +32,9 @@ const TENANT_MODELS = new Set([
   'Document',
   'AuditLog',
   'DataConsent',
+  'RightToWorkCheck',
+  'SponsorLicence',
+  'Notification',
 ]);
 
 // Ops whose `where` accepts arbitrary filters — tenantId is injected in place.
