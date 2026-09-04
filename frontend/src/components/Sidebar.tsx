@@ -17,6 +17,8 @@ import {
   HiCog6Tooth,
   HiUserCircle,
   HiBanknotes,
+  HiCurrencyPound,
+  HiScale,
 } from 'react-icons/hi2';
 import { getCurrentUser } from '../lib/api';
 import { normalizeRole } from '../lib/roles';
@@ -45,6 +47,8 @@ const adminMenu = [
     icon: <HiOutlineSquares2X2 size={18} />,
   },
   { to: '/leave', label: 'Leave', icon: <HiCalendar size={18} /> },
+  { to: '/expenses', label: 'Expenses', icon: <HiCurrencyPound size={18} /> },
+  { to: '/cases', label: 'Employee Relations', icon: <HiScale size={18} /> },
   { to: '/documents', label: 'Documents', icon: <HiFolder size={18} /> },
   { to: '/reports', label: 'Reports', icon: <HiChartBar size={18} /> },
   { to: '/notifications', label: 'Notifications', icon: <HiBell size={18} /> },
@@ -86,6 +90,8 @@ const managerMenu = [
     icon: <HiOutlineSquares2X2 size={18} />,
   },
   { to: '/leave', label: 'Leave', icon: <HiCalendar size={18} /> },
+  { to: '/expenses', label: 'Expenses', icon: <HiCurrencyPound size={18} /> },
+  { to: '/cases', label: 'Employee Relations', icon: <HiScale size={18} /> },
   { to: '/documents', label: 'Documents', icon: <HiFolder size={18} /> },
   { to: '/reports', label: 'Reports', icon: <HiChartBar size={18} /> },
   { to: '/notifications', label: 'Notifications', icon: <HiBell size={18} /> },
@@ -107,6 +113,7 @@ const assistantMenu = [
   },
   { to: '/time', label: 'Time Support', icon: <HiClock size={18} /> },
   { to: '/leave', label: 'Leave Support', icon: <HiCalendar size={18} /> },
+  { to: '/expenses', label: 'Expenses', icon: <HiCurrencyPound size={18} /> },
   { to: '/documents', label: 'Document Support', icon: <HiFolder size={18} /> },
   { to: '/notifications', label: 'Notifications', icon: <HiBell size={18} /> },
   { to: '/account', label: 'My Account', icon: <HiUserCircle size={18} /> },
@@ -117,6 +124,11 @@ const userMenu = [
   { to: '/employees', label: 'My Profile', icon: <HiUsers size={18} /> },
   { to: '/time', label: 'Timesheet', icon: <HiClock size={18} /> },
   { to: '/leave', label: 'Leave Requests', icon: <HiCalendar size={18} /> },
+  {
+    to: '/expenses',
+    label: 'My Expenses',
+    icon: <HiCurrencyPound size={18} />,
+  },
   { to: '/documents', label: 'My Documents', icon: <HiFolder size={18} /> },
   { to: '/payslips', label: 'My Payslips', icon: <HiBanknotes size={18} /> },
   { to: '/consent', label: 'My Consent', icon: <HiShieldCheck size={18} /> },

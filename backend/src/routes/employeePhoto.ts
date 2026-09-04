@@ -108,7 +108,7 @@ router.post('/', requireAuth, upload.single('file'), async (req: any, res) => {
 
   const store = getStorage();
   const extension = ALLOWED.get(req.file.mimetype);
-  const key = `tenant-${currentTenantId()}/photos/${employeeId}-${Date.now()}.${extension}`;
+  const key = `tenants/${currentTenantId()}/photos/${employeeId}-${Date.now()}.${extension}`;
 
   try {
     await store.put(key, req.file.buffer, req.file.mimetype);

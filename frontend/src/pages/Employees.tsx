@@ -29,6 +29,7 @@ import {
 import Dialog from '../components/Dialog';
 import RightToWorkPanel from '../components/RightToWorkPanel';
 import DataRetentionPanel from '../components/DataRetentionPanel';
+import EmployeeHrPanel from '../components/EmployeeHrPanel';
 import PasswordRevealField from '../components/PasswordRevealField';
 
 type Employee = {
@@ -1404,6 +1405,16 @@ export default function Employees() {
                       employee={selectedEmployee}
                       isAdmin={currentRole === 'ADMIN'}
                       onChange={loadEmployees}
+                    />
+                  )}
+
+                  {!selectedEmployee.anonymisedAt && (
+                    <EmployeeHrPanel
+                      key={`hr-${selectedEmployee.id}`}
+                      employeeId={selectedEmployee.id}
+                      employees={employees}
+                      canManage={isElevated || isSupport}
+                      canDelete={isElevated}
                     />
                   )}
 

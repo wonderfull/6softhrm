@@ -26,16 +26,34 @@ npm --prefix backend run seed            # seed database
 ## Database
 The database schema is defined in @backend/prisma/schema.prisma. Reference it whenever working with data models or writing queries.
 
-Key models: `User`, `Employee`, `Sponsorship`, `Timesheet`, `LeaveRequest`, `Document`, `Project`, `AuditLog`, `DataConsent`
+Multi-tenant: every tenant-owned model carries `tenantId` and must be listed in
+`TENANT_MODELS` (`backend/src/prismaClient.ts`) or it queries unscoped. Scoped
+`prisma` forbids `findUnique/update/delete/upsert` — use `findFirst`,
+`updateMany`, `create`; for a one-row-per-tenant model use
+`platformPrisma.<model>.upsert({ where: { tenantId } })`. `npm run check:tenancy`
+enforces this.
+
+Key models: `Tenant`, `TenantSettings`, `User`, `Employee`, `Sponsorship`,
+`RightToWorkCheck`, `SponsorLicence`, `Timesheet`, `LeaveRequest`, `Document`,
+`Project`, `AuditLog`, `DataConsent`, `Notification`, `PerformanceReview`,
+`ChecklistItem`, `DocumentTemplate`, `DocumentAcknowledgement`, `ExpenseClaim`,
+`TrainingRecord`, `CaseRecord`
 
 ## Project Structure
 ```
 backend/src/
-  routes/      # API handlers: auth, employees, sponsorships, leave, timesheets,
-               #               projects, documents, calendar, admin, gdpr, notifications
-  middleware/  # auth.ts (JWT verify), roles.ts (role check), audit.ts (GDPR log)
-  lib/         # emailService.ts, cronJobs.ts
-  __tests__/   # Jest tests
+  routes/      # API handlers, mounted in app.ts at /api/*:
+               #   auth, employees (+ /:id/rtw, /:id/photo), sponsorships,
+               #   absences, pay, leave, timesheets, projects, documents,
+               #   calendar, admin, gdpr, notifications, tenant, platform,
+               #   reports, reviews, checklists, expenses, training, cases,
+               #   document-templates
+  middleware/  # auth.ts (JWT verify + tenant context), roles.ts, audit.ts
+  lib/         # tenantContext, tenantSettings, tenantPolicy (feature gate),
+               #   roles, fieldEncryption, storage, emailService, notify,
+               #   cronJobs, workingDays, leave, reportingLine, retention,
+               #   appendixD, auditReadiness, expirySweep, checklists
+  __tests__/   # Jest tests (serial, real test DB via TEST_DATABASE_URL)
 backend/prisma/ # schema, migrations, seed
 
 frontend/src/
@@ -52,7 +70,10 @@ frontend/src/
 - Use comments sparingly — only for complex or non-obvious logic
 - API routes follow RESTful patterns
 - All DB access through Prisma client (never raw SQL)
-- Role-based access: `ADMIN`, `MANAGER`, `USER`
+- Role-based access: `ADMIN`, `DIRECTOR`, `OFFICE_ASSISTANT`, `EMPLOYEE`
+  (legacy `MANAGER`/`USER` are normalised by `lib/roles.ts`). A line manager
+  (`Employee.managerId`) approves their own reports' leave and expenses
+  without an elevated role — see `lib/reportingLine.ts`.
 - All sensitive operations logged to `AuditLog` (GDPR requirement)
 
 ## Environment
@@ -65,5 +86,6 @@ frontend/src/
 - Auth middleware extracts user from JWT → `req.user`
 - Role middleware: `requireRole('ADMIN')` or `requireRole('ADMIN', 'MANAGER')`
 - File uploads via multer (max 5MB, PDF/PNG/JPG/DOC/DOCX only)
-- Cron jobs in `backend/src/lib/cronJobs.ts` (sponsorship expiry alerts)
+- Cron jobs in `backend/src/lib/cronJobs.ts`: retention sweep 02:00, expiry
+  alerts 09:00, absence detection 09:30, salary check 10:00
 - CORS whitelist: localhost dev ports + 6soft.co.uk + hrm.6soft.co.uk

@@ -61,6 +61,14 @@ const SUMMARY = {
       { name: 'Training', hours: 120.5 },
     ],
   },
+  hrFile: {
+    reviewsDue30d: 4,
+    reviewsOverdue: 2,
+    onboardingOutstanding: 6,
+    expensesPending: 3,
+    expensesPendingValue: 412.5,
+    openCases: 1,
+  },
   readiness: {
     score: 62,
     band: 'AT_RISK',
@@ -146,6 +154,25 @@ describe('Reports page', () => {
       await screen.findByText('Right-to-work recheck'),
     ).toBeInTheDocument();
     expect(screen.getByText('CoS start-by')).toBeInTheDocument();
+  });
+
+  it('summarises the HR file without naming anyone', async () => {
+    renderReports();
+
+    const section = (await screen.findByText('HR file')).closest(
+      '.card',
+    ) as HTMLElement;
+    expect(within(section).getByText('Reviews overdue')).toBeInTheDocument();
+    expect(within(section).getByText('2')).toBeInTheDocument();
+    expect(
+      within(section).getByText('Onboarding outstanding'),
+    ).toBeInTheDocument();
+    expect(
+      within(section).getByText(/£412\.50 awaiting a decision/),
+    ).toBeInTheDocument();
+    // Cases appear as a bare count — never a name, even on this admin page.
+    expect(within(section).getByText('Open cases')).toBeInTheDocument();
+    expect(within(section).getByText('1')).toBeInTheDocument();
   });
 
   it('omits the readiness card when compliance is switched off', async () => {

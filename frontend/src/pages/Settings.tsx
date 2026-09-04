@@ -4,6 +4,7 @@ import Card from '../components/Card'
 import CompanyProfileCard from '../components/CompanyProfileCard'
 import SponsorLicenceCard from '../components/SponsorLicenceCard'
 import LeavePolicyCard from '../components/LeavePolicyCard'
+import DocumentTemplatesCard from '../components/DocumentTemplatesCard'
 import { hasFeature } from '../lib/tenant'
 
 export default function Settings() {
@@ -167,6 +168,7 @@ export default function Settings() {
         {isAdmin && <CompanyProfileCard />}
         {hasFeature('compliance') && <SponsorLicenceCard canEdit={isAdmin} />}
         <LeavePolicyCard canEdit={isAdmin} />
+        <DocumentTemplatesCard canEdit={isAdmin} />
 
         {/* Backup & Restore (Admin Only) */}
         {isAdmin && (

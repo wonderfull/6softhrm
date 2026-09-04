@@ -25,7 +25,10 @@ src/middleware/
   audit.ts     → auditLog(req, action, entity, entityId?, details?) / createAuditLog: write to AuditLog (GDPR)
 src/lib/
   emailService.ts  → sendEmail(), sendLeaveNotification(), etc.
-  cronJobs.ts      → scheduled jobs (sponsorship expiry alerts)
+  cronJobs.ts      → scheduled jobs: retention sweep 02:00, expiry alerts
+                     09:00, absence detection 09:30, salary check 10:00
+  notify.ts        → notifyUsers/notifyRoles: Notification rows + optional email
+  tenantContext.ts → runWithTenant / currentTenantId (AsyncLocalStorage)
 ```
 
 ## Route Patterns

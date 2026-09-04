@@ -136,7 +136,7 @@ router.post(
     if (!employee) return res.status(404).json({ error: 'Employee not found' });
 
     const html = renderTemplate(template.body, employee);
-    const key = `tenant-${currentTenantId()}/generated/${employeeId}-${Date.now()}.html`;
+    const key = `tenants/${currentTenantId()}/generated/${employeeId}-${Date.now()}.html`;
     await getStorage().put(key, Buffer.from(html, 'utf8'), 'text/html');
 
     const document = await prisma.document.create({

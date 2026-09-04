@@ -7,7 +7,7 @@ import { parseId } from '../lib/routeParams';
 import { currentTenantId } from '../lib/tenantContext';
 import { canDecideLeave, visibleEmployeeIds } from '../lib/reportingLine';
 import { notifyUsers } from '../lib/notify';
-import { ROLES, normalizeRole } from '../lib/roles';
+import { ROLES, canReviewLeaveAndTime, normalizeRole } from '../lib/roles';
 
 // Expense claims. Approval follows the same rule as leave: your line manager
 // decides, and nobody decides their own.
@@ -189,7 +189,7 @@ router.delete('/:id', requireAuth, async (req: any, res) => {
   const existing = await prisma.expenseClaim.findFirst({ where: { id } });
   if (!existing) return res.status(404).json({ error: 'Claim not found' });
 
-  const elevated = normalizeRole(req.user.role) !== ROLES.EMPLOYEE;
+  const elevated = canReviewLeaveAndTime(normalizeRole(req.user.role));
   const own = req.user.employeeId === existing.employeeId;
   if (!elevated && !own) return res.status(403).json({ error: 'Unauthorized' });
   if (!elevated && existing.status !== 'PENDING')

@@ -286,7 +286,7 @@ describe('profile photo', () => {
       .set('Authorization', `Bearer ${userToken}`)
       .attach('file', PNG, { filename: 'me.png', contentType: 'image/png' });
     expect(uploaded.status).toBe(200);
-    expect(uploaded.body.photoPath).toContain(`tenant-${testTenantId()}/photos/`);
+    expect(uploaded.body.photoPath).toContain(`tenants/${testTenantId()}/photos/`);
     expect(uploaded.body.url).toBeTruthy();
 
     const fetched = await request(app)

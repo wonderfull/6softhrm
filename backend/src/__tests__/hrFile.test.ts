@@ -667,6 +667,19 @@ describe('templates and acknowledgement', () => {
       .set(auth(adminToken));
     expect(list.body).toHaveLength(1);
 
+    // A generated contract is HTML. Serving it inline would put attacker-
+    // controllable markup on the same origin as the app, so it always
+    // downloads however the caller asks for it.
+    const inline = await request(app)
+      .get(`/api/documents/${documentId}/file?disposition=inline`)
+      .set(auth(reportToken));
+    expect(inline.status).toBe(200);
+    expect(inline.headers['content-disposition']).toMatch(/^attachment/);
+    expect(inline.headers['content-type']).not.toMatch(/text\/html/);
+    expect(inline.headers['x-content-type-options']).toBe('nosniff');
+    // The name carries an em dash, which cannot travel raw in a header.
+    expect(inline.headers['content-disposition']).toContain("filename*=UTF-8''");
+
     await prisma.documentAcknowledgement.deleteMany({ where: { documentId } });
     await prisma.document.deleteMany({ where: { id: documentId } });
   });

@@ -32,6 +32,14 @@ type Summary = {
     entries: number;
     byProject: { name: string; hours: number }[];
   };
+  hrFile: {
+    reviewsDue30d: number;
+    reviewsOverdue: number;
+    onboardingOutstanding: number;
+    expensesPending: number;
+    expensesPendingValue: number;
+    openCases: number;
+  };
   readiness: null | {
     score: number;
     band: 'READY' | 'AT_RISK' | 'NOT_READY';
@@ -72,6 +80,11 @@ const BAND_STYLES: Record<string, string> = {
   AT_RISK: 'from-amber-500 to-amber-600',
   NOT_READY: 'from-rose-500 to-rose-600',
 };
+
+const gbp = new Intl.NumberFormat('en-GB', {
+  style: 'currency',
+  currency: 'GBP',
+});
 
 function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
@@ -221,7 +234,7 @@ export default function Reports() {
     );
   }
 
-  const { headcount, leave, expiries, timesheets, readiness } = summary;
+  const { headcount, leave, expiries, timesheets, hrFile, readiness } = summary;
   const maxDepartment = Math.max(
     ...headcount.byDepartment.map((d) => d.count),
     0,
@@ -497,6 +510,64 @@ export default function Reports() {
             No hours recorded this month.
           </p>
         )}
+      </Card>
+
+      <Card>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+            HR file
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Reviews, onboarding and expenses waiting on someone. Employee
+            relations is a count only — who the cases concern stays on the cases
+            screen.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
+            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Reviews due in 30 days
+            </div>
+            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+              {hrFile.reviewsDue30d}
+            </div>
+          </div>
+          <div className="rounded-lg bg-rose-50 p-4 dark:bg-rose-900/20">
+            <div className="text-sm font-medium text-rose-700 dark:text-rose-300">
+              Reviews overdue
+            </div>
+            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+              {hrFile.reviewsOverdue}
+            </div>
+          </div>
+          <div className="rounded-lg bg-amber-50 p-4 dark:bg-amber-900/20">
+            <div className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              Onboarding outstanding
+            </div>
+            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+              {hrFile.onboardingOutstanding}
+            </div>
+          </div>
+          <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+            <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              Expenses pending
+            </div>
+            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+              {hrFile.expensesPending}
+            </div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {gbp.format(hrFile.expensesPendingValue)} awaiting a decision
+            </div>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
+            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Open cases
+            </div>
+            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+              {hrFile.openCases}
+            </div>
+          </div>
+        </div>
       </Card>
 
       {readiness && (

@@ -13,6 +13,8 @@ import Compliance from './pages/Compliance';
 import Reports from './pages/Reports';
 import Employees from './pages/Employees';
 import Leave from './pages/Leave';
+import Expenses from './pages/Expenses';
+import Cases from './pages/Cases';
 import Time from './pages/Time';
 import Projects from './pages/Projects';
 import Documents from './pages/Documents';
@@ -54,6 +56,8 @@ const ROUTE_TITLES: Record<string, string> = {
   '/time': 'Time',
   '/projects': 'Projects',
   '/leave': 'Leave',
+  '/expenses': 'Expenses',
+  '/cases': 'Employee Relations',
   '/documents': 'Documents',
   '/payslips': 'My Payslips',
   '/account': 'My Account',
@@ -221,6 +225,15 @@ function App() {
                         }
                       />
                       <Route path="/leave" element={<Leave />} />
+                      <Route path="/expenses" element={<Expenses />} />
+                      <Route
+                        path="/cases"
+                        element={
+                          <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
+                            <Cases />
+                          </ProtectedRoute>
+                        }
+                      />
                       <Route path="/documents" element={<Documents />} />
                       <Route path="/payslips" element={<Payslips />} />
                       <Route path="/account" element={<Account />} />

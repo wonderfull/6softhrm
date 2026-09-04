@@ -20,6 +20,18 @@ import {
 
 const router = Router();
 
+/**
+ * Node refuses a header containing a non-ASCII byte, so a document named for
+ * someone called José — or any name we join with an em dash — would fail the
+ * download outright. RFC 5987 gives the real name in `filename*` and keeps a
+ * stripped-back `filename` for anything that cannot read it.
+ */
+function contentDisposition(disposition: 'inline' | 'attachment', name: string) {
+  const fallback = name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '');
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+}
+
+
 // Files are buffered in memory (5MB cap) then handed to the storage driver
 // under a tenant-prefixed key — never written to a shared local namespace.
 const storage = multer.memoryStorage();
@@ -196,8 +208,17 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
+    // A file that can carry script must never render inline: the API shares an
+    // origin with the SPA behind Nginx, so an inline HTML document would run
+    // on it and could read the session token out of localStorage. Generated
+    // contracts are HTML, so this is reachable — uploads are type-filtered but
+    // templates are not.
+    const extension = path.extname(document.path).toLowerCase();
+    const executable = ['.html', '.htm', '.xhtml', '.svg', '.xml'].includes(
+      extension,
+    );
     const disposition =
-      req.query.disposition === 'inline'
+      req.query.disposition === 'inline' && !executable
         ? ('inline' as const)
         : ('attachment' as const);
 
@@ -210,11 +231,9 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
     );
     if (signedUrl) return res.redirect(signedUrl);
 
-    res.type(path.extname(document.path) || 'application/octet-stream');
-    res.setHeader(
-      'Content-Disposition',
-      `${disposition}; filename="${document.name.replace(/"/g, '')}"`,
-    );
+    res.type(executable ? 'application/octet-stream' : extension || 'application/octet-stream');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', contentDisposition(disposition, document.name));
     const stream = await store.getStream(document.path);
     stream.on('error', () => res.status(404).end());
     stream.pipe(res);
