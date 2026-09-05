@@ -2,6 +2,10 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  // capture-shot is a tool for regenerating the marketing screenshots, not a
+  // test: it writes files and needs curated data. Run it with
+  // playwright.capture.config.ts instead.
+  testIgnore: 'capture-shot.spec.ts',
   globalSetup: './e2e/global.setup.ts',
   timeout: 60_000,
   fullyParallel: false,

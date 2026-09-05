@@ -15,7 +15,7 @@ body { @apply bg-gradient-to-br from-primary-50 to-white text-slate-900; font-fa
 .prose ul, .prose ol { @apply my-3 pl-6 space-y-1; }
 .prose ul { @apply list-disc; }
 .prose ol { @apply list-decimal; }
-.prose a { @apply underline underline-offset-4 decoration-slate-300 hover:decoration-[#5e6ad2] text-slate-900 dark:text-white; }
+.prose a { @apply underline underline-offset-4 decoration-slate-300 hover:decoration-primary-600 text-slate-900 dark:text-white; }
 .prose table { @apply w-full text-sm my-4 border-collapse; }
 .prose th, .prose td { @apply text-left align-top border-b border-slate-200 dark:border-slate-700 py-2 pr-4; }
 

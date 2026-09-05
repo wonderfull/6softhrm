@@ -1,4 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80">
-  <text x="10" y="60" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#0ea5e9">6</text>
-  <text x="50" y="60" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#000">soft</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 248 64" role="img" aria-label="OnsideHR">
+  <!-- Wordmark only. Set in the same stack as the product UI, in brand blue so
+       it stays legible on both the light and dark sidebar without needing two
+       assets. Replace with the real logotype when brand assets exist. -->
+  <text x="0" y="44"
+        font-family="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="38" font-weight="700" letter-spacing="-1.1" fill="#2b8cff">Onside<tspan font-weight="400" fill="#7fc6ff">HR</tspan></text>
 </svg>

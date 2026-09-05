@@ -57,7 +57,7 @@ export default function ResetPassword() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-[#5e6ad2] rounded-2xl shadow-lg mb-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-primary-600 rounded-2xl shadow-lg mb-4">
             <LockClosedIcon className="h-10 w-10 text-white" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">Reset Password</h1>
@@ -89,7 +89,7 @@ export default function ResetPassword() {
                     autoComplete="new-password"
                     required
                     minLength={6}
-                    className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-[#5e69d1] focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all" 
+                    className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all" 
                   />
                 </div>
               </div>
@@ -109,7 +109,7 @@ export default function ResetPassword() {
                     autoComplete="new-password"
                     required
                     minLength={6}
-                    className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-[#5e69d1] focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all" 
+                    className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all" 
                   />
                 </div>
               </div>
@@ -125,7 +125,7 @@ export default function ResetPassword() {
               <button 
                 type="submit"
                 disabled={loading || !token}
-                className="w-full bg-[#5e6ad2] hover:bg-[#828fff] active:translate-y-px text-white font-semibold py-3 rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-primary-600 hover:bg-primary-700 active:translate-y-px text-white font-semibold py-3 rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Resetting...' : 'Reset Password'}
               </button>
@@ -137,7 +137,7 @@ export default function ResetPassword() {
             <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
               <Link 
                 to="/login" 
-                className="flex items-center justify-center gap-2 text-sm text-[#5e6ad2] dark:text-[#828fff] hover:text-[#5e69d1] dark:hover:text-[#a4adff]"
+                className="flex items-center justify-center gap-2 text-sm text-primary-600 dark:text-primary-300 hover:text-primary-700 dark:hover:text-primary-200"
               >
                 <ArrowLeftIcon className="h-4 w-4" />
                 Back to Login

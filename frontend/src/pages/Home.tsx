@@ -17,13 +17,13 @@ import { DEMO_HREF } from '../components/marketing/SiteHeader';
 // today (see backend/src/lib/*); keep it that way when editing copy.
 
 const PRIMARY_BTN =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap px-5 py-3 rounded-lg bg-[#5e6ad2] hover:bg-[#828fff] text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#5e69d1] focus:ring-offset-2 dark:focus:ring-offset-slate-950 active:translate-y-px';
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap px-5 py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 dark:focus:ring-offset-slate-950 active:translate-y-px';
 const GHOST_BTN =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap px-5 py-3 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-medium hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-[#5e69d1] focus:ring-offset-2 dark:focus:ring-offset-slate-950 active:translate-y-px';
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap px-5 py-3 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-medium hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 dark:focus:ring-offset-slate-950 active:translate-y-px';
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#5e6ad2]">
+    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary-600 dark:text-primary-300">
       {children}
     </p>
   );
@@ -34,13 +34,13 @@ function SectionHeading({
   title,
   lede,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   lede?: string;
 }) {
   return (
     <div className="max-w-2xl">
-      <Eyebrow>{eyebrow}</Eyebrow>
+      {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight leading-[1.1] text-slate-900 dark:text-white">
         {title}
       </h2>
@@ -53,16 +53,18 @@ function SectionHeading({
   );
 }
 
+// The hero used to carry these as a strip under the CTAs. They are real
+// claims, so they moved here rather than being dropped.
 const STATS = [
-  { value: 'One portal', label: 'for HR, managers and every employee' },
+  { value: 'Live in an afternoon', label: 'import your people from a CSV and go' },
   { value: 'UK hosted', label: 'data held in Manchester, England' },
   {
     value: 'AES-256-GCM',
     label: 'field-level encryption for NI, passport and bank details',
   },
   {
-    value: 'Full audit trail',
-    label: 'every sensitive action logged for UK GDPR',
+    value: 'Processor agreement',
+    label: 'UK GDPR terms included, with every sensitive action logged',
   },
 ];
 
@@ -77,7 +79,7 @@ const STAKES = [
   },
   {
     title: 'Compliance lives in one head',
-    body: 'GDPR consent, retention and — if you sponsor workers — Home Office reporting all depend on one person remembering. When they are away, the company is exposed.',
+    body: 'GDPR consent, retention and, if you sponsor workers, Home Office reporting all depend on one person remembering. When they are away, the company is exposed.',
   },
 ];
 
@@ -148,7 +150,7 @@ const TEAMS = [
   {
     title: 'Employees',
     ref: 'Self-service',
-    body: 'Book leave, submit timesheets, upload documents and see their own record — nothing else. Consent and data-export requests are a button, not an email to HR.',
+    body: 'Book leave, submit timesheets, upload documents and see their own record, and nothing else. Consent and data-export requests are a button, not an email to HR.',
   },
   {
     title: 'Managers and directors',
@@ -181,7 +183,7 @@ const STEPS = [
   {
     n: '03',
     title: 'Run HR from one place',
-    body: 'Leave, time, documents and compliance happen in the portal from day one — with an audit trail from the first click.',
+    body: 'Leave, time, documents and compliance happen in the portal from day one, with an audit trail from the first click.',
   },
 ];
 
@@ -200,7 +202,7 @@ const SECURITY = [
   },
   {
     title: 'Complete audit log',
-    body: 'Who viewed, changed or exported what, and when — retained for your GDPR accountability record.',
+    body: 'Who viewed, changed or exported what, and when. Retained for your GDPR accountability record.',
   },
   {
     title: 'Backups with rehearsed restores',
@@ -268,86 +270,19 @@ const FAQ = [
   },
 ];
 
-function PortalPanel() {
-  const stats = [
-    { label: 'Headcount', value: '42' },
-    { label: 'Off today', value: '3' },
-    { label: 'To approve', value: '5' },
-    { label: 'Expiring', value: '2' },
-  ];
-  const queue = [
-    {
-      title: 'Leave request — P. Mensah',
-      sub: '14–18 Sep · 5 days annual leave',
-      meta: 'Approve',
-    },
-    {
-      title: 'Timesheet — week 36 — R. Iqbal',
-      sub: '37.5 h across two projects',
-      meta: 'Approve',
-    },
-    {
-      title: 'Right-to-work check — L. Novak',
-      sub: 'Expires 30 Sep · reminder sent',
-      meta: 'Documents',
-    },
-    {
-      title: 'Sponsor licence — salary check',
-      sub: '18 workers checked · no shortfalls',
-      meta: 'Today 10:00',
-    },
-  ];
+function ProductShot() {
   return (
-    <div
-      aria-hidden="true"
-      className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-[0_1px_0_rgba(15,23,42,0.04)] overflow-hidden"
-    >
-      <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">
-            This week
-          </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Ashworth Engineering Ltd · Admin view
-          </p>
-        </div>
-        <span className="whitespace-nowrap text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-          Mon 7 Sep
-        </span>
-      </div>
-      <dl className="px-5 py-5 grid grid-cols-4 gap-3 border-b border-slate-200 dark:border-slate-800">
-        {stats.map((s) => (
-          <div key={s.label}>
-            <dt className="text-xs text-slate-500 dark:text-slate-400">
-              {s.label}
-            </dt>
-            <dd className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
-              {s.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      <ul className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
-        {queue.map((q) => (
-          <li
-            key={q.title}
-            className="px-5 py-3 flex items-start justify-between gap-4"
-          >
-            <div>
-              <p className="font-medium text-slate-900 dark:text-white">
-                {q.title}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {q.sub}
-              </p>
-            </div>
-            <span className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
-              {q.meta}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <figure className="relative">
+      <img
+        src="/marketing/reports.png"
+        alt="The OnsideHR reports screen: active headcount, leave pending, hours this month and audit readiness, with headcount broken down by department."
+        width={1440}
+        height={900}
+        loading="eager"
+        decoding="async"
+        className="w-full rounded-xl border border-slate-200 shadow-2xl shadow-slate-900/10 dark:border-slate-700 dark:shadow-black/40"
+      />
+    </figure>
   );
 }
 
@@ -365,7 +300,7 @@ export default function Home() {
           </h1>
           <p className="mt-6 text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-[60ch]">
             Employee records, leave, timesheets, documents and compliance in one
-            UK-hosted portal — with a login for the people team, for managers,
+            UK-hosted portal, with a login for the people team, for managers,
             and for every employee.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
@@ -377,13 +312,9 @@ export default function Home() {
               <ArrowRightIcon className="h-4 w-4" />
             </a>
           </div>
-          <p className="mt-6 text-sm text-slate-500 dark:text-slate-400">
-            Built and hosted in the UK · UK GDPR processor agreement included ·
-            Live in an afternoon from a CSV
-          </p>
         </div>
         <div className="lg:col-span-6">
-          <PortalPanel />
+          <ProductShot />
         </div>
       </section>
 
@@ -409,8 +340,7 @@ export default function Home() {
         className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24"
       >
         <SectionHeading
-          eyebrow="Why it matters"
-          title="HR without a system is a set of habits. Habits do not survive an audit."
+                    title="HR without a system is a set of habits. Habits do not survive an audit."
           lede="Most UK companies under two hundred people run HR on email, spreadsheets and a shared drive. It works until the day it is checked."
         />
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -437,9 +367,8 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24">
           <SectionHeading
-            eyebrow="Product"
-            title="Everything HR, in one place."
-            lede="Six areas, one employee record underneath them all. What you enter once — a start date, a contract, a day off — is what every report, calendar and compliance check reads."
+                        title="Everything HR, in one place."
+            lede="Six areas, one employee record underneath them all. What you enter once is what every report, calendar and audit trail reads from."
           />
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-slate-200 dark:bg-slate-800 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
             {PILLARS.map((p) => (
@@ -447,7 +376,7 @@ export default function Home() {
                 key={p.title}
                 className="bg-white dark:bg-slate-950 p-6 lg:p-7"
               >
-                <p.icon className="h-6 w-6 text-[#5e6ad2]" strokeWidth={1.5} />
+                <p.icon className="h-6 w-6 text-primary-600 dark:text-primary-300" strokeWidth={1.5} />
                 <h3 className="mt-4 text-base font-semibold tracking-tight text-slate-900 dark:text-white">
                   {p.title}
                 </h3>
@@ -519,8 +448,7 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24">
           <SectionHeading
-            eyebrow="How it works"
-            title="Live in an afternoon, not a quarter."
+                        title="Live in an afternoon, not a quarter."
           />
           <ol className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
             {STEPS.map((s) => (
@@ -528,7 +456,7 @@ export default function Home() {
                 key={s.n}
                 className="border-t border-slate-900 dark:border-white pt-5"
               >
-                <p className="text-xs font-semibold tracking-[0.08em] text-[#5e6ad2]">
+                <p className="text-xs font-semibold tracking-[0.08em] text-primary-600 dark:text-primary-300">
                   {s.n}
                 </p>
                 <h3 className="mt-2 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
@@ -549,8 +477,7 @@ export default function Home() {
         className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24"
       >
         <SectionHeading
-          eyebrow="Security"
-          title="Answers your procurement questionnaire will accept."
+                    title="Answers your procurement questionnaire will accept."
           lede="Employment records are among the most sensitive data a business holds. These are the controls in place today, described plainly."
         />
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-10">
@@ -569,14 +496,14 @@ export default function Home() {
           Full detail in the{' '}
           <Link
             to="/dpa"
-            className="underline underline-offset-4 decoration-slate-300 hover:decoration-[#5e6ad2] text-slate-700 dark:text-slate-300"
+            className="underline underline-offset-4 decoration-slate-300 hover:decoration-primary-600 text-slate-700 dark:text-slate-300"
           >
             data processing agreement
           </Link>{' '}
           and{' '}
           <Link
             to="/gdpr"
-            className="underline underline-offset-4 decoration-slate-300 hover:decoration-[#5e6ad2] text-slate-700 dark:text-slate-300"
+            className="underline underline-offset-4 decoration-slate-300 hover:decoration-primary-600 text-slate-700 dark:text-slate-300"
           >
             UK GDPR statement
           </Link>
@@ -601,7 +528,7 @@ export default function Home() {
                 key={p.name}
                 className={`rounded-xl border bg-white dark:bg-slate-950 p-7 flex flex-col ${
                   p.highlight
-                    ? 'border-[#5e6ad2]'
+                    ? 'border-primary-600'
                     : 'border-slate-200 dark:border-slate-800'
                 }`}
               >
@@ -610,7 +537,7 @@ export default function Home() {
                     {p.name}
                   </h3>
                   {p.highlight && (
-                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[#5e6ad2]/10 text-[#5e6ad2]">
+                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary-600/10 text-primary-600 dark:text-primary-300">
                       Most companies
                     </span>
                   )}
@@ -625,7 +552,7 @@ export default function Home() {
                       className="flex gap-2 text-sm text-slate-700 dark:text-slate-300"
                     >
                       <CheckIcon
-                        className="h-4 w-4 mt-0.5 flex-shrink-0 text-[#5e6ad2]"
+                        className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary-600 dark:text-primary-300"
                         strokeWidth={2}
                       />
                       {f}
@@ -650,7 +577,7 @@ export default function Home() {
         className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12"
       >
         <div className="lg:col-span-4">
-          <SectionHeading eyebrow="FAQ" title="Straight answers." />
+          <SectionHeading title="Straight answers." />
         </div>
         <div className="lg:col-span-8 divide-y divide-slate-200 dark:divide-slate-800 border-t border-slate-200 dark:border-slate-800">
           {FAQ.map((f) => (

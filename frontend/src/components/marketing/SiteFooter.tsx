@@ -47,7 +47,7 @@ export default function SiteFooter() {
           <div className="flex items-center gap-2 font-semibold tracking-tight text-slate-900 dark:text-white">
             <span
               aria-hidden="true"
-              className="inline-block h-6 w-6 rounded-md bg-[#5e6ad2]"
+              className="inline-block h-6 w-6 rounded-md bg-primary-600"
             />
             OnsideHR
           </div>

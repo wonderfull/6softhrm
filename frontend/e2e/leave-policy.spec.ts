@@ -15,11 +15,38 @@ test('the Christmas shutdown costs two days, not six, and the balance moves by t
 }) => {
   await loginAs(page, E2E_EMPLOYEE_EMAIL, E2E_EMPLOYEE_PASSWORD)
 
-  const firstBalance = page.waitForResponse(
-    (r) => r.url().includes('/api/leave/balance') && r.status() === 200,
-  )
   await page.goto('/leave')
-  const before = await (await firstBalance).json()
+
+  // Read the balance with an explicit fetch rather than intercepting one. The
+  // dashboard also requests /leave/balance, so a listener attached before
+  // navigating catches that one instead, and its body is discarded the moment
+  // the navigation completes.
+  const api = async (path: string, init?: RequestInit) =>
+    page.evaluate(
+      async ([p, i]: [string, RequestInit | undefined]) => {
+        const res = await fetch(p, {
+          ...i,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            ...(i?.headers ?? {}),
+          },
+        })
+        return { status: res.status, body: await res.json().catch(() => null) }
+      },
+      [path, init] as [string, RequestInit | undefined],
+    )
+
+  // Leave behind by an earlier run would make the booking below a 409, so the
+  // spec clears its own dates first and stays repeatable.
+  const existing = await api('/api/leave')
+  for (const row of (existing.body as any[]) ?? []) {
+    if (String(row.startDate).startsWith('2026-12-24')) {
+      await api(`/api/leave/${row.id}`, { method: 'DELETE' })
+    }
+  }
+
+  const before = (await api('/api/leave/balance')).body
 
   await page.getByRole('button', { name: /request leave|new request/i }).first().click()
 
@@ -40,12 +67,7 @@ test('the Christmas shutdown costs two days, not six, and the balance moves by t
   const body = await (await created).json()
   expect(body.days).toBe(2)
 
-  const afterBalance = await page.evaluate(async () => {
-    const res = await fetch('/api/leave/balance', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    })
-    return res.json()
-  })
+  const afterBalance = (await api('/api/leave/balance')).body
   expect(afterBalance.remaining).toBe(before.remaining - 2)
 })
 

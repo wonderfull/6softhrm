@@ -26,7 +26,7 @@ export default function SiteHeader() {
         >
           <span
             aria-hidden="true"
-            className="inline-block h-6 w-6 rounded-md bg-[#5e6ad2]"
+            className="inline-block h-6 w-6 rounded-md bg-primary-600"
           />
           OnsideHR
         </Link>
@@ -50,7 +50,7 @@ export default function SiteHeader() {
           {signedIn ? (
             <Link
               to="/dashboard"
-              className="text-sm font-medium px-4 py-2 rounded-lg bg-[#5e6ad2] hover:bg-[#828fff] text-white transition-colors"
+              className="text-sm font-medium px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-colors"
             >
               Open app
             </Link>
@@ -64,7 +64,7 @@ export default function SiteHeader() {
               </Link>
               <a
                 href={DEMO_HREF}
-                className="text-sm font-medium px-4 py-2 rounded-lg bg-[#5e6ad2] hover:bg-[#828fff] text-white transition-colors"
+                className="text-sm font-medium px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-colors"
               >
                 Book a demo
               </a>
@@ -108,7 +108,7 @@ export default function SiteHeader() {
             {signedIn ? (
               <Link
                 to="/dashboard"
-                className="text-center font-medium px-4 py-2 rounded-lg bg-[#5e6ad2] text-white"
+                className="text-center font-medium px-4 py-2 rounded-lg bg-primary-600 text-white"
               >
                 Open app
               </Link>
@@ -122,7 +122,7 @@ export default function SiteHeader() {
                 </Link>
                 <a
                   href={DEMO_HREF}
-                  className="text-center font-medium px-4 py-2 rounded-lg bg-[#5e6ad2] text-white"
+                  className="text-center font-medium px-4 py-2 rounded-lg bg-primary-600 text-white"
                 >
                   Book a demo
                 </a>
