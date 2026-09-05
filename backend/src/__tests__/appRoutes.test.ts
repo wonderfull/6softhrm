@@ -46,6 +46,16 @@ describe('the routes app.ts actually mounts', () => {
     }
   });
 
+  // /api/calendar was a placeholder that handed users a Google URL containing
+  // the literal YOUR_CLIENT_ID, and whose callback took input from anyone at
+  // all — it had no requireAuth. Nothing ever called it.
+  it('no longer exposes the abandoned calendar stub', async () => {
+    for (const path of ['/api/calendar/connect/google', '/api/calendar/callback/google']) {
+      const res = await request(app).get(path);
+      expect(res.status).toBe(404);
+    }
+  });
+
   it('still 404s something that was never mounted', async () => {
     const res = await request(app)
       .get('/api/does-not-exist')

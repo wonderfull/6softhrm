@@ -456,8 +456,11 @@ model GoogleAccount {
   id           Int       @id @default(autoincrement())
   user         User      @relation(fields: [userId], references: [id])
   userId       Int       @unique
-  refreshToken String
-  accessToken  String?
+  // Long-lived Google credentials. Encrypted at rest by field name like every
+  // other secret column — a refresh token is a standing grant on someone's
+  // calendar and Drive, so it must not sit in the database in the clear.
+  refreshToken String    @db.Text
+  accessToken  String?   @db.Text
   scope        String?
   expiry       DateTime?
   createdAt    DateTime  @default(now())

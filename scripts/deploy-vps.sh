@@ -17,9 +17,34 @@ echo "[deploy] deploying HRM backend"
 cd "$HRM_REPO_DIR/backend"
 npm install
 npx prisma generate
+
+# Last point at which nothing has changed: the migrations below auto-commit
+# their DDL and cannot be rolled back, and a backend missing FIELD_ENCRYPTION_KEY
+# or JWT_SECRET crashloops on restart. Check the environment while production is
+# still untouched and still serving.
+echo "[deploy] checking backend environment"
+if ! npm run --silent preflight; then
+  echo "[deploy] ABORTED: the backend environment is incomplete." >&2
+  echo "         No migrations were applied and the running API was not restarted." >&2
+  echo "         Fix the variables listed above in $HRM_REPO_DIR/backend/.env, then re-run." >&2
+  exit 1
+fi
+
 npx prisma migrate deploy
 npm run build
-pm2 restart 6soft-hrm-backend --update-env
+# The process is defined as onsidehr-api in ecosystem.config.js, which is also
+# what the runbook reloads. This line said 6soft-hrm-backend, a name PM2 does
+# not know, so under `set -e` the deploy died here — after the migrations had
+# already been applied. The old code carried on serving a migrated schema,
+# which is the failure the preflight above exists to prevent, one step later.
+# Start it from the ecosystem file if it is not running yet.
+if pm2 describe onsidehr-api > /dev/null 2>&1; then
+  pm2 reload onsidehr-api --update-env
+else
+  echo "[deploy] onsidehr-api is not running; starting it from ecosystem.config.js"
+  pm2 start "$HRM_REPO_DIR/ecosystem.config.js" --only onsidehr-api
+fi
+pm2 save
 
 echo "[deploy] deploying HRM frontend"
 cd "$HRM_REPO_DIR/frontend"

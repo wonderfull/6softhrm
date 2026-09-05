@@ -20,14 +20,21 @@ export const ENCRYPTED_FIELDS = [
   'sortCode',
   'shareCode',
   'dbsCertificateNumber',
+  'refreshToken',
+  'accessToken',
 ] as const;
 
 const FIELD_SET: ReadonlySet<string> = new Set(ENCRYPTED_FIELDS);
 
 let cachedKey: { source: string; key: Buffer } | null = null;
 
-export function getFieldEncryptionKey(): Buffer {
-  const source = process.env.FIELD_ENCRYPTION_KEY?.trim();
+// The value is a parameter so a caller can validate a key it holds rather than
+// the live one — the deploy preflight checks the target environment without
+// touching this process's own env.
+export function getFieldEncryptionKey(
+  configured: string | undefined = process.env.FIELD_ENCRYPTION_KEY,
+): Buffer {
+  const source = configured?.trim();
   if (!source) {
     throw new Error(
       'FIELD_ENCRYPTION_KEY is not configured. Generate one with `openssl rand -hex 32` and set it ' +
