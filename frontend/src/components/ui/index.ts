@@ -13,3 +13,7 @@ export type { EmptyStateProps } from './EmptyState';
 export { Skeleton } from './Skeleton';
 export { Table, Th, Tr, Td } from './Table';
 export type { TrProps } from './Table';
+export { Avatar, initialsOf } from './Avatar';
+export type { AvatarProps } from './Avatar';
+export { PageHeader } from './PageHeader';
+export type { PageHeaderProps } from './PageHeader';

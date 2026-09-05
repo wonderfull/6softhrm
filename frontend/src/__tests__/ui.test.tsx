@@ -108,3 +108,24 @@ describe('ui primitives', () => {
     expect(el).toHaveAttribute('aria-hidden', 'true');
   });
 });
+
+import { Avatar, initialsOf, PageHeader } from '../components/ui';
+
+describe('shell primitives', () => {
+  it('Avatar shows two initials and hides from the accessibility tree', () => {
+    expect(initialsOf('Priya Raghunathan')).toBe('PR');
+    expect(initialsOf('  aoife ')).toBe('A');
+    const { container } = render(<Avatar name="Priya Raghunathan" size={40} />);
+    const el = container.firstElementChild as HTMLElement;
+    expect(el.textContent).toBe('PR');
+    expect(el).toHaveAttribute('aria-hidden', 'true');
+    expect(el.className).toContain('h-10');
+  });
+
+  it('PageHeader renders the title as the page h1 with subline and actions', () => {
+    render(<PageHeader title="Dashboard" subline="Saturday" actions={<button>Export</button>} />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByText('Saturday')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument();
+  });
+});
