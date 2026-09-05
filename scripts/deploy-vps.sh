@@ -11,11 +11,16 @@ echo "[deploy] updating HRM repo"
 cd "$HRM_REPO_DIR"
 git fetch origin
 git checkout main
+# `npm install` rewrites the lockfiles in place, and those local edits then
+# block the next `git pull` — a deploy that changes a dependency locks the
+# server out of the following one. They are generated files here, never
+# authored, so discard them before pulling.
+git checkout -- backend/package-lock.json frontend/package-lock.json 2>/dev/null || true
 git pull --ff-only origin main
 
 echo "[deploy] deploying HRM backend"
 cd "$HRM_REPO_DIR/backend"
-npm install
+npm ci
 npx prisma generate
 
 # Last point at which nothing has changed: the migrations below auto-commit
@@ -70,7 +75,7 @@ pm2 save
 
 echo "[deploy] deploying HRM frontend"
 cd "$HRM_REPO_DIR/frontend"
-npm install
+npm ci
 npm run build
 mkdir -p "$HRM_FRONTEND_ROOT"
 rm -rf "${HRM_FRONTEND_ROOT:?}"/*
