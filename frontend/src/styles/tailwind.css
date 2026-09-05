@@ -1,75 +1,104 @@
+@import './fonts.css';
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* Add a subtle layout gradient and improved default body font */
-html, body { height: 100%; }
-body { @apply bg-gradient-to-br from-primary-50 to-white text-slate-900; font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
 
-/* Long-form legal pages (Privacy, Terms, DPA, GDPR). The typography plugin
-   isn't installed, so `.prose` is defined here. */
-.prose { @apply text-slate-700 dark:text-slate-300 leading-relaxed px-4 sm:px-6; }
-.prose h1 { @apply text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 dark:text-white mb-2; }
-.prose h2 { @apply text-xl font-semibold tracking-tight text-slate-900 dark:text-white mt-10 mb-3; }
-.prose h3 { @apply text-base font-semibold text-slate-900 dark:text-white mt-6 mb-2; }
+/* Base. Geist for everything, Instrument Sans reserved for display sizes.
+   Every number is tabular so columns of figures line up. */
+html, body { height: 100%; }
+html { color-scheme: light dark; }
+body {
+  @apply bg-bg text-ink font-sans antialiased;
+  font-size: 15px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+h1, h2, h3, h4 { @apply text-ink; }
+.font-display { letter-spacing: -0.02em; }
+
+/* Long-form legal pages (Privacy, Terms, DPA, GDPR). */
+.prose { @apply text-ink-2 leading-relaxed px-4 sm:px-6; }
+.prose h1 { @apply font-display text-3xl sm:text-4xl font-semibold text-ink mb-2; }
+.prose h2 { @apply text-xl font-semibold tracking-tight text-ink mt-10 mb-3; }
+.prose h3 { @apply text-base font-semibold text-ink mt-6 mb-2; }
 .prose p { @apply my-3; }
 .prose ul, .prose ol { @apply my-3 pl-6 space-y-1; }
 .prose ul { @apply list-disc; }
 .prose ol { @apply list-decimal; }
-.prose a { @apply underline underline-offset-4 decoration-slate-300 hover:decoration-primary-600 text-slate-900 dark:text-white; }
+.prose a { @apply underline underline-offset-4 decoration-line-2 hover:decoration-accent text-link; }
 .prose table { @apply w-full text-sm my-4 border-collapse; }
-.prose th, .prose td { @apply text-left align-top border-b border-slate-200 dark:border-slate-700 py-2 pr-4; }
+.prose th, .prose td { @apply text-left align-top border-b border-line py-2 pr-4; }
 
-/* Card utility */
-.card {
-	@apply bg-white dark:bg-slate-800 rounded-xl p-4 shadow-card border border-slate-100 dark:border-slate-700;
-}
+/* Card: surface, hairline, radius 10, shadow sm. No coloured headers, no
+   nested cards, no left borders. */
+.card { @apply bg-surface rounded-lg border border-line shadow-sm p-5; }
 
-/* Primary button */
+/* Buttons. One primary per view. Press is a 120ms scale; focus is a ring in
+   the accent tint. Destructive is text-only and confirms in a dialog: there
+   is deliberately no red fill anywhere in the system. */
 .btn-primary {
-	@apply inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary-400 text-slate-900 font-semibold hover:bg-primary-500 shadow-sm dark:bg-primary-600 dark:text-white;
+  @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-accent text-white text-sm font-medium
+         hover:bg-accent-hover active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
+         focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint disabled:bg-surface-2 disabled:text-ink-3 disabled:cursor-not-allowed;
 }
-
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-surface border border-line-2 shadow-sm text-ink text-sm font-medium
+         hover:bg-surface-2 active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
+         focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint disabled:bg-surface-2 disabled:text-ink-3 disabled:cursor-not-allowed;
+}
 .btn-ghost {
-	@apply inline-flex items-center gap-2 px-3 py-1 rounded-md bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200;
+  @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-transparent text-ink-2 text-sm font-medium
+         hover:bg-surface-2 active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
+         focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint;
+}
+.btn-destructive {
+  @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-transparent text-bad text-sm font-medium
+         hover:bg-bad-tint active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
+         focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint;
 }
 
-/* form input: use white in light theme and slate in dark theme */
+/* Input: 36px, radius 6, border-2, label above. Focus is border accent plus
+   the tint ring. Error is border bad; the label stays neutral. */
 .form-input {
-	@apply w-full px-4 py-3 border-2 border-slate-300 rounded-lg bg-white text-slate-900 focus:border-primary-400 focus:outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 dark:focus:border-primary-600 transition-colors;
+  @apply w-full h-9 px-3 rounded-md border border-line-2 bg-surface text-ink text-sm placeholder:text-ink-3
+         focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-tint transition-[border-color,box-shadow] duration-hover;
+}
+.form-input[aria-invalid='true'] { @apply border-bad; }
+textarea.form-input { @apply h-auto py-2; }
+select.form-input { @apply pr-8; }
+
+/* Badges: status is text plus tint with a dot; neutral is mono uppercase.
+   Three tones, no icons, no large size. */
+.badge { @apply inline-flex items-center gap-1.5 h-[22px] px-2 rounded-sm text-xs font-medium whitespace-nowrap; }
+.badge-ok { @apply badge bg-ok-tint text-ok; }
+.badge-warn { @apply badge bg-warn-tint text-warn; }
+.badge-bad { @apply badge bg-bad-tint text-bad; }
+.badge-neutral { @apply badge font-mono text-[11px] uppercase tracking-wide bg-surface-2 border border-line text-ink-2; }
+.badge-ok::before, .badge-warn::before, .badge-bad::before {
+  content: ''; @apply inline-block w-1.5 h-1.5 rounded-full bg-current;
 }
 
-/* Ensure all form elements have proper text colors in dark mode */
-.dark input:not([type="checkbox"]):not([type="radio"]),
-.dark select,
-.dark textarea {
-	color: rgb(226 232 240); /* slate-200 */
+/* Skeleton: surface-2 with a surface-3 shimmer, shapes at their final radii. */
+.skeleton {
+  @apply rounded-sm;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* Reduced motion: no transforms, no entrances, no shimmer. Colour changes
+   keep their 120ms so hover still reads as hover. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  .reveal, .reveal-hero { opacity: 1 !important; transform: none !important; transition: none !important; animation: none !important; }
+  .btn-primary, .btn-secondary, .btn-ghost { transition-property: background-color; }
+  .btn-primary:active, .btn-secondary:active, .btn-ghost:active { transform: none; }
 }
 
-.dark input::placeholder,
-.dark textarea::placeholder {
-	color: rgb(148 163 184); /* slate-400 */
-}
-
-/* Make sure native date picker calendar icon is visible and clickable */
-input[type="date"].form-input {
-	padding-right: 2.5rem;
-}
-
-input[type="date"]::-webkit-calendar-picker-indicator {
-	cursor: pointer;
-	opacity: 1;
-	filter: invert(0.5);
-}
-
-input[type="date"]::-webkit-inner-spin-button,
-input[type="date"]::-webkit-clear-button {
-	display: none;
-}
-
-.dark input[type="date"]::-webkit-calendar-picker-indicator {
-	filter: invert(0.8);
-}
-
-html { color-scheme: light dark; }
-
-/* override of color is intentionally removed to keep a single, consistent btn-primary definition above */
+/* Native date picker icon follows the theme. */
+input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 1; filter: invert(0.5); }
+.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+input[type="date"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button { display: none; }
