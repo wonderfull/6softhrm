@@ -1,0 +1,63 @@
+name: Ops check (read-only)
+
+# Answers the questions that have to be settled before a release — is the
+# production environment complete, is there a fresh backup, what is the API
+# process actually called — without changing anything on the server.
+#
+# Read-only by construction: it inspects, it never writes, migrates, restarts
+# or deploys. Secrets are reported as present or absent, never printed.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check deployment secrets
+        run: |
+          test -n "${{ secrets.VPS_HOST }}" || (echo "Missing VPS_HOST secret" && exit 1)
+          test -n "${{ secrets.VPS_USER }}" || (echo "Missing VPS_USER secret" && exit 1)
+          test -n "${{ secrets.VPS_SSH_KEY }}" || (echo "Missing VPS_SSH_KEY secret" && exit 1)
+
+      - name: Inspect the VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -u
+            REPO=/var/www/6softhrm
+            ENV_FILE="$REPO/backend/.env"
+
+            echo "=== required environment (presence only, never values) ==="
+            for VAR in DATABASE_URL JWT_SECRET FIELD_ENCRYPTION_KEY FRONTEND_URL; do
+              if grep -qE "^${VAR}=.+" "$ENV_FILE" 2>/dev/null; then
+                echo "  set     $VAR"
+              else
+                echo "  MISSING $VAR"
+              fi
+            done
+            # Length only — enough to tell a valid 32-byte hex key from a stub.
+            KEY_LEN=$(grep -E '^FIELD_ENCRYPTION_KEY=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d '\r' | wc -c)
+            echo "  FIELD_ENCRYPTION_KEY length: $((KEY_LEN - 1)) characters (64 expected)"
+
+            echo
+            echo "=== pm2 processes ==="
+            pm2 list 2>/dev/null | sed -n '1,20p' || echo "  pm2 not available for this user"
+
+            echo
+            echo "=== most recent database backups ==="
+            ls -lht "$REPO/backend/backups" 2>/dev/null | head -5 || echo "  no backups directory at $REPO/backend/backups"
+
+            echo
+            echo "=== deployed revision ==="
+            git -C "$REPO" log --oneline -1 2>/dev/null || echo "  not a git checkout"
+            git -C "$REPO" status --short 2>/dev/null | head -5
+
+            echo
+            echo "=== disk ==="
+            df -h "$REPO" | tail -1
