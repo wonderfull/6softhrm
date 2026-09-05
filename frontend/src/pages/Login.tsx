@@ -1,4 +1,5 @@
 import React from 'react';
+import Logo from '../components/Logo';
 import { apiPost } from '../lib/api';
 import { storeTenant } from '../lib/tenant';
 import { useNavigate, Link } from 'react-router-dom';
@@ -65,23 +66,11 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo and Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-primary-600 rounded-2xl shadow-lg mb-4">
-            <img
-              src="/logo.svg"
-              alt="OnsideHR"
-              className="h-12 w-12 object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-            <LockClosedIcon
-              className="h-10 w-10 text-white"
-              style={{ display: 'none' }}
-            />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">
-            OnsideHR
-          </h1>
+          <Logo
+            className="mb-4"
+            markClassName="h-11 w-11"
+            textClassName="text-3xl"
+          />
           <p className="text-slate-600 dark:text-slate-400">
             Sign in to your account
           </p>

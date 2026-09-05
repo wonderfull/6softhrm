@@ -1,8 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 248 64" role="img" aria-label="OnsideHR">
-  <!-- Wordmark only. Set in the same stack as the product UI, in brand blue so
-       it stays legible on both the light and dark sidebar without needing two
-       assets. Replace with the real logotype when brand assets exist. -->
-  <text x="0" y="44"
+  <!-- Static lockup for contexts that need a file rather than the component
+       (og:image, email, anywhere an <img> is unavoidable). Both colours are
+       legible on light and dark grounds. -->
+  <rect width="64" height="64" rx="15" fill="#206fd6"/>
+  <path d="M18 33.5 26.5 42 46 22" fill="none" stroke="#fff" stroke-width="7"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="78" y="43"
         font-family="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
-        font-size="38" font-weight="700" letter-spacing="-1.1" fill="#2b8cff">Onside<tspan font-weight="400" fill="#7fc6ff">HR</tspan></text>
+        font-size="34" font-weight="600" letter-spacing="-0.8" fill="#206fd6">Onside<tspan font-weight="400" fill="#7fc6ff">HR</tspan></text>
 </svg>

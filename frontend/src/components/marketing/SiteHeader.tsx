@@ -1,4 +1,5 @@
 import React from 'react';
+import { LogoMark } from '../Logo';
 import { Link } from 'react-router-dom';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -24,10 +25,7 @@ export default function SiteHeader() {
           to="/"
           className="flex items-center gap-2 font-semibold tracking-tight text-slate-900 dark:text-white"
         >
-          <span
-            aria-hidden="true"
-            className="inline-block h-6 w-6 rounded-md bg-primary-600"
-          />
+          <LogoMark className="h-6 w-6" />
           OnsideHR
         </Link>
 

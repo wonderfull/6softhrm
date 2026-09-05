@@ -1,6 +1,7 @@
 import { hasFeature } from '../lib/tenant';
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import Logo from './Logo';
 import {
   HiHome,
   HiUsers,
@@ -174,14 +175,7 @@ export default function Sidebar() {
     <aside className="w-64 hidden md:block border-r border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 h-screen sticky top-0">
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-center py-4 px-4 border-b border-slate-200 dark:border-slate-700">
-          <img
-            src="/logo.svg"
-            alt="OnsideHR"
-            className="h-12"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
+          <Logo markClassName="h-8 w-8" textClassName="text-lg" />
         </div>
         <nav className="flex-1 overflow-y-auto p-4">
           <div className="flex flex-col gap-1">
