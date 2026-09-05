@@ -4,7 +4,7 @@
 
 ## Processes (PM2)
 `pm2 start ecosystem.config.js` starts:
-- **onsidehr-api** — production API on :4000 (single instance; cron jobs assume one runner)
+- **6soft-hrm-backend** — production API on :4000 (single instance; cron jobs assume one runner). The name predates the OnsideHR rebrand; renaming it means `pm2 delete` and `pm2 start`, which drops requests, so it has been left as it is and ecosystem.config.js matches it.
 - **onsidehr-backup** — nightly dump at 02:30 (one-shot, `cron_restart`)
 - **onsidehr-api-staging** — staging on :4001 with `backend/.env.staging` (own DB!)
 
@@ -163,7 +163,7 @@ follow-on to this one.
 1. `git pull && npm --prefix backend ci && npm --prefix frontend ci`
 2. `npm --prefix backend run build && npm --prefix frontend run build`
 3. `npx prisma migrate deploy` (from backend/)
-4. `pm2 reload onsidehr-api`
+4. `pm2 reload 6soft-hrm-backend` (the process name pm2 actually runs; ecosystem.config.js matches it)
 5. Smoke: `/api/health`, login, employee list.
 
 ### First multi-tenant deploy — start from an empty database

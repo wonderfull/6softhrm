@@ -4,7 +4,11 @@
 module.exports = {
   apps: [
     {
-      name: 'onsidehr-api',
+      // Must match the process pm2 is actually running on the VPS. It is
+      // 6soft-hrm-backend; starting this file under a different name would
+      // launch a second API against a port the first already holds, and the
+      // new one would die on EADDRINUSE while the old one kept serving.
+      name: '6soft-hrm-backend',
       cwd: './backend',
       script: 'dist/index.js',
       instances: 1, // cron jobs assume a single runner — do not switch to cluster

@@ -113,18 +113,46 @@ if ! grep -q '^[^#]*server_tokens off;' /etc/nginx/nginx.conf; then
   sed -i '/^http\s*{/a \\tserver_tokens off;' /etc/nginx/nginx.conf
 fi
 
-# Warn (don't auto-edit) if the live site config hasn't been wired to include
-# the security-headers snippet yet. Manual one-time step on first deploy.
+# Wire the snippet into the live site configs. This used to only warn, and the
+# warning was worded as though the file were missing rather than the include —
+# so it read as noise and nothing was ever done about it. The result: the API
+# had helmet's headers while the HTML document, which is what actually needs
+# frame-ancestors and a CSP, was served by nginx with none at all.
+#
+# Editing nginx on a live server earns a backup, a config test and a rollback.
+SECURITY_INCLUDE='    include /etc/nginx/snippets/6soft-security-headers.conf;'
+NGINX_EDITED=""
+NGINX_SEEN=""
+
 for SITE in /etc/nginx/sites-enabled/onsidehr.co.uk \
             /etc/nginx/sites-available/onsidehr.co.uk \
             /etc/nginx/sites-enabled/hrm.6soft.co.uk \
             /etc/nginx/sites-available/hrm.6soft.co.uk; do
-  if [ -f "$SITE" ] && ! grep -q '6soft-security-headers.conf' "$SITE"; then
-    echo "[deploy] WARNING: $SITE is missing"
-    echo "         'include /etc/nginx/snippets/6soft-security-headers.conf;'"
-    echo "         Add it inside each server { ... } block, then reload nginx."
+  [ -e "$SITE" ] || continue
+  # sites-enabled entries are usually symlinks to sites-available; edit once.
+  REAL=$(readlink -f "$SITE")
+  case " $NGINX_SEEN " in *" $REAL "*) continue ;; esac
+  NGINX_SEEN="$NGINX_SEEN $REAL"
+
+  if grep -q '6soft-security-headers.conf' "$REAL"; then
+    continue
   fi
+
+  echo "[deploy] adding the security-headers include to $REAL"
+  cp -a "$REAL" "$REAL.pre-headers.bak"
+  # Every server block gets it, including the :80 redirect — harmless there.
+  sed -i "/^[[:space:]]*server_name/a\\$SECURITY_INCLUDE" "$REAL"
+  NGINX_EDITED="$NGINX_EDITED $REAL"
 done
+
+if [ -n "$NGINX_EDITED" ] && ! nginx -t 2>/dev/null; then
+  echo "[deploy] nginx rejected the security-headers include; rolling back" >&2
+  for REAL in $NGINX_EDITED; do
+    mv "$REAL.pre-headers.bak" "$REAL"
+  done
+  nginx -t
+  echo "[deploy] site configs restored; headers NOT applied — investigate" >&2
+fi
 
 echo "[deploy] reloading nginx"
 nginx -t
