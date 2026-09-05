@@ -4,6 +4,7 @@ import {
   checkEnvironment,
   formatPreflightReport,
   hasFailure,
+  checkBackupFreshness,
 } from '../lib/preflight';
 
 // The deploy script runs this before `prisma migrate deploy`. If it lets a
@@ -139,5 +140,57 @@ describe('formatPreflightReport', () => {
     );
     expect(report).toContain('FAIL');
     expect(report).toContain('openssl rand -hex 32');
+  });
+});
+
+describe('checkBackupFreshness', () => {
+  const now = new Date('2026-09-05T09:00:00Z');
+  const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600_000);
+
+  // The release plan says: confirm the nightly backup is fresh before merging
+  // any migration. That was a human step nobody can audit, so the deploy
+  // enforces it — but only when a migration is actually about to run, because
+  // a stale backup is not a reason to block a code-only deploy.
+  it('passes when a backup is newer than the limit', () => {
+    const check = checkBackupFreshness(
+      { newest: hoursAgo(3), pendingMigrations: true },
+      now,
+    );
+    expect(check.status).toBe('ok');
+  });
+
+  it('fails a migrating deploy when the newest backup is stale', () => {
+    const check = checkBackupFreshness(
+      { newest: hoursAgo(50), pendingMigrations: true },
+      now,
+    );
+    expect(check.status).toBe('fail');
+    expect(check.detail).toMatch(/50 hours/);
+  });
+
+  it('fails a migrating deploy when there is no backup at all', () => {
+    const check = checkBackupFreshness(
+      { newest: null, pendingMigrations: true },
+      now,
+    );
+    expect(check.status).toBe('fail');
+  });
+
+  it('only warns when nothing is being migrated', () => {
+    expect(
+      checkBackupFreshness({ newest: hoursAgo(50), pendingMigrations: false }, now)
+        .status,
+    ).toBe('warn');
+    expect(
+      checkBackupFreshness({ newest: null, pendingMigrations: false }, now).status,
+    ).toBe('warn');
+  });
+
+  it('never reports a path or a filename', () => {
+    const check = checkBackupFreshness(
+      { newest: hoursAgo(50), pendingMigrations: true },
+      now,
+    );
+    expect(check.detail).not.toMatch(/\//);
   });
 });

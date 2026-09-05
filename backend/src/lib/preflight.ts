@@ -247,3 +247,60 @@ export function formatPreflightReport(checks: PreflightCheck[]): string {
   }
   return lines.join('\n');
 }
+
+/** How stale a backup may be before a migrating deploy is refused. */
+export const BACKUP_MAX_AGE_HOURS = 26;
+
+export type BackupState = {
+  /** When the newest backup was written, or null if there is none. */
+  newest: Date | null;
+  /** Whether this deploy is about to apply a migration. */
+  pendingMigrations: boolean;
+};
+
+/**
+ * The release plan says to confirm the nightly backup is fresh before merging
+ * a migration. That was a human step, done from memory, that nobody could
+ * audit afterwards — so the deploy checks it instead.
+ *
+ * Only a migrating deploy is blocked. A stale backup is worth knowing about
+ * either way, but it is not a reason to refuse a code-only release: that would
+ * teach people to skip the check to get anything out at all.
+ */
+export function checkBackupFreshness(
+  state: BackupState,
+  now = new Date(),
+): PreflightCheck {
+  const failWhenMigrating: PreflightStatus = state.pendingMigrations
+    ? 'fail'
+    : 'warn';
+
+  if (!state.newest) {
+    return {
+      name: 'backup',
+      status: failWhenMigrating,
+      detail: state.pendingMigrations
+        ? 'no database backup was found, and this deploy applies migrations — take one first (npm run backup)'
+        : 'no database backup was found — the nightly job may not be running',
+    };
+  }
+
+  const ageHours = Math.floor(
+    (now.getTime() - state.newest.getTime()) / 3600_000,
+  );
+  if (ageHours <= BACKUP_MAX_AGE_HOURS) {
+    return {
+      name: 'backup',
+      status: 'ok',
+      detail: `newest is ${ageHours} hours old`,
+    };
+  }
+
+  return {
+    name: 'backup',
+    status: failWhenMigrating,
+    detail: state.pendingMigrations
+      ? `newest backup is ${ageHours} hours old and this deploy applies migrations — take a fresh one first (npm run backup)`
+      : `newest backup is ${ageHours} hours old — the nightly job may not be running`,
+  };
+}
