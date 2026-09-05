@@ -34,4 +34,12 @@ jobs:
           script: |
             cd /var/www/6softhrm
             git checkout -- backend/package-lock.json frontend/package-lock.json 2>/dev/null || true
+            # Pull before invoking the script, not inside it. `bash script.sh`
+            # executes the file as it stood when it started, so a script that
+            # pulls its own update part-way through runs the previous version —
+            # every change to it took two deploys to take effect, and the
+            # second one was easy to mistake for the first having worked.
+            git fetch origin
+            git checkout main
+            git pull --ff-only origin main
             DEPLOY_MAIN_SITE=0 bash /var/www/6softhrm/scripts/deploy-vps.sh
