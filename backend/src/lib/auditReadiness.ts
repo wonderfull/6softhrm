@@ -1,3 +1,12 @@
+import prisma from '../prismaClient';
+import { addUtcDays } from './workingDays';
+import {
+  assessCompleteness,
+  collectLatestEvidence,
+  isSponsoredRoute,
+} from './appendixD';
+import { assessPeriods } from './salaryReconciliation';
+
 // Audit-readiness score: one number a director looks at once a week. Home
 // Office visits can be unannounced (C7.9) with full access on demand (C7.10),
 // so the product sells readiness, not record-keeping.
@@ -139,4 +148,107 @@ export function scoreReadiness(input: ReadinessInput): ReadinessReport {
     components: components.filter((c) => c.count > 0),
     evidenceCompleteness: Math.round(base),
   };
+}
+
+/**
+ * Gather every input the score needs and run it. Lives here rather than in a
+ * route because the sponsorship screen and the reports summary both show the
+ * same number, and two copies of this arithmetic would eventually disagree.
+ * Must run inside a tenant context.
+ */
+export async function computeAuditReadiness(now = new Date()) {
+  const in30Days = addUtcDays(now, 30);
+
+  // Scoring only needs evidence presence and verification, so the evidence
+  // documents themselves are deliberately not selected.
+  const sponsorships = await prisma.sponsorship.findMany({
+    where: { active: true },
+    include: {
+      employee: {
+        select: {
+          niNumber: true,
+          rightToWorkChecks: {
+            orderBy: { checkDate: 'desc' },
+            take: 1,
+            select: { id: true, checkDate: true, outcome: true, method: true },
+          },
+        },
+      },
+      complianceEvidence: {
+        select: { evidenceType: true, verifiedAt: true },
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+  });
+
+  const sponsoredEmployeeIds = sponsorships.map((s: any) => s.employeeId);
+  const withCosTerms = sponsorships.filter(
+    (s: any) => s.cosSalary || s.goingRateSalary,
+  );
+
+  // One query for every sponsored worker's pay, grouped in memory — this ran
+  // per sponsorship, so a 60-worker tenant issued 60 serial queries per load.
+  const payRecords = await prisma.payRecord.findMany({
+    where: { employeeId: { in: withCosTerms.map((s: any) => s.employeeId) } },
+  });
+  const payByEmployee = new Map<number, any[]>();
+  for (const record of payRecords) {
+    const list = payByEmployee.get(record.employeeId);
+    if (list) list.push(record);
+    else payByEmployee.set(record.employeeId, [record]);
+  }
+
+  let completenessTotal = 0;
+  let missingCosTerms = 0;
+  let salaryFailures = 0;
+
+  for (const sponsorship of sponsorships) {
+    completenessTotal += assessCompleteness(
+      collectLatestEvidence(sponsorship),
+      { sponsored: isSponsoredRoute(sponsorship) },
+    ).percentage;
+
+    if (!sponsorship.cosSalary && !sponsorship.goingRateSalary) {
+      missingCosTerms += 1;
+      continue;
+    }
+    salaryFailures += assessPeriods(
+      payByEmployee.get(sponsorship.employeeId) ?? [],
+      {
+        cosSalary: sponsorship.cosSalary,
+        goingRateSalary: sponsorship.goingRateSalary,
+      },
+    ).filter((a: any) => !a.compliant).length;
+  }
+
+  const [openEvents, overdueEvents, expiringVisas, unknownAbsences] =
+    await Promise.all([
+      prisma.sponsorshipReportableEvent.count({ where: { status: 'OPEN' } }),
+      prisma.sponsorshipReportableEvent.count({
+        where: { status: 'OPEN', dueDate: { lt: now } },
+      }),
+      prisma.employee.count({
+        where: {
+          id: { in: sponsoredEmployeeIds },
+          visaExpiryDate: { gte: now, lte: in30Days },
+        },
+      }),
+      prisma.absenceRecord.count({ where: { status: 'UNKNOWN' } }),
+    ]);
+
+  const report = scoreReadiness({
+    evidenceCompleteness: sponsorships.length
+      ? completenessTotal / sponsorships.length
+      : 100,
+    overdueEvents,
+    // Overdue events are already penalised far more heavily; don't count twice.
+    openEvents: Math.max(0, openEvents - overdueEvents),
+    expiringDocuments: expiringVisas,
+    unresolvedAbsenceFlags: unknownAbsences,
+    salaryFailures,
+    sponsorshipsMissingCosTerms: missingCosTerms,
+    activeSponsorships: sponsorships.length,
+  });
+
+  return { ...report, activeSponsorships: sponsorships.length };
 }

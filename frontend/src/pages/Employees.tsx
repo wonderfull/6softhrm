@@ -27,6 +27,9 @@ import {
   HiXMark,
 } from 'react-icons/hi2';
 import Dialog from '../components/Dialog';
+import RightToWorkPanel from '../components/RightToWorkPanel';
+import DataRetentionPanel from '../components/DataRetentionPanel';
+import EmployeeHrPanel from '../components/EmployeeHrPanel';
 import PasswordRevealField from '../components/PasswordRevealField';
 
 type Employee = {
@@ -46,6 +49,7 @@ type Employee = {
   department?: string;
   niNumber?: string;
   startDate?: string;
+  endDate?: string | null;
   bankName?: string;
   probationEndDate?: string;
   address1?: string;
@@ -74,11 +78,22 @@ type Employee = {
   licenceExpiryDate?: string;
   visaNumber?: string;
   visaExpiryDate?: string;
+  dbsLevel?: string | null;
+  dbsCertificateNumber?: string | null;
+  dbsIssueDate?: string | null;
+  dbsRecheckDate?: string | null;
+  retainUntil?: string | null;
+  anonymisedAt?: string | null;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   emergencyContactRelation?: string;
   emergencyContactAddress?: string;
   consentCount?: number;
+  managerId?: number | null;
+  leaveAllowanceDays?: number | null;
+  leaveCarriedOverDays?: number | null;
+  photoPath?: string | null;
+  user?: UserAccount | null;
 };
 
 type UserAccount = {
@@ -106,6 +121,7 @@ type EmployeeFormData = {
   department: string;
   niNumber: string;
   startDate: string;
+  endDate: string;
   probationEndDate: string;
   address1: string;
   address2: string;
@@ -134,10 +150,17 @@ type EmployeeFormData = {
   licenceExpiryDate: string;
   visaNumber: string;
   visaExpiryDate: string;
+  dbsLevel: string;
+  dbsCertificateNumber: string;
+  dbsIssueDate: string;
+  dbsRecheckDate: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
   emergencyContactRelation: string;
   emergencyContactAddress: string;
+  managerId: string;
+  leaveAllowanceDays: string;
+  leaveCarriedOverDays: string;
 };
 
 type AccountFormData = {
@@ -166,6 +189,7 @@ const emptyEmployeeForm: EmployeeFormData = {
   department: '',
   niNumber: '',
   startDate: '',
+  endDate: '',
   probationEndDate: '',
   address1: '',
   address2: '',
@@ -194,10 +218,17 @@ const emptyEmployeeForm: EmployeeFormData = {
   licenceExpiryDate: '',
   visaNumber: '',
   visaExpiryDate: '',
+  dbsLevel: '',
+  dbsCertificateNumber: '',
+  dbsIssueDate: '',
+  dbsRecheckDate: '',
   emergencyContactName: '',
   emergencyContactPhone: '',
   emergencyContactRelation: '',
   emergencyContactAddress: '',
+  managerId: '',
+  leaveAllowanceDays: '',
+  leaveCarriedOverDays: '',
 };
 
 const emptyAccountForm: AccountFormData = {
@@ -223,8 +254,12 @@ function formatDate(value?: string) {
   return new Date(value).toLocaleDateString();
 }
 
-function dateInputValue(value?: string) {
+function dateInputValue(value?: string | null) {
   return value ? value.split('T')[0] : '';
+}
+
+function numberInputValue(value?: number | null) {
+  return value === undefined || value === null ? '' : String(value);
 }
 
 function maskAccountNumber(value?: string) {
@@ -233,10 +268,91 @@ function maskAccountNumber(value?: string) {
 }
 
 function accountForEmployee(employee: Employee, users: UserAccount[]) {
-  return users.find(
+  const match = users.find(
     (user) =>
       user.employeeId === employee.id ||
       user.email.toLowerCase() === employee.email.toLowerCase(),
+  );
+  if (match) return match;
+  // An employee can't list /auth/users, so their own record carries the
+  // account inline — without this their profile claims "No login".
+  return employee.user
+    ? { ...employee.user, role: normalizeRole(employee.user.role) }
+    : undefined;
+}
+
+// Photos live in a private bucket and the endpoint wants a bearer token, so
+// an <img src> cannot fetch one by itself. Pull the bytes once per employee
+// and hand the tag an object URL; the cache survives re-renders and list
+// filtering, which is why the URLs are deliberately never revoked.
+const photoCache = new Map<number, string>();
+
+function useEmployeePhoto(employee: Employee) {
+  const [url, setUrl] = React.useState<string | null>(
+    () => photoCache.get(employee.id) ?? null,
+  );
+
+  React.useEffect(() => {
+    if (!employee.photoPath) {
+      setUrl(null);
+      return;
+    }
+    const cached = photoCache.get(employee.id);
+    if (cached) {
+      setUrl(cached);
+      return;
+    }
+
+    let cancelled = false;
+    const token =
+      typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    fetch(`${API_BASE_URL}/employees/${employee.id}/photo/raw`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((res) => (res.ok ? res.blob() : Promise.reject(res.status)))
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        photoCache.set(employee.id, objectUrl);
+        if (!cancelled) setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setUrl(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employee.id, employee.photoPath]);
+
+  return url;
+}
+
+function Avatar({
+  employee,
+  size = 'sm',
+}: {
+  employee: Employee;
+  size?: 'sm' | 'lg';
+}) {
+  const photo = useEmployeePhoto(employee);
+  const box = size === 'lg' ? 'h-11 w-11 text-sm' : 'h-9 w-9 text-xs';
+
+  if (photo) {
+    return (
+      <img
+        src={photo}
+        alt=""
+        className={`${box} shrink-0 rounded-lg object-cover`}
+      />
+    );
+  }
+  return (
+    <div
+      className={`${box} flex shrink-0 items-center justify-center rounded-lg bg-primary-50 font-bold text-primary-700 dark:bg-primary-900 dark:text-primary-200`}
+    >
+      {employee.firstName.charAt(0)}
+      {employee.lastName.charAt(0)}
+    </div>
   );
 }
 
@@ -478,6 +594,19 @@ export default function Employees() {
     );
   }, [selectedId, visibleEmployees]);
 
+  const managerOptions = React.useMemo(
+    () => [
+      { value: '', label: 'Nobody' },
+      ...employees
+        .filter((employee) => employee.id !== editingEmployeeId)
+        .map((employee) => ({
+          value: String(employee.id),
+          label: fullName(employee),
+        })),
+    ],
+    [employees, editingEmployeeId],
+  );
+
   const canEditOwnProfile = React.useCallback(
     (employee?: Employee | null) => {
       return (
@@ -494,6 +623,16 @@ export default function Employees() {
   const selectedAccount = selectedEmployee
     ? accountForEmployee(selectedEmployee, users)
     : undefined;
+  const selectedManager = selectedEmployee?.managerId
+    ? employees.find(
+        (employee) => employee.id === selectedEmployee.managerId,
+      )
+    : undefined;
+  const directReports = selectedEmployee
+    ? employees.filter(
+        (employee) => employee.managerId === selectedEmployee.id,
+      )
+    : [];
   const missingAccountCount = employees.filter(
     (employee) => !accountForEmployee(employee, users),
   ).length;
@@ -539,6 +678,7 @@ export default function Employees() {
       department: employee.department || '',
       niNumber: employee.niNumber || '',
       startDate: dateInputValue(employee.startDate),
+      endDate: dateInputValue(employee.endDate),
       probationEndDate: dateInputValue(employee.probationEndDate),
       address1: employee.address1 || '',
       address2: employee.address2 || '',
@@ -570,10 +710,17 @@ export default function Employees() {
       licenceExpiryDate: dateInputValue(employee.licenceExpiryDate),
       visaNumber: employee.visaNumber || '',
       visaExpiryDate: dateInputValue(employee.visaExpiryDate),
+      dbsLevel: employee.dbsLevel || '',
+      dbsCertificateNumber: employee.dbsCertificateNumber || '',
+      dbsIssueDate: dateInputValue(employee.dbsIssueDate),
+      dbsRecheckDate: dateInputValue(employee.dbsRecheckDate),
       emergencyContactName: employee.emergencyContactName || '',
       emergencyContactPhone: employee.emergencyContactPhone || '',
       emergencyContactRelation: employee.emergencyContactRelation || '',
       emergencyContactAddress: employee.emergencyContactAddress || '',
+      managerId: employee.managerId ? String(employee.managerId) : '',
+      leaveAllowanceDays: numberInputValue(employee.leaveAllowanceDays),
+      leaveCarriedOverDays: numberInputValue(employee.leaveCarriedOverDays),
     });
     setShowEmployeeForm(true);
   };
@@ -604,12 +751,21 @@ export default function Employees() {
   };
 
   const employeePayload = React.useMemo(() => {
-    return Object.fromEntries(
+    const trimmed = Object.fromEntries(
       Object.entries(employeeForm).map(([key, value]) => [
         key,
         typeof value === 'string' ? value.trim() : value,
       ]),
     );
+    // These three are numeric on the API; an empty select or input means
+    // "cleared", which has to travel as null rather than ''.
+    const numeric = (value: string) => (value === '' ? null : Number(value));
+    return {
+      ...trimmed,
+      managerId: numeric(employeeForm.managerId.trim()),
+      leaveAllowanceDays: numeric(employeeForm.leaveAllowanceDays.trim()),
+      leaveCarriedOverDays: numeric(employeeForm.leaveCarriedOverDays.trim()),
+    };
   }, [employeeForm]);
 
   const [employeeFormErrors, setEmployeeFormErrors] = React.useState<string[]>(
@@ -904,7 +1060,7 @@ export default function Employees() {
               </div>
               <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Pending Reviews
+                  Consent gaps
                 </div>
                 <div className="mt-2 text-2xl font-bold">{pendingReviews}</div>
               </div>
@@ -965,13 +1121,16 @@ export default function Employees() {
                             <button
                               type="button"
                               onClick={() => setSelectedId(employee.id)}
-                              className="text-left focus:outline-none focus:ring-2 focus:ring-primary-400"
+                              className="flex items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-primary-400"
                             >
-                              <span className="block font-semibold text-slate-950 dark:text-white">
-                                {fullName(employee)}
-                              </span>
-                              <span className="block text-xs text-slate-500 dark:text-slate-400">
-                                {employee.email}
+                              <Avatar employee={employee} />
+                              <span>
+                                <span className="block font-semibold text-slate-950 dark:text-white">
+                                  {fullName(employee)}
+                                </span>
+                                <span className="block text-xs text-slate-500 dark:text-slate-400">
+                                  {employee.email}
+                                </span>
                               </span>
                             </button>
                           </td>
@@ -1072,9 +1231,8 @@ export default function Employees() {
               {selectedEmployee ? (
                 <>
                   <div className="border-b border-slate-200 p-5 dark:border-slate-700">
-                    <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-primary-50 text-sm font-bold text-primary-700 dark:bg-primary-900 dark:text-primary-200">
-                      {selectedEmployee.firstName.charAt(0)}
-                      {selectedEmployee.lastName.charAt(0)}
+                    <div className="mb-3">
+                      <Avatar employee={selectedEmployee} size="lg" />
                     </div>
                     <h3 className="text-lg font-semibold text-slate-950 dark:text-white">
                       {fullName(selectedEmployee)}
@@ -1095,6 +1253,15 @@ export default function Employees() {
                       <Badge className="border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">
                         {selectedEmployee.department || 'Unassigned'}
                       </Badge>
+                      {selectedEmployee.anonymisedAt ? (
+                        <Badge className="border-slate-300 bg-slate-200 text-slate-700 dark:border-slate-500 dark:bg-slate-600 dark:text-slate-100">
+                          Anonymised
+                        </Badge>
+                      ) : selectedEmployee.endDate ? (
+                        <Badge className="border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-900/30 dark:text-rose-200">
+                          Left {formatDate(selectedEmployee.endDate)}
+                        </Badge>
+                      ) : null}
                     </div>
                   </div>
 
@@ -1112,6 +1279,12 @@ export default function Employees() {
                       label="Start Date"
                       value={formatDate(selectedEmployee.startDate)}
                     />
+                    {selectedEmployee.endDate && (
+                      <Field
+                        label="End Date"
+                        value={formatDate(selectedEmployee.endDate)}
+                      />
+                    )}
                     <Field
                       label="Probation End"
                       value={formatDate(selectedEmployee.probationEndDate)}
@@ -1119,6 +1292,26 @@ export default function Employees() {
                     <Field
                       label="Employee Type"
                       value={selectedEmployee.employeeType || 'EMPLOYEE'}
+                    />
+                    <Field
+                      label="Reports To"
+                      value={
+                        selectedManager ? fullName(selectedManager) : 'Nobody'
+                      }
+                    />
+                    <Field
+                      label="Direct Reports"
+                      value={
+                        directReports.length ? (
+                          <ul className="space-y-1">
+                            {directReports.map((report) => (
+                              <li key={report.id}>{fullName(report)}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          'None'
+                        )
+                      }
                     />
                     <Field
                       label="Address"
@@ -1175,9 +1368,55 @@ export default function Employees() {
                           label="Visa Expiry"
                           value={formatDate(selectedEmployee.visaExpiryDate)}
                         />
+                        <Field
+                          label="DBS Check"
+                          value={
+                            selectedEmployee.dbsLevel
+                              ? `${selectedEmployee.dbsLevel}${
+                                  selectedEmployee.dbsIssueDate
+                                    ? ` · issued ${formatDate(selectedEmployee.dbsIssueDate)}`
+                                    : ''
+                                }`
+                              : 'Not recorded'
+                          }
+                        />
+                        {selectedEmployee.dbsRecheckDate && (
+                          <Field
+                            label="DBS Recheck Due"
+                            value={formatDate(selectedEmployee.dbsRecheckDate)}
+                          />
+                        )}
                       </>
                     )}
                   </dl>
+
+                  {!selectedEmployee.anonymisedAt && (
+                    <RightToWorkPanel
+                      key={selectedEmployee.id}
+                      employeeId={selectedEmployee.id}
+                      visaExpiryDate={selectedEmployee.visaExpiryDate}
+                      canRecord={isElevated}
+                      canDelete={currentRole === 'ADMIN'}
+                    />
+                  )}
+
+                  {isElevated && (
+                    <DataRetentionPanel
+                      employee={selectedEmployee}
+                      isAdmin={currentRole === 'ADMIN'}
+                      onChange={loadEmployees}
+                    />
+                  )}
+
+                  {!selectedEmployee.anonymisedAt && (
+                    <EmployeeHrPanel
+                      key={`hr-${selectedEmployee.id}`}
+                      employeeId={selectedEmployee.id}
+                      employees={employees}
+                      canManage={isElevated || isSupport}
+                      canDelete={isElevated}
+                    />
+                  )}
 
                   <div className="border-b border-slate-200 p-5 dark:border-slate-700">
                     <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -1490,6 +1729,38 @@ export default function Employees() {
                     onChange={updateEmployeeField}
                     type="date"
                   />
+                  <EmployeeInput
+                    id="endDate"
+                    label="Employment end date"
+                    value={employeeForm.endDate}
+                    onChange={updateEmployeeField}
+                    type="date"
+                    helper="Setting this starts the data-retention clock."
+                  />
+                  <EmployeeInput
+                    id="managerId"
+                    label="Reports to"
+                    value={employeeForm.managerId}
+                    onChange={updateEmployeeField}
+                    options={managerOptions}
+                    helper="Their manager approves their leave and sees it on the calendar."
+                  />
+                  <EmployeeInput
+                    id="leaveAllowanceDays"
+                    label="Leave allowance (days)"
+                    value={employeeForm.leaveAllowanceDays}
+                    onChange={updateEmployeeField}
+                    type="number"
+                    placeholder="Company default"
+                  />
+                  <EmployeeInput
+                    id="leaveCarriedOverDays"
+                    label="Carried over (days)"
+                    value={employeeForm.leaveCarriedOverDays}
+                    onChange={updateEmployeeField}
+                    type="number"
+                    placeholder="0"
+                  />
                 </>
               )}
             </FormSection>
@@ -1790,6 +2061,46 @@ export default function Employees() {
                   value={employeeForm.visaExpiryDate}
                   onChange={updateEmployeeField}
                   type="date"
+                />
+                <div className="md:col-span-2">
+                  <h5 className="pt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    DBS check
+                  </h5>
+                </div>
+                <EmployeeInput
+                  id="dbsLevel"
+                  label="Level"
+                  value={employeeForm.dbsLevel}
+                  onChange={updateEmployeeField}
+                  options={[
+                    { value: '', label: 'Not required' },
+                    { value: 'BASIC', label: 'Basic' },
+                    { value: 'STANDARD', label: 'Standard' },
+                    { value: 'ENHANCED', label: 'Enhanced' },
+                    { value: 'ENHANCED_BARRED', label: 'Enhanced with barred lists' },
+                  ]}
+                />
+                <EmployeeInput
+                  id="dbsCertificateNumber"
+                  label="Certificate number"
+                  value={employeeForm.dbsCertificateNumber}
+                  onChange={updateEmployeeField}
+                  placeholder="Certificate number"
+                />
+                <EmployeeInput
+                  id="dbsIssueDate"
+                  label="Issue date"
+                  value={employeeForm.dbsIssueDate}
+                  onChange={updateEmployeeField}
+                  type="date"
+                />
+                <EmployeeInput
+                  id="dbsRecheckDate"
+                  label="Recheck due"
+                  value={employeeForm.dbsRecheckDate}
+                  onChange={updateEmployeeField}
+                  type="date"
+                  helper="Reminders go out 90 days before."
                 />
               </FormSection>
             )}

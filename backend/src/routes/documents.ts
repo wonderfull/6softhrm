@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../prismaClient';
 import { currentTenantId } from '../lib/tenantContext';
 import { requireAuth, rebindTenant } from '../middleware/auth';
+import { auditLog } from '../middleware/audit';
 import multer from 'multer';
 import path from 'path';
 import archiver from 'archiver';
@@ -18,6 +19,18 @@ import {
 } from '../lib/roles';
 
 const router = Router();
+
+/**
+ * Node refuses a header containing a non-ASCII byte, so a document named for
+ * someone called José — or any name we join with an em dash — would fail the
+ * download outright. RFC 5987 gives the real name in `filename*` and keeps a
+ * stripped-back `filename` for anything that cannot read it.
+ */
+function contentDisposition(disposition: 'inline' | 'attachment', name: string) {
+  const fallback = name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '');
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+}
+
 
 // Files are buffered in memory (5MB cap) then handed to the storage driver
 // under a tenant-prefixed key — never written to a shared local namespace.
@@ -78,13 +91,15 @@ async function createDocumentRecord(data: {
 router.get('/', requireAuth, async (req: any, res) => {
   const user = req.user;
   const role = normalizeRole(user.role);
+  // Both branches honour it, so "My Payslips" is the same query as HR's.
+  const type = req.query.type ? { type: String(req.query.type) } : {};
 
   if (role === ROLES.EMPLOYEE) {
     if (!user.employeeId) {
       return res.json([]);
     }
     const docs = await prisma.document.findMany({
-      where: { employeeId: user.employeeId },
+      where: { employeeId: user.employeeId, ...type },
       include: { employee: true },
     });
     return res.json(docs);
@@ -95,10 +110,76 @@ router.get('/', requireAuth, async (req: any, res) => {
 
   const employeeId = req.query.employeeId ? Number(req.query.employeeId) : null;
   const docs = await prisma.document.findMany({
-    where: employeeId ? { employeeId } : undefined,
+    where: { ...(employeeId ? { employeeId } : {}), ...type },
     include: { employee: true },
   });
   res.json(docs);
+});
+
+// Read-and-acknowledge. Deliberately not a qualified electronic signature:
+// what is stored is that this person, signed in, typed their name against
+// this document at this time from this address.
+router.post('/:id/acknowledge', requireAuth, async (req: any, res) => {
+  const documentId = Number(req.params.id);
+  const employeeId = Number(req.user?.employeeId);
+  if (!employeeId)
+    return res
+      .status(403)
+      .json({ error: 'User account is not linked to an employee record' });
+
+  const document = await prisma.document.findFirst({
+    where: { id: documentId },
+    select: { id: true, employeeId: true, requiresAcknowledgement: true },
+  });
+  if (!document || document.employeeId !== employeeId)
+    return res.status(404).json({ error: 'Document not found' });
+  if (!document.requiresAcknowledgement)
+    return res
+      .status(400)
+      .json({ error: 'This document does not need acknowledging' });
+
+  const typedName = String(req.body?.typedName ?? '').trim();
+  if (!typedName)
+    return res.status(400).json({ error: 'Type your full name to acknowledge' });
+
+  const already = await prisma.documentAcknowledgement.findFirst({
+    where: { documentId, employeeId },
+  });
+  if (already)
+    return res.status(409).json({ error: 'You have already acknowledged this' });
+
+  const acknowledgement = await prisma.documentAcknowledgement.create({
+    data: {
+      tenantId: currentTenantId(),
+      documentId,
+      employeeId,
+      typedName,
+      ip: req.ip ?? null,
+      userAgent: req.get('user-agent') ?? null,
+    },
+  });
+  await auditLog(req, 'ACKNOWLEDGE', 'Document', documentId, {
+    employeeId,
+    typedName,
+  });
+  res.json(acknowledgement);
+});
+
+router.get('/:id/acknowledgements', requireAuth, async (req: any, res) => {
+  const documentId = Number(req.params.id);
+  const document = await prisma.document.findFirst({
+    where: { id: documentId },
+    select: { employeeId: true },
+  });
+  if (!document) return res.status(404).json({ error: 'Document not found' });
+  if (!canAccessDocument(req.user, document.employeeId))
+    return res.status(403).json({ error: 'Unauthorized' });
+
+  const rows = await prisma.documentAcknowledgement.findMany({
+    where: { documentId },
+    orderBy: { acknowledgedAt: 'desc' },
+  });
+  res.json(rows);
 });
 
 router.get('/:id/file', requireAuth, async (req: any, res) => {
@@ -112,14 +193,32 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
+    // Staff opening someone else's file is the access worth a trail; an
+    // employee opening their own document is not.
+    if (req.user.employeeId !== document.employeeId) {
+      await auditLog(req, 'READ', 'Document', document.id, {
+        employeeId: document.employeeId,
+        name: document.name,
+      });
+    }
+
     assertKeyInTenant(document.path);
     const store = getStorage();
     if (!(await store.exists(document.path))) {
       return res.status(404).json({ error: 'File not found' });
     }
 
+    // A file that can carry script must never render inline: the API shares an
+    // origin with the SPA behind Nginx, so an inline HTML document would run
+    // on it and could read the session token out of localStorage. Generated
+    // contracts are HTML, so this is reachable — uploads are type-filtered but
+    // templates are not.
+    const extension = path.extname(document.path).toLowerCase();
+    const executable = ['.html', '.htm', '.xhtml', '.svg', '.xml'].includes(
+      extension,
+    );
     const disposition =
-      req.query.disposition === 'inline'
+      req.query.disposition === 'inline' && !executable
         ? ('inline' as const)
         : ('attachment' as const);
 
@@ -132,11 +231,9 @@ router.get('/:id/file', requireAuth, async (req: any, res) => {
     );
     if (signedUrl) return res.redirect(signedUrl);
 
-    res.type(path.extname(document.path) || 'application/octet-stream');
-    res.setHeader(
-      'Content-Disposition',
-      `${disposition}; filename="${document.name.replace(/"/g, '')}"`,
-    );
+    res.type(executable ? 'application/octet-stream' : extension || 'application/octet-stream');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', contentDisposition(disposition, document.name));
     const stream = await store.getStream(document.path);
     stream.on('error', () => res.status(404).end());
     stream.pipe(res);
@@ -178,6 +275,11 @@ router.post(
         path: key,
         type,
         expiryDate,
+      });
+      await auditLog(req, 'UPLOAD', 'Document', d.id, {
+        employeeId: d.employeeId,
+        name,
+        type,
       });
       res.json(d);
     } catch (e: any) {
@@ -255,6 +357,14 @@ router.post(
         .json({ error: 'no files could be stored', skipped, failed });
     }
 
+    await auditLog(req, 'UPLOAD_PAYSLIPS', 'Document', undefined, {
+      employeeId: employee.id,
+      uploadedCount: documents.length,
+      documentIds: documents.map((d) => d.id),
+      skipped: skipped.length,
+      failed: failed.length,
+    });
+
     res.json({
       employeeId: employee.id,
       uploadedCount: documents.length,
@@ -286,6 +396,11 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
     // Delete the database record
     await prisma.document.deleteMany({ where: { id: parseInt(id) } });
+    await auditLog(req, 'DELETE', 'Document', doc.id, {
+      employeeId: doc.employeeId,
+      name: doc.name,
+      type: doc.type,
+    });
     res.json({ success: true });
   } catch (e: any) {
     console.error('Error deleting document:', e);
@@ -319,6 +434,11 @@ router.get('/download-all/:employeeId', requireAuth, async (req, res) => {
         .status(404)
         .json({ error: 'No documents found for this employee' });
     }
+
+    await auditLog(req, 'DOWNLOAD_ALL', 'Document', undefined, {
+      employeeId: employee.id,
+      count: employee.documents.length,
+    });
 
     // Set response headers
     const filename = `${employee.firstName}_${employee.lastName}_Documents.zip`;

@@ -6,7 +6,7 @@ import {
   afterAll,
   beforeEach,
 } from '@jest/globals';
-import request from 'supertest';
+import request from './helpers/http';
 import jwt from 'jsonwebtoken';
 import express from 'express';
 import documentsRouter from '../routes/documents';

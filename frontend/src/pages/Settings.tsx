@@ -1,8 +1,11 @@
 import React from 'react'
 import { apiGet, apiPost, API_BASE_URL } from '../lib/api'
 import Card from '../components/Card'
-import SecuritySettingsCard from '../components/SecuritySettingsCard'
 import CompanyProfileCard from '../components/CompanyProfileCard'
+import SponsorLicenceCard from '../components/SponsorLicenceCard'
+import LeavePolicyCard from '../components/LeavePolicyCard'
+import DocumentTemplatesCard from '../components/DocumentTemplatesCard'
+import { hasFeature } from '../lib/tenant'
 
 export default function Settings() {
   const [driveConnected, setDriveConnected] = React.useState<boolean | null>(null)
@@ -163,7 +166,9 @@ export default function Settings() {
       
       <div className="space-y-6">
         {isAdmin && <CompanyProfileCard />}
-        <SecuritySettingsCard />
+        {hasFeature('compliance') && <SponsorLicenceCard canEdit={isAdmin} />}
+        <LeavePolicyCard canEdit={isAdmin} />
+        <DocumentTemplatesCard canEdit={isAdmin} />
 
         {/* Backup & Restore (Admin Only) */}
         {isAdmin && (

@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import {
   apiGet,
   API_BASE_URL,
+  apiPost,
   apiUpload,
   apiDelete,
   getCurrentUser,
   hasRole,
 } from '../lib/api';
+import Dialog from '../components/Dialog';
 
 const MAX_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = [
@@ -106,6 +108,15 @@ export default function Documents() {
     url: string | null;
     kind: 'pdf' | 'image' | 'document' | 'unsupported';
   } | null>(null);
+  const [acknowledgements, setAcknowledgements] = React.useState<
+    Record<number, any[]>
+  >({});
+  const [acknowledging, setAcknowledging] = React.useState<{
+    document: any;
+    typedName: string;
+  } | null>(null);
+  const [acknowledgeError, setAcknowledgeError] = React.useState('');
+  const [acknowledgeSaving, setAcknowledgeSaving] = React.useState(false);
 
   const user = getCurrentUser();
   const isElevated = hasRole(user, 'ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT');
@@ -118,14 +129,59 @@ export default function Documents() {
     }
 
     try {
-      setItems(
-        await apiGet(
-          '/documents',
-          selectedEmployeeId ? { employeeId: selectedEmployeeId } : undefined,
-        ),
+      const documents = await apiGet(
+        '/documents',
+        selectedEmployeeId ? { employeeId: selectedEmployeeId } : undefined,
       );
+      setItems(documents);
+      loadAcknowledgements(documents);
     } catch {
       setItems([]);
+    }
+  }
+
+  // Who has acknowledged what. Only asked for the documents that need it, and
+  // the endpoint lets the employee read their own, so the same call answers
+  // both "have I done this?" and HR's "who has?".
+  async function loadAcknowledgements(documents: any[]) {
+    const needed = documents.filter((d) => d.requiresAcknowledgement);
+    if (needed.length === 0) {
+      setAcknowledgements({});
+      return;
+    }
+    const entries = await Promise.all(
+      needed.map(async (d) => {
+        try {
+          return [
+            d.id,
+            await apiGet(`/documents/${d.id}/acknowledgements`),
+          ] as [number, any[]];
+        } catch {
+          return [d.id, []] as [number, any[]];
+        }
+      }),
+    );
+    setAcknowledgements(Object.fromEntries(entries));
+  }
+
+  async function submitAcknowledgement() {
+    if (!acknowledging) return;
+    const documentId = acknowledging.document.id;
+    setAcknowledgeError('');
+    try {
+      setAcknowledgeSaving(true);
+      await apiPost(`/documents/${documentId}/acknowledge`, {
+        typedName: acknowledging.typedName.trim(),
+      });
+      const rows = await apiGet(`/documents/${documentId}/acknowledgements`);
+      setAcknowledgements((current) => ({ ...current, [documentId]: rows }));
+      setAcknowledging(null);
+    } catch (e: any) {
+      setAcknowledgeError(
+        e.message || 'Could not record your acknowledgement.',
+      );
+    } finally {
+      setAcknowledgeSaving(false);
     }
   }
 
@@ -153,6 +209,14 @@ export default function Documents() {
   const selectedViewEmployee = viewFilterEmployeeId
     ? employees.find((employee) => employee.id === Number(viewFilterEmployeeId))
     : null;
+
+  const isOwnDocument = (d: any) =>
+    !!user?.employeeId && Number(d.employeeId) === Number(user.employeeId);
+
+  const ownAcknowledgement = (d: any) =>
+    (acknowledgements[d.id] || []).find(
+      (record: any) => Number(record.employeeId) === Number(user?.employeeId),
+    );
 
   const groupedDocuments = React.useMemo(() => {
     return items.reduce((groups: Record<string, any[]>, document) => {
@@ -292,7 +356,9 @@ export default function Documents() {
 
   async function upload(e: React.FormEvent) {
     e.preventDefault();
-    if (!validateUploadForm()) return;
+    // validateUploadForm already refuses a missing file; naming it again is
+    // what tells the compiler the append below is safe.
+    if (!validateUploadForm() || !file) return;
 
     const fd = new FormData();
     fd.append('file', file);
@@ -877,6 +943,54 @@ export default function Documents() {
                           )}
                         </div>
                       )}
+                      {d.requiresAcknowledgement && (
+                        <div className="mt-2 text-sm">
+                          {isOwnDocument(d) &&
+                            (ownAcknowledgement(d) ? (
+                              <span className="text-green-700 dark:text-green-400">
+                                You acknowledged this on{' '}
+                                {new Date(
+                                  ownAcknowledgement(d).acknowledgedAt,
+                                ).toLocaleDateString('en-GB')}{' '}
+                                as “{ownAcknowledgement(d).typedName}”.
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAcknowledgeError('');
+                                  setAcknowledging({
+                                    document: d,
+                                    typedName: '',
+                                  });
+                                }}
+                                className="rounded bg-amber-600 px-3 py-1 text-sm font-semibold text-white transition-colors hover:bg-amber-700"
+                              >
+                                Read and acknowledge
+                              </button>
+                            ))}
+                          {isElevated && (
+                            <div className="mt-1 text-slate-600 dark:text-slate-400">
+                              {(acknowledgements[d.id] || []).length === 0 ? (
+                                'Acknowledgement required — nobody has acknowledged it yet.'
+                              ) : (
+                                <ul className="list-inside list-disc">
+                                  {(acknowledgements[d.id] || []).map(
+                                    (record: any) => (
+                                      <li key={record.id}>
+                                        Acknowledged by {record.typedName} on{' '}
+                                        {new Date(
+                                          record.acknowledgedAt,
+                                        ).toLocaleDateString('en-GB')}
+                                      </li>
+                                    ),
+                                  )}
+                                </ul>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-2 justify-end">
                       <button
@@ -927,6 +1041,71 @@ export default function Documents() {
           </section>
         ))}
       </div>
+
+      <Dialog
+        open={!!acknowledging}
+        title="Read and acknowledge"
+        description={
+          acknowledging
+            ? `Type your full name to record that you have read "${acknowledging.document.name}". This is a record that you read it, not a legal signature.`
+            : undefined
+        }
+        onClose={() => (acknowledgeSaving ? undefined : setAcknowledging(null))}
+      >
+        {acknowledging && (
+          <div className="space-y-3">
+            {acknowledgeError && (
+              <div
+                role="alert"
+                className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
+              >
+                {acknowledgeError}
+              </div>
+            )}
+            <label
+              htmlFor="acknowledge-name"
+              className="block text-sm font-medium text-slate-700 dark:text-slate-300"
+            >
+              Your full name
+              <input
+                id="acknowledge-name"
+                value={acknowledging.typedName}
+                onChange={(e) =>
+                  setAcknowledging({
+                    ...acknowledging,
+                    typedName: e.target.value,
+                  })
+                }
+                className="form-input mt-1"
+              />
+            </label>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              We store your name, the date and your IP address against this
+              document.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setAcknowledging(null)}
+                disabled={acknowledgeSaving}
+                className="btn-ghost"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitAcknowledgement}
+                disabled={
+                  acknowledgeSaving || !acknowledging.typedName.trim().length
+                }
+                className="btn-primary disabled:opacity-50"
+              >
+                {acknowledgeSaving ? 'Recording…' : 'I have read this'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }

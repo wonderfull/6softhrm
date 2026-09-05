@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import prisma from '../prismaClient'
 import { requireAuth } from '../middleware/auth'
+import { auditLog } from '../middleware/audit'
 import * as XLSX from 'xlsx'
 import { canReviewLeaveAndTime, normalizeRole, ROLES } from '../lib/roles'
 
@@ -53,6 +54,7 @@ router.post('/', requireAuth, async (req: any, res) => {
     if (projectId) data.projectId = projectId
     
     const ts = await prisma.timesheet.create({ data })
+    await auditLog(req, 'CREATE', 'Timesheet', ts.id, { employeeId, projectId, date, hours })
     res.json(ts)
   } catch (e: any) {
     res.status(400).json({ error: e.message })
@@ -91,6 +93,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
       data
     })
     const ts = await prisma.timesheet.findFirst({ where: { id: parseInt(id) } })
+    await auditLog(req, 'UPDATE', 'Timesheet', parseInt(id), { employeeId: existing.employeeId, ...data })
     res.json(ts)
   } catch (e: any) {
     res.status(400).json({ error: e.message })
@@ -114,6 +117,7 @@ router.delete('/:id', requireAuth, async (req: any, res) => {
     }
 
     await prisma.timesheet.deleteMany({ where: { id: parseInt(id) } })
+    await auditLog(req, 'DELETE', 'Timesheet', parseInt(id), { employeeId: existing.employeeId, date: existing.date })
     res.json({ success: true })
   } catch (e: any) {
     res.status(400).json({ error: e.message })
@@ -142,6 +146,8 @@ router.get('/export/excel', requireAuth, async (req: any, res) => {
       return res.status(403).json({ error: 'Unauthorized' })
     }
     
+    await auditLog(req, 'EXPORT', 'Timesheet', undefined, { count: timesheets.length })
+
     // Format data for Excel
     const excelData = timesheets.map(ts => ({
       'ID': ts.id,

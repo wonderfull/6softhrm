@@ -174,7 +174,7 @@ describe('Time/Timesheets Page', () => {
 
   it('should delete timesheet when delete button clicked', async () => {
     ;(api.apiDelete as any).mockResolvedValue({ success: true })
-    global.confirm = vi.fn(() => true)
+    globalThis.confirm = vi.fn(() => true)
 
     render(<Time />)
 

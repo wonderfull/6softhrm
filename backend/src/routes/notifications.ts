@@ -2,30 +2,36 @@ import { Router } from 'express';
 import prisma from '../prismaClient';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
-import { sendEmail, EmailTemplates } from '../lib/emailService';
-import { getCronStatus, checkExpiringRecords } from '../lib/cronJobs';
-import type { Employee, Sponsorship, User } from '@prisma/client';
+import { auditLog } from '../middleware/audit';
+import { sendEmail } from '../lib/emailService';
+import { getCronStatus } from '../lib/cronJobs';
+import {
+  collectTenantExpiringItems,
+  sweepTenantExpiries,
+} from '../lib/expirySweep';
 
 const router = Router();
 
-// Force-run the same logic the cron executes daily at 09:00 UK.
-// Routes share the cron implementation so behaviour stays in sync.
+// Force-run the daily 09:00 UK expiry sweep for the caller's tenant only.
+// Shares the cron implementation so behaviour stays in sync.
 router.post(
   '/check-expiries',
   requireAuth,
   requireRole('ADMIN', 'DIRECTOR'),
-  async (_req, res) => {
+  async (req, res) => {
     try {
-      await checkExpiringRecords();
-      const status = getCronStatus();
+      const result = await sweepTenantExpiries();
+      await auditLog(req, 'CHECK_EXPIRIES_MANUAL', 'System', undefined, result);
       res.json({
         success: true,
         message: 'Expiry check completed',
         results: {
           visasChecked: 0, // legacy field, kept for UI compatibility
           contractsChecked: 0,
-          visaNotifications: status.lastVisaNotifications,
-          contractNotifications: status.lastContractNotifications,
+          visaNotifications: result.visaNotifications,
+          contractNotifications: result.contractNotifications,
+          otherNotifications: result.otherNotifications,
+          inAppNotifications: result.inAppNotifications,
         },
       });
     } catch (error: any) {
@@ -37,238 +43,88 @@ router.post(
 
 // Get upcoming expiries (for dashboard/reports)
 // Includes already-expired but still-active sponsorships/contracts under `overdue*`.
-router.get('/upcoming-expiries', requireAuth, async (req, res) => {
-  try {
-    const days = parseInt(req.query.days as string) || 90;
-    const today = new Date();
-    const futureDate = new Date();
-    futureDate.setDate(today.getDate() + days);
-
-    const daysBetween = (date: Date) =>
-      Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-    // Visa expiries — overdue (already past) and upcoming
-    const visaRecords = await prisma.sponsorship.findMany({
-      where: {
-        active: true,
-        endDate: { not: null, lte: futureDate },
-      },
-      include: {
-        employee: {
-          select: { id: true, firstName: true, lastName: true, email: true },
-        },
-      },
-      orderBy: { endDate: 'asc' },
-    });
-
-    const visaMapped = visaRecords.map(
-      (
-        v: Sponsorship & {
-          employee: Pick<Employee, 'id' | 'firstName' | 'lastName' | 'email'>;
-        },
-      ) => ({
-        id: v.id,
-        employeeId: v.employee.id,
-        employeeName: `${v.employee.firstName} ${v.employee.lastName}`,
-        email: v.employee.email,
-        visaType: v.visaType,
-        expiryDate: v.endDate,
-        daysRemaining: daysBetween(v.endDate!),
-      }),
-    );
-    const overdueVisas = visaMapped.filter((v) => v.daysRemaining < 0);
-    const visaExpiries = visaMapped.filter((v) => v.daysRemaining >= 0);
-
-    // Contract expiries — overdue and upcoming
-    const contractRecords = await prisma.employee.findMany({
-      where: { endDate: { not: null, lte: futureDate } },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        jobTitle: true,
-        endDate: true,
-      },
-      orderBy: { endDate: 'asc' },
-    });
-
-    const contractMapped = contractRecords.map(
-      (
-        e: Pick<
-          Employee,
-          'id' | 'firstName' | 'lastName' | 'email' | 'jobTitle' | 'endDate'
-        >,
-      ) => ({
-        id: e.id,
-        employeeName: `${e.firstName} ${e.lastName}`,
-        email: e.email,
-        jobTitle: e.jobTitle,
-        expiryDate: e.endDate,
-        daysRemaining: daysBetween(e.endDate!),
-      }),
-    );
-    const overdueContracts = contractMapped.filter((c) => c.daysRemaining < 0);
-    const contractExpiries = contractMapped.filter((c) => c.daysRemaining >= 0);
-
-    res.json({
-      overdueVisas,
-      overdueContracts,
-      visaExpiries,
-      contractExpiries,
-    });
-  } catch (error: any) {
-    console.error('Error fetching upcoming expiries:', error);
-    res.status(500).json({ error: 'Failed to fetch expiries' });
-  }
-});
-
-// Send leave request notification to operational approvers
-router.post('/notify-leave-request', requireAuth, async (req, res) => {
-  try {
-    const { leaveRequestId } = req.body;
-
-    if (!leaveRequestId) {
-      return res.status(400).json({ error: 'Missing leaveRequestId' });
-    }
-
-    const leaveRequest = await prisma.leaveRequest.findFirst({
-      where: { id: parseInt(leaveRequestId) },
-      include: {
-        employee: true,
-      },
-    });
-
-    if (!leaveRequest) {
-      return res.status(404).json({ error: 'Leave request not found' });
-    }
-
-    const template = EmailTemplates.leaveRequestPending(
-      `${leaveRequest.employee.firstName} ${leaveRequest.employee.lastName}`,
-      leaveRequest.type,
-      leaveRequest.startDate.toLocaleDateString('en-GB'),
-      leaveRequest.endDate.toLocaleDateString('en-GB'),
-      leaveRequest.id,
-    );
-
-    // Get operational approver emails
-    const admins = await prisma.user.findMany({
-      where: { role: { in: ['ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'] } },
-      select: { email: true },
-    });
-
-    const sent = await sendEmail({
-      to: admins.map((a: Pick<User, 'email'>) => a.email),
-      subject: template.subject,
-      html: template.html,
-    });
-
-    res.json({
-      success: sent,
-      message: sent ? 'Notification sent' : 'Email not configured',
-    });
-  } catch (error: any) {
-    console.error('Error sending leave request notification:', error);
-    res.status(500).json({ error: 'Failed to send notification' });
-  }
-});
-
-// Send leave approval/rejection notification to employee
-router.post(
-  '/notify-leave-status',
+// `other` carries every further dated obligation (passport, DBS, RTW recheck,
+// licence, action plan, CoS start-by) in the sweep's own shape.
+router.get(
+  '/upcoming-expiries',
   requireAuth,
   requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'),
   async (req, res) => {
     try {
-      const { leaveRequestId, status, reason } = req.body;
+      const days = parseInt(req.query.days as string) || 90;
+      const items = await collectTenantExpiringItems(new Date(), days);
 
-      if (!leaveRequestId || !status) {
-        return res.status(400).json({ error: 'Missing required fields' });
-      }
-
-      const leaveRequest = await prisma.leaveRequest.findFirst({
-        where: { id: parseInt(leaveRequestId) },
-        include: {
-          employee: true,
-        },
-      });
-
-      if (!leaveRequest) {
-        return res.status(404).json({ error: 'Leave request not found' });
-      }
-
-      const template =
-        status === 'APPROVED'
-          ? EmailTemplates.leaveRequestApproved(
-              `${leaveRequest.employee.firstName} ${leaveRequest.employee.lastName}`,
-              leaveRequest.type,
-              leaveRequest.startDate.toLocaleDateString('en-GB'),
-              leaveRequest.endDate.toLocaleDateString('en-GB'),
-            )
-          : EmailTemplates.leaveRequestRejected(
-              `${leaveRequest.employee.firstName} ${leaveRequest.employee.lastName}`,
-              leaveRequest.type,
-              leaveRequest.startDate.toLocaleDateString('en-GB'),
-              leaveRequest.endDate.toLocaleDateString('en-GB'),
-              reason,
-            );
-
-      const sent = await sendEmail({
-        to: leaveRequest.employee.email,
-        subject: template.subject,
-        html: template.html,
-      });
+      const visaMapped = items
+        .filter((i) => i.kind === 'VISA')
+        .map((i) => ({
+          id: i.id,
+          employeeId: i.employeeId,
+          employeeName: i.employeeName,
+          email: i.employeeEmail,
+          visaType: i.detail,
+          expiryDate: i.expiryDate,
+          daysRemaining: i.daysRemaining,
+        }));
+      const contractMapped = items
+        .filter((i) => i.kind === 'CONTRACT')
+        .map((i) => ({
+          id: i.id,
+          employeeName: i.employeeName,
+          email: i.employeeEmail,
+          jobTitle: i.jobTitle,
+          expiryDate: i.expiryDate,
+          daysRemaining: i.daysRemaining,
+        }));
 
       res.json({
-        success: sent,
-        message: sent ? 'Notification sent' : 'Email not configured',
+        overdueVisas: visaMapped.filter((v) => v.daysRemaining < 0),
+        overdueContracts: contractMapped.filter((c) => c.daysRemaining < 0),
+        visaExpiries: visaMapped.filter((v) => v.daysRemaining >= 0),
+        contractExpiries: contractMapped.filter((c) => c.daysRemaining >= 0),
+        other: items.filter((i) => i.kind !== 'VISA' && i.kind !== 'CONTRACT'),
       });
     } catch (error: any) {
-      console.error('Error sending leave status notification:', error);
-      res.status(500).json({ error: 'Failed to send notification' });
+      console.error('Error fetching upcoming expiries:', error);
+      res.status(500).json({ error: 'Failed to fetch expiries' });
     }
   },
 );
 
-// Send document upload notification
-router.post('/notify-document-upload', requireAuth, async (req: any, res) => {
-  try {
-    const { employeeId, documentName } = req.body;
+// The bell. Own rows only — a notification is addressed to one person, and
+// no role escalates that.
+router.get('/inbox', requireAuth, async (req: any, res) => {
+  const unreadOnly = req.query.unread === '1' || req.query.unread === 'true';
+  const take = Math.min(Number(req.query.limit) || 50, 200);
 
-    if (!employeeId || !documentName) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
+  const rows = await prisma.notification.findMany({
+    where: { userId: req.user.id, ...(unreadOnly ? { readAt: null } : {}) },
+    orderBy: { createdAt: 'desc' },
+    take,
+  });
+  res.json(rows);
+});
 
-    const employee = await prisma.employee.findFirst({
-      where: { id: parseInt(employeeId) },
-    });
+router.put('/inbox/read-all', requireAuth, async (req: any, res) => {
+  const updated = await prisma.notification.updateMany({
+    where: { userId: req.user.id, readAt: null },
+    data: { readAt: new Date() },
+  });
+  res.json({ updated: updated.count });
+});
 
-    if (!employee) {
-      return res.status(404).json({ error: 'Employee not found' });
-    }
+router.put('/inbox/:id/read', requireAuth, async (req: any, res) => {
+  const id = Number(req.params.id);
+  const updated = await prisma.notification.updateMany({
+    where: { id, userId: req.user.id },
+    data: { readAt: new Date() },
+  });
+  if (updated.count === 0)
+    return res.status(404).json({ error: 'Notification not found' });
 
-    const uploaderName = req.user?.email || 'System';
-
-    const template = EmailTemplates.documentUploaded(
-      `${employee.firstName} ${employee.lastName}`,
-      documentName,
-      uploaderName,
-    );
-
-    const sent = await sendEmail({
-      to: employee.email,
-      subject: template.subject,
-      html: template.html,
-    });
-
-    res.json({
-      success: sent,
-      message: sent ? 'Notification sent' : 'Email not configured',
-    });
-  } catch (error: any) {
-    console.error('Error sending document notification:', error);
-    res.status(500).json({ error: 'Failed to send notification' });
-  }
+  const row = await prisma.notification.findFirst({
+    where: { id, userId: req.user.id },
+  });
+  res.json(row);
 });
 
 // Test email configuration
@@ -307,6 +163,7 @@ router.post(
       `,
       });
 
+      await auditLog(req, 'TEST_EMAIL', 'System', undefined, { to, sent });
       res.json({
         success: sent,
         message: sent

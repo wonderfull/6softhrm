@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
-import request from 'supertest';
+import request from './helpers/http';
 import jwt from 'jsonwebtoken';
 import express from 'express';
 import leaveRouter from '../routes/leave';
@@ -125,13 +125,88 @@ describe('Leave API permissions', () => {
       .set('Authorization', linkedDirectorToken)
       .send({
         type: 'ANNUAL',
-        startDate: '2026-08-01',
-        endDate: '2026-08-02',
+        startDate: '2026-08-03',
+        endDate: '2026-08-04',
         reason: 'Director self-service leave',
       });
 
     expect(response.status).toBe(200);
     expect(response.body.employeeId).toBe(employeeId);
+  });
+
+  it('refuses a second decision on an already-decided request', async () => {
+    const leave = await prisma.leaveRequest.create({
+      data: {
+        employeeId: secondEmployeeId,
+        type: 'ANNUAL',
+        startDate: new Date('2026-10-01'),
+        endDate: new Date('2026-10-02'),
+        status: 'PENDING',
+        reason: 'Decide once',
+      },
+    });
+
+    const first = await request(app)
+      .put(`/api/leave/${leave.id}/approve`)
+      .set('Authorization', officeAssistantToken);
+    expect(first.status).toBe(200);
+
+    const second = await request(app)
+      .put(`/api/leave/${leave.id}/reject`)
+      .set('Authorization', officeAssistantToken)
+      .send({ reason: 'Changed my mind' });
+    expect(second.status).toBe(409);
+
+    const stored = await prisma.leaveRequest.findFirst({
+      where: { id: leave.id },
+    });
+    expect(stored?.status).toBe('APPROVED');
+  });
+
+  it('never lets a reviewer decide their own leave request', async () => {
+    const leave = await prisma.leaveRequest.create({
+      data: {
+        employeeId,
+        type: 'ANNUAL',
+        startDate: new Date('2026-11-01'),
+        endDate: new Date('2026-11-02'),
+        status: 'PENDING',
+        reason: 'Self approval attempt',
+      },
+    });
+
+    const response = await request(app)
+      .put(`/api/leave/${leave.id}/approve`)
+      .set('Authorization', linkedDirectorToken);
+
+    expect(response.status).toBe(403);
+    const stored = await prisma.leaveRequest.findFirst({
+      where: { id: leave.id },
+    });
+    expect(stored?.status).toBe('PENDING');
+  });
+
+  it('writes an audit row for every leave decision', async () => {
+    const leave = await prisma.leaveRequest.create({
+      data: {
+        employeeId: secondEmployeeId,
+        type: 'SICK',
+        startDate: new Date('2026-12-01'),
+        endDate: new Date('2026-12-01'),
+        status: 'PENDING',
+      },
+    });
+
+    await request(app)
+      .put(`/api/leave/${leave.id}/reject`)
+      .set('Authorization', officeAssistantToken)
+      .send({ reason: 'Not enough cover' });
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: 'REJECT', entity: 'LeaveRequest', entityId: leave.id },
+    });
+    expect(audit).not.toBeNull();
+    expect(JSON.parse(audit!.details || '{}').reason).toBe('Not enough cover');
   });
 
   it('rejects leave requests where the end date is before the start date', async () => {

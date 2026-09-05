@@ -1,9 +1,10 @@
 import { getTenant } from '../lib/tenant';
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { HiOutlineBell, HiOutlineUserCircle, HiOutlineLogout, HiOutlineSun, HiOutlineMoon } from 'react-icons/hi'
+import { HiOutlineUserCircle, HiOutlineLogout, HiOutlineSun, HiOutlineMoon } from 'react-icons/hi'
 import { HiChevronDown } from 'react-icons/hi2'
 import { roleLabel } from '../lib/roles'
+import NotificationBell from './NotificationBell'
 
 interface NavBarProps {
   darkMode: boolean
@@ -60,9 +61,7 @@ export default function NavBar({ darkMode, onToggleDarkMode, onLogout }: NavBarP
           )}
         </div>
         <div className="flex items-center gap-3">
-          <button className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 transition-colors">
-            <HiOutlineBell size={20} />
-          </button>
+          <NotificationBell />
           <div className="relative" ref={dropdownRef}>
             <button 
               onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -83,6 +82,14 @@ export default function NavBar({ darkMode, onToggleDarkMode, onLogout }: NavBarP
                     </span>
                   </p>
                 </div>
+                <Link
+                  to="/account"
+                  onClick={() => setDropdownOpen(false)}
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-3 transition-colors"
+                >
+                  <HiOutlineUserCircle size={18} />
+                  My Account
+                </Link>
                 <button
                   onClick={() => {
                     onToggleDarkMode()

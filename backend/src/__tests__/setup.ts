@@ -54,3 +54,11 @@ global.console = {
   error: jest.fn(),
   warn: jest.fn(),
 }
+
+// Each suite reuses one HTTP server per app; without this they accumulate as
+// open listeners for the whole run, and a worker that runs out of descriptors
+// fails in ways that look nothing like the cause.
+afterAll(async () => {
+  const { closeTestServers } = await import('./helpers/http')
+  await closeTestServers()
+})

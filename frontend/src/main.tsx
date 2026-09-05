@@ -10,11 +10,16 @@ import {
 import Dashboard from './pages/Dashboard';
 import Sponsorships from './pages/Sponsorships';
 import Compliance from './pages/Compliance';
+import Reports from './pages/Reports';
 import Employees from './pages/Employees';
 import Leave from './pages/Leave';
+import Expenses from './pages/Expenses';
+import Cases from './pages/Cases';
 import Time from './pages/Time';
 import Projects from './pages/Projects';
 import Documents from './pages/Documents';
+import Payslips from './pages/Payslips';
+import Account from './pages/Account';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -47,10 +52,15 @@ const ROUTE_TITLES: Record<string, string> = {
   '/employees': 'People',
   '/sponsorships': 'Sponsorships',
   '/compliance': 'Compliance',
+  '/reports': 'Reports',
   '/time': 'Time',
   '/projects': 'Projects',
   '/leave': 'Leave',
+  '/expenses': 'Expenses',
+  '/cases': 'Employee Relations',
   '/documents': 'Documents',
+  '/payslips': 'My Payslips',
+  '/account': 'My Account',
   '/settings': 'Settings',
   '/notifications': 'Notifications',
   '/audit-logs': 'Audit Logs',
@@ -197,6 +207,14 @@ function App() {
                           </ProtectedRoute>
                         }
                       />
+                      <Route
+                        path="/reports"
+                        element={
+                          <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
+                            <Reports />
+                          </ProtectedRoute>
+                        }
+                      />
                       <Route path="/time" element={<Time />} />
                       <Route
                         path="/projects"
@@ -207,7 +225,18 @@ function App() {
                         }
                       />
                       <Route path="/leave" element={<Leave />} />
+                      <Route path="/expenses" element={<Expenses />} />
+                      <Route
+                        path="/cases"
+                        element={
+                          <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
+                            <Cases />
+                          </ProtectedRoute>
+                        }
+                      />
                       <Route path="/documents" element={<Documents />} />
+                      <Route path="/payslips" element={<Payslips />} />
+                      <Route path="/account" element={<Account />} />
                       <Route
                         path="/settings"
                         element={

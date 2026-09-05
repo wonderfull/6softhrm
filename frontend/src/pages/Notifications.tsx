@@ -14,11 +14,26 @@ interface ExpiryItem {
   daysRemaining: number;
 }
 
+// Passport, DBS, RTW recheck, licence, action plan, CoS start-by — the
+// sweep's own shape, already labelled.
+interface OtherItem {
+  kind: string;
+  label: string;
+  id: number;
+  employeeName?: string;
+  employeeEmail?: string | null;
+  detail?: string | null;
+  expiryDate: string;
+  daysRemaining: number;
+  link: string;
+}
+
 interface ExpiryData {
   overdueVisas: ExpiryItem[];
   overdueContracts: ExpiryItem[];
   visaExpiries: ExpiryItem[];
   contractExpiries: ExpiryItem[];
+  other: OtherItem[];
 }
 
 const EMPTY: ExpiryData = {
@@ -26,6 +41,7 @@ const EMPTY: ExpiryData = {
   overdueContracts: [],
   visaExpiries: [],
   contractExpiries: [],
+  other: [],
 };
 
 interface CronStatus {
@@ -86,7 +102,8 @@ const Notifications: React.FC = () => {
           `Visas checked: ${result.results.visasChecked}\n` +
           `Visa notifications sent: ${result.results.visaNotifications}\n\n` +
           `Contracts checked: ${result.results.contractsChecked}\n` +
-          `Contract notifications sent: ${result.results.contractNotifications}`,
+          `Contract notifications sent: ${result.results.contractNotifications}\n\n` +
+          `Other reminders sent: ${result.results.otherNotifications ?? 0}`,
       );
       fetchExpiries();
     } catch (err: any) {
@@ -150,6 +167,36 @@ const Notifications: React.FC = () => {
     </div>
   );
 
+  const renderOtherRow = (item: OtherItem) => (
+    <a
+      key={`${item.kind}-${item.id}`}
+      href={item.link}
+      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
+    >
+      <div className="flex-1">
+        <div className="font-medium text-gray-900">
+          {item.employeeName || 'Sponsor licence'}
+        </div>
+        <div className="text-sm text-gray-600">
+          {item.label}
+          {item.detail ? ` (${item.detail})` : ''} •{' '}
+          {item.daysRemaining < 0 ? 'Was due' : 'Due'}:{' '}
+          {new Date(item.expiryDate).toLocaleDateString('en-GB')}
+        </div>
+        {item.employeeEmail && (
+          <div className="text-xs text-gray-500">{item.employeeEmail}</div>
+        )}
+      </div>
+      <span
+        className={`px-3 py-1 rounded-full text-sm font-semibold ${getExpiryColor(item.daysRemaining)}`}
+      >
+        {item.daysRemaining < 0
+          ? `${Math.abs(item.daysRemaining)} days overdue`
+          : `${item.daysRemaining} days`}
+      </span>
+    </a>
+  );
+
   const getUserRole = () => {
     const token = localStorage.getItem('token');
     if (!token) return 'EMPLOYEE';
@@ -180,6 +227,8 @@ const Notifications: React.FC = () => {
     expiries.overdueVisas.length + expiries.overdueContracts.length;
   const upcomingCount =
     expiries.visaExpiries.length + expiries.contractExpiries.length;
+  const otherOverdue = expiries.other.filter((i) => i.daysRemaining < 0);
+  const otherUpcoming = expiries.other.filter((i) => i.daysRemaining >= 0);
 
   return (
     <div className="p-6">
@@ -200,6 +249,11 @@ const Notifications: React.FC = () => {
                   <li>
                     Visa &amp; contract expiry alerts at 30, 60 and 90 days
                     before expiry — and every day once an item is overdue.
+                  </li>
+                  <li>
+                    Passport, DBS recheck, right-to-work recheck, sponsor
+                    licence, action plan and CoS start-by reminders on the same
+                    schedule, with an in-app copy for admins and directors.
                   </li>
                   <li>Cron runs daily at 09:00 UK time.</li>
                   <li>
@@ -250,11 +304,11 @@ const Notifications: React.FC = () => {
           </Card>
 
           {/* Overdue Expiries — surfaced above upcoming because these are compliance breaches */}
-          {overdueCount > 0 && (
+          {overdueCount + otherOverdue.length > 0 && (
             <Card className="mb-6 border-2 border-red-300 bg-red-50/40">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-red-800">
-                  ⛔ Overdue ({overdueCount})
+                  ⛔ Overdue ({overdueCount + otherOverdue.length})
                 </h2>
                 <span className="text-sm text-red-700">
                   Already expired — action required
@@ -282,6 +336,16 @@ const Notifications: React.FC = () => {
                       {expiries.overdueContracts.map((item) =>
                         renderRow(item, 'contract'),
                       )}
+                    </div>
+                  </div>
+                )}
+                {otherOverdue.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                      ⏰ Other checks overdue ({otherOverdue.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {otherOverdue.map(renderOtherRow)}
                     </div>
                   </div>
                 )}
@@ -345,6 +409,24 @@ const Notifications: React.FC = () => {
                   </div>
                 )}
               </div>
+            )}
+          </Card>
+
+          <Card className="mb-6">
+            <h2 className="text-xl font-semibold mb-4">
+              Other checks due ({otherUpcoming.length})
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Passport and DBS rechecks, follow-up right-to-work checks, the
+              sponsor licence, action-plan deadlines and CoS start-by dates in
+              the next {days} days.
+            </p>
+            {otherUpcoming.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                ✅ Nothing else falls due in the next {days} days
+              </div>
+            ) : (
+              <div className="space-y-2">{otherUpcoming.map(renderOtherRow)}</div>
             )}
           </Card>
         </>

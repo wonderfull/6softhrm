@@ -10,7 +10,17 @@ import { auditLog } from '../middleware/audit';
 import { requireRole } from '../middleware/roles';
 import * as XLSX from 'xlsx';
 import type { DataConsent, Employee } from '@prisma/client';
-import { normalizeRole, ROLES } from '../lib/roles';
+import {
+  canViewSensitiveEmployeeFields,
+  canViewSponsorships,
+  normalizeRole,
+  ROLES,
+} from '../lib/roles';
+import { computeRetainUntil } from '../lib/retention';
+import { assertNoCycle } from '../lib/reportingLine';
+import { ensureProbationReview } from '../lib/probationReview';
+import rightToWorkRoutes from './rightToWork';
+import employeePhotoRoutes from './employeePhoto';
 
 const router = Router();
 
@@ -62,8 +72,36 @@ function redactSensitiveEmployeeFields(employee: any) {
     licenceExpiryDate: null,
     visaNumber: null,
     visaExpiryDate: null,
+    dbsCertificateNumber: null,
     emergencyContactAddress: null,
   };
+}
+
+// Keys that must never come from a request body on update: identity, tenant
+// pinning, timestamps and every relation the client cannot legitimately write.
+const EMPLOYEE_UPDATE_BLOCKLIST = [
+  'id',
+  'tenantId',
+  'tenant',
+  'createdAt',
+  'updatedAt',
+  'user',
+  'sponsorships',
+  'timesheets',
+  'leaveRequests',
+  'documents',
+  'absences',
+  'payRecords',
+  'rightToWorkChecks',
+  'manager',
+  'reports',
+  'anonymisedAt',
+];
+
+function stripProtectedEmployeeFields(data: any) {
+  const clean = { ...data };
+  for (const key of EMPLOYEE_UPDATE_BLOCKLIST) delete clean[key];
+  return clean;
 }
 
 function normalizeEmployeePayload(data: any) {
@@ -76,6 +114,9 @@ function normalizeEmployeePayload(data: any) {
     'passportExpiryDate',
     'licenceExpiryDate',
     'visaExpiryDate',
+    'dbsIssueDate',
+    'dbsRecheckDate',
+    'retainUntil',
   ];
 
   for (const field of dateFields) {
@@ -89,6 +130,17 @@ function normalizeEmployeePayload(data: any) {
   if (data.salary === '') data.salary = null;
   if (data.salary !== undefined && data.salary !== null)
     data.salary = Number(data.salary);
+
+  // A cleared select or number input arrives as '', which means "no value"
+  // rather than zero.
+  for (const field of [
+    'managerId',
+    'leaveAllowanceDays',
+    'leaveCarriedOverDays',
+  ]) {
+    if (data[field] === '' || data[field] === null) data[field] = null;
+    else if (data[field] !== undefined) data[field] = Number(data[field]);
+  }
 
   return data;
 }
@@ -141,10 +193,12 @@ router.get('/', requireAuth, async (req: any, res) => {
   ) {
     const employee = await prisma.employee.findFirst({
       where: { email: userEmail },
-      include: { sponsorships: true, documents: true },
+      include: employeeListInclude,
     });
     await auditLog(req, 'READ', 'Employee', employee?.id, { selfAccess: true });
-    return res.json(employee ? [employee] : []);
+    // Without the linked account the employee's own profile claimed they had
+    // no login, while they were reading it from that very login.
+    return res.json(employee ? [normalizeEmployeeUserRole(employee)] : []);
   }
 
   // Admin, Director, and Office Assistant users see all employees.
@@ -232,6 +286,7 @@ router.post(
         lastName: emp.lastName,
         email: emp.email,
       });
+      await ensureProbationReview(emp);
       // Auto-link to user if email matches
       const user = await prisma.user.findFirst({
         where: { email: emp.email },
@@ -261,7 +316,51 @@ router.put('/:id', requireAuth, async (req: any, res) => {
   try {
     let data: any;
     if (role === ROLES.ADMIN || role === ROLES.DIRECTOR) {
-      data = normalizeEmployeePayload(req.body);
+      data = normalizeEmployeePayload(stripProtectedEmployeeFields(req.body));
+      // The retention date is a legal-hold decision, so only the owner sets
+      // it by hand; everyone else gets the computed default when a leaving
+      // date is recorded.
+      if (role !== ROLES.ADMIN) delete data.retainUntil;
+      if (data.endDate && data.retainUntil === undefined) {
+        // Recompute only when the leaving date is new or has moved, so a
+        // hand-set retention date survives unrelated edits to the record.
+        const current = await prisma.employee.findFirst({
+          where: { id: employeeId },
+          select: { endDate: true, retainUntil: true },
+        });
+        const endDateChanged =
+          current?.endDate?.getTime() !== data.endDate.getTime();
+        if (!current?.retainUntil || endDateChanged) {
+          const sponsorships = await prisma.sponsorship.findMany({
+            where: { employeeId },
+            select: { endDate: true },
+          });
+          data.retainUntil = computeRetainUntil(data.endDate, sponsorships);
+        }
+      }
+      if (data.managerId !== undefined && data.managerId !== null) {
+        if (!Number.isInteger(data.managerId))
+          return res.status(400).json({ error: 'managerId must be an employee id' });
+        const manager = await prisma.employee.findFirst({
+          where: { id: data.managerId },
+          select: { id: true },
+        });
+        if (!manager)
+          return res.status(400).json({ error: 'Manager not found' });
+        try {
+          await assertNoCycle(employeeId, data.managerId);
+        } catch (cycle: any) {
+          return res.status(400).json({ error: cycle.message });
+        }
+      }
+      for (const field of ['leaveAllowanceDays', 'leaveCarriedOverDays']) {
+        const value = data[field];
+        if (value === undefined || value === null) continue;
+        if (!Number.isFinite(value) || value < 0 || value > 365)
+          return res
+            .status(400)
+            .json({ error: `${field} must be between 0 and 365` });
+      }
     } else if (role === ROLES.EMPLOYEE) {
       const existing = await prisma.employee.findFirst({
         where: { id: employeeId },
@@ -288,12 +387,16 @@ router.put('/:id', requireAuth, async (req: any, res) => {
       updatedFields: Object.keys(data).filter((k) => data[k] !== undefined),
       selfService: role === ROLES.EMPLOYEE,
     });
+    if (data.probationEndDate !== undefined) await ensureProbationReview(emp);
     res.json(emp);
   } catch (e: any) {
     console.error('Error updating employee:', e);
     res.status(400).json({ error: e.message });
   }
 });
+
+router.use('/:id/rtw', rightToWorkRoutes);
+router.use('/:id/photo', employeePhotoRoutes);
 
 router.delete(
   '/:id',
@@ -490,18 +593,28 @@ router.post(
 // Export employees to Excel
 router.get('/export/excel', requireAuth, async (req: any, res) => {
   try {
-    const userRole = req.user?.role || 'USER';
+    const userRole = normalizeRole(req.user?.role);
     const userEmail = req.user?.email;
+    const employeeId = req.user?.employeeId;
 
+    // This sheet carries NI numbers, bank details and salaries in the clear.
+    // The old check compared the raw role against 'MANAGER' — a value
+    // normalizeRole never produces — and fell through to exporting every
+    // employee whenever the token carried no email.
     let employees;
-    // If user is not ADMIN/MANAGER, show only their own employee record
-    if (userRole !== 'ADMIN' && userRole !== 'MANAGER' && userEmail) {
+    if (canViewSponsorships(userRole)) {
+      employees = await prisma.employee.findMany();
+      if (!canViewSensitiveEmployeeFields(userRole)) {
+        employees = employees.map(redactSensitiveEmployeeFields);
+      }
+    } else {
+      if (!employeeId && !userEmail) {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
       const employee = await prisma.employee.findFirst({
-        where: { email: userEmail },
+        where: employeeId ? { id: employeeId } : { email: userEmail },
       });
       employees = employee ? [employee] : [];
-    } else {
-      employees = await prisma.employee.findMany();
     }
 
     // Format data for Excel

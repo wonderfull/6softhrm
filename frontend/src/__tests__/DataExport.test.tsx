@@ -46,7 +46,7 @@ describe('Data Export page', () => {
     ;(api.apiGet as any).mockResolvedValue([])
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:backup')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       blob: () => Promise.resolve(new Blob(['backup'], { type: 'application/zip' })),
     } as any)

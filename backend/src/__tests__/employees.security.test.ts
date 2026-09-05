@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import express from 'express';
-import request from 'supertest';
+import request from './helpers/http';
 import authRouter from '../routes/auth';
 import employeesRouter from '../routes/employees';
 import { testPrisma as prisma, signTestToken } from './helpers/tenantTest';

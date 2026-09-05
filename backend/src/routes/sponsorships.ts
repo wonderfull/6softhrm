@@ -17,12 +17,17 @@ import {
   addUtcDays,
   addWorkingDays,
 } from '../lib/workingDays'
-import { APPENDIX_D_KEYS, assessCompleteness, sponsorRetentionUntil } from '../lib/appendixD'
+import {
+  APPENDIX_D_KEYS,
+  assessCompleteness,
+  collectLatestEvidence,
+  isSponsoredRoute,
+  sponsorRetentionUntil,
+} from '../lib/appendixD'
 import { loadWorkingDayConfig } from '../lib/tenantSettings'
 import { getStorage, assertKeyInTenant } from '../lib/storage'
-import { scoreReadiness } from '../lib/auditReadiness'
+import { computeAuditReadiness } from '../lib/auditReadiness'
 import { guidanceSummary } from '../lib/guidanceVersion'
-import { assessPeriods } from '../lib/salaryReconciliation'
 
 const router = Router()
 
@@ -79,15 +84,9 @@ function buildPackIndex(pack: any, employee: any) {
 
 function buildCompliancePack(sponsorship: any) {
   const existingEvidence = sponsorship.complianceEvidence || []
-  const latestEvidenceByType = new Map<string, any>()
-
-  for (const evidence of existingEvidence) {
-    if (!latestEvidenceByType.has(evidence.evidenceType)) {
-      latestEvidenceByType.set(evidence.evidenceType, evidence)
-    }
-  }
-
-  const completeness = assessCompleteness(latestEvidenceByType)
+  const completeness = assessCompleteness(collectLatestEvidence(sponsorship), {
+    sponsored: isSponsoredRoute(sponsorship),
+  })
   const requiredEvidence = completeness.items
 
   return {
@@ -95,9 +94,13 @@ function buildCompliancePack(sponsorship: any) {
       id: sponsorship.id,
       visaType: sponsorship.visaType,
       sponsorLicenseNumber: sponsorship.sponsorLicenseNumber,
+      cosType: sponsorship.cosType,
+      cosAssignedDate: sponsorship.cosAssignedDate,
+      cosStartBy: sponsorship.cosStartBy,
       startDate: sponsorship.startDate,
       endDate: sponsorship.endDate,
       active: sponsorship.active,
+      sponsoredRoute: isSponsoredRoute(sponsorship),
     },
     employee: summarizeEmployee(sponsorship.employee),
     requiredEvidence,
@@ -144,7 +147,15 @@ async function findAuthorizedSponsorshipForCompliance(req: any, res: any, id: nu
   const sponsorship = await prisma.sponsorship.findFirst({
     where: { id },
     include: {
-      employee: true,
+      employee: {
+        include: {
+          rightToWorkChecks: {
+            orderBy: { checkDate: 'desc' },
+            take: 1,
+            include: { document: true },
+          },
+        },
+      },
       complianceEvidence: {
         include: { document: true },
         orderBy: { createdAt: 'desc' },
@@ -208,90 +219,8 @@ router.get('/', requireAuth, async (req: any, res) => {
 router.get('/audit-readiness', requireAuth, requireRole('ADMIN', 'DIRECTOR', 'OFFICE_ASSISTANT'), async (req: any, res) => {
   try {
     const now = new Date()
-    const in30Days = addUtcDays(now, 30)
-
-    // Scoring only needs evidence presence and verification, so the evidence
-    // documents themselves are deliberately not selected.
-    const sponsorships = await prisma.sponsorship.findMany({
-      where: { active: true },
-      include: {
-        complianceEvidence: {
-          select: { evidenceType: true, verifiedAt: true },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    })
-
-    const sponsoredEmployeeIds = sponsorships.map((s) => s.employeeId)
-    const withCosTerms = sponsorships.filter((s) => s.cosSalary || s.goingRateSalary)
-
-    // One query for every sponsored worker's pay, grouped in memory — this ran
-    // per sponsorship, so a 60-worker tenant issued 60 serial queries per load.
-    const payRecords = await prisma.payRecord.findMany({
-      where: { employeeId: { in: withCosTerms.map((s) => s.employeeId) } },
-    })
-    const payByEmployee = new Map<number, typeof payRecords>()
-    for (const record of payRecords) {
-      const list = payByEmployee.get(record.employeeId)
-      if (list) list.push(record)
-      else payByEmployee.set(record.employeeId, [record])
-    }
-
-    let completenessTotal = 0
-    let missingCosTerms = 0
-    let salaryFailures = 0
-
-    for (const sponsorship of sponsorships) {
-      const latestByType = new Map<string, any>()
-      for (const evidence of sponsorship.complianceEvidence) {
-        if (!latestByType.has(evidence.evidenceType)) latestByType.set(evidence.evidenceType, evidence)
-      }
-      completenessTotal += assessCompleteness(latestByType).percentage
-
-      if (!sponsorship.cosSalary && !sponsorship.goingRateSalary) {
-        missingCosTerms += 1
-        continue
-      }
-      salaryFailures += assessPeriods(payByEmployee.get(sponsorship.employeeId) ?? [], {
-        cosSalary: sponsorship.cosSalary,
-        goingRateSalary: sponsorship.goingRateSalary,
-      }).filter((a) => !a.compliant).length
-    }
-
-    const [openEvents, overdueEvents, expiringVisas, unknownAbsences] = await Promise.all([
-      prisma.sponsorshipReportableEvent.count({ where: { status: 'OPEN' } }),
-      prisma.sponsorshipReportableEvent.count({
-        where: { status: 'OPEN', dueDate: { lt: now } },
-      }),
-      prisma.employee.count({
-        where: {
-          id: { in: sponsoredEmployeeIds },
-          visaExpiryDate: { gte: now, lte: in30Days },
-        },
-      }),
-      prisma.absenceRecord.count({ where: { status: 'UNKNOWN' } }),
-    ])
-
-    const report = scoreReadiness({
-      evidenceCompleteness: sponsorships.length
-        ? completenessTotal / sponsorships.length
-        : 100,
-      overdueEvents,
-      // Overdue events are already penalised far more heavily; don't count twice.
-      openEvents: Math.max(0, openEvents - overdueEvents),
-      expiringDocuments: expiringVisas,
-      unresolvedAbsenceFlags: unknownAbsences,
-      salaryFailures,
-      sponsorshipsMissingCosTerms: missingCosTerms,
-      activeSponsorships: sponsorships.length,
-    })
-
-    res.json({
-      ...report,
-      activeSponsorships: sponsorships.length,
-      generatedAt: now,
-      guidance: guidanceSummary(),
-    })
+    const report = await computeAuditReadiness(now)
+    res.json({ ...report, generatedAt: now, guidance: guidanceSummary() })
   } catch (e: any) {
     res.status(500).json({ error: e.message })
   }
@@ -622,6 +551,50 @@ router.get('/:id', requireAuth, async (req: any, res) => {
 })
 
 // Create sponsorship
+const COS_TYPES = new Set(['DEFINED', 'UNDEFINED'])
+
+// A CoS must be used within three months of assignment or it lapses.
+function defaultCosStartBy(assigned: Date) {
+  const out = new Date(assigned)
+  out.setUTCMonth(out.getUTCMonth() + 3)
+  return out
+}
+
+// Certificate-of-Sponsorship fields from a form body. Returns a 400 message
+// or the parsed fields; `cosStartBy` is filled from the assignment date when
+// the caller leaves it blank.
+function parseCosFields(body: any): { error?: string; data: any } {
+  const data: any = {}
+  if (body.cosType !== undefined) {
+    if (body.cosType === null || body.cosType === '') data.cosType = null
+    else if (!COS_TYPES.has(body.cosType)) return { error: 'cosType must be DEFINED or UNDEFINED', data }
+    else data.cosType = body.cosType
+  }
+  for (const field of ['cosAssignedDate', 'cosStartBy']) {
+    if (body[field] === undefined) continue
+    if (body[field] === null || body[field] === '') {
+      data[field] = null
+      continue
+    }
+    const date = parseRequiredDate(body[field])
+    if (!date) return { error: `${field} must be a valid date`, data }
+    data[field] = date
+  }
+  if (body.iscAmount !== undefined) {
+    data.iscAmount = body.iscAmount === null || body.iscAmount === '' ? null : Number(body.iscAmount)
+    if (Number.isNaN(data.iscAmount)) return { error: 'iscAmount must be a number', data }
+  }
+  if (data.cosAssignedDate && !data.cosStartBy) {
+    data.cosStartBy = defaultCosStartBy(data.cosAssignedDate)
+  }
+  return { data }
+}
+
+async function defaultLicenceNumber() {
+  const licence = await prisma.sponsorLicence.findFirst({ select: { licenceNumber: true } })
+  return licence?.licenceNumber ?? undefined
+}
+
 router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
   const {
     employeeId,
@@ -640,6 +613,8 @@ router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any,
   } = req.body
   if (!employeeId || !visaType || !startDate) return res.status(400).json({ error: 'missing fields' })
   const num = (value: unknown) => (value === undefined || value === null || value === '' ? undefined : Number(value))
+  const cos = parseCosFields(req.body)
+  if (cos.error) return res.status(400).json({ error: cos.error })
   try {
     const s = await prisma.sponsorship.create({
       data: {
@@ -647,7 +622,7 @@ router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any,
         employeeId,
         visaType,
         casNumber,
-        sponsorLicenseNumber,
+        sponsorLicenseNumber: sponsorLicenseNumber || (await defaultLicenceNumber()),
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : undefined,
         complianceNotes,
@@ -657,6 +632,7 @@ router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any,
         cosWeeklyHours: num(cosWeeklyHours),
         workLocation,
         goingRateSalary: num(goingRateSalary),
+        ...cos.data,
       },
     })
     await auditLog(req, 'CREATE', 'Sponsorship', s.id, {
@@ -674,17 +650,43 @@ router.post('/', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any,
 router.put('/:id', requireAuth, requireRole('ADMIN', 'DIRECTOR'), async (req: any, res) => {
   const id = Number(req.params.id)
   try {
-    const { startDate, endDate, ...rest } = req.body
-    const data: any = { ...rest }
+    const { startDate, endDate } = req.body
+    // Explicit pick-list: spreading the body would let a caller move the
+    // record to another employee or tenant.
+    const data: any = {}
+    for (const field of [
+      'employeeId',
+      'visaType',
+      'casNumber',
+      'sponsorLicenseNumber',
+      'complianceNotes',
+      'socCode',
+      'jobTitleOnCos',
+      'workLocation',
+      'active',
+    ]) {
+      if (req.body[field] !== undefined) data[field] = req.body[field]
+    }
     if (startDate) data.startDate = new Date(startDate)
     if (endDate !== undefined) data.endDate = endDate ? new Date(endDate) : null
     // Numeric CoS fields arrive as strings from a form post.
     for (const field of ['cosSalary', 'cosWeeklyHours', 'goingRateSalary']) {
-      if (data[field] !== undefined) {
-        data[field] = data[field] === null || data[field] === '' ? null : Number(data[field])
+      if (req.body[field] !== undefined) {
+        data[field] = req.body[field] === null || req.body[field] === '' ? null : Number(req.body[field])
       }
     }
-    
+    if (data.employeeId !== undefined) {
+      data.employeeId = Number(data.employeeId)
+      const target = await prisma.employee.findFirst({ where: { id: data.employeeId } })
+      if (!target) return res.status(400).json({ error: 'employee not found' })
+    }
+    const cos = parseCosFields(req.body)
+    if (cos.error) return res.status(400).json({ error: cos.error })
+    Object.assign(data, cos.data)
+    if (data.sponsorLicenseNumber === '' || data.sponsorLicenseNumber === null) {
+      data.sponsorLicenseNumber = (await defaultLicenceNumber()) ?? null
+    }
+
     const updated = await prisma.sponsorship.updateMany({ where: { id }, data })
     if (updated.count === 0)
       return res.status(404).json({ error: 'Sponsorship not found' })

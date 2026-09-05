@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import request from 'supertest';
+import request from './helpers/http';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import app from '../app';

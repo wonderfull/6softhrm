@@ -39,6 +39,16 @@ model Tenant {
   documents          Document[]
   auditLogs          AuditLog[]
   dataConsents       DataConsent[]
+  rightToWorkChecks  RightToWorkCheck[]
+  sponsorLicence     SponsorLicence?
+  notifications      Notification[]
+  performanceReviews PerformanceReview[]
+  checklistItems     ChecklistItem[]
+  documentTemplates  DocumentTemplate[]
+  acknowledgements   DocumentAcknowledgement[]
+  expenseClaims      ExpenseClaim[]
+  trainingRecords    TrainingRecord[]
+  caseRecords        CaseRecord[]
 }
 
 model TenantSettings {
@@ -49,8 +59,37 @@ model TenantSettings {
   defaultLeaveDays  Float   @default(28) // UK statutory minimum incl. bank holidays
   bankHolidayRegion String  @default("england-and-wales") // | scotland | northern-ireland
   workingDays       String  @default("1,2,3,4,5") // ISO weekday numbers
-  sponsorLicenceNo  String?
+  // Days an employee may carry into the next leave year. 0 = no carryover;
+  // an employee-level override still wins over this cap.
+  carryoverCapDays  Float   @default(0)
   companyAddress    String?
+}
+
+// Sponsor licence details (one per tenant). Separate from TenantSettings so
+// calendar/leave config and Home Office compliance state do not share a row.
+// Level 1/2 user lists mirror the SMS user list — names and emails only.
+model SponsorLicence {
+  id                      Int       @id @default(autoincrement())
+  tenant                  Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId                Int       @unique
+  licenceNumber           String?
+  rating                  String    @default("A") // A | B
+  expiryDate              DateTime?
+  authorisingOfficer      String?
+  authorisingOfficerEmail String?
+  keyContact              String?
+  keyContactEmail         String?
+  level1Users             Json? // [{ name, email }]
+  level2Users             Json?
+  cosDefinedAllocated     Int       @default(0)
+  cosUndefinedAllocated   Int       @default(0)
+  allocationYearStart     DateTime? // start of the current CoS allocation year
+  // A B-rating comes with a time-limited action plan; missing its deadline
+  // means licence revocation, so the dates are first-class and alerted on.
+  actionPlanIssuedAt      DateTime?
+  actionPlanDueAt         DateTime?
+  actionPlanNotes         String?   @db.Text
+  updatedAt               DateTime  @updatedAt
 }
 
 // Platform operators (us) — deliberately a separate table, not a tenant role,
@@ -83,6 +122,7 @@ model User {
   employee      Employee?      @relation(fields: [employeeId], references: [id])
   createdAt     DateTime       @default(now())
   googleAccount GoogleAccount?
+  notifications Notification[]
 
   @@index([tenantId])
 }
@@ -147,21 +187,80 @@ model Employee {
   visaNumber             String?
   visaExpiryDate         DateTime?
 
+  // DBS (Disclosure and Barring Service) — for roles that require one.
+  dbsLevel             String? // BASIC | STANDARD | ENHANCED | ENHANCED_BARRED
+  dbsCertificateNumber String?   @db.Text // encrypted at rest
+  dbsIssueDate         DateTime?
+  dbsRecheckDate       DateTime?
+
+  // Data retention. retainUntil is set when employment ends (see
+  // lib/retention.ts); the nightly sweep anonymises the row once it passes.
+  retainUntil  DateTime?
+  anonymisedAt DateTime?
+
+  // Profile photo, stored through lib/storage like every other upload.
+  photoPath String?
+
+  // Reporting line. A manager approves their own reports' leave without
+  // needing an elevated role; SetNull so removing a manager never orphans
+  // the people who reported to them.
+  managerId Int?
+
+  // Per-employee overrides for the tenant leave policy. Null falls back to
+  // TenantSettings.
+  leaveAllowanceDays   Float?
+  leaveCarriedOverDays Float?
+
   // Emergency Contact Information
   emergencyContactName     String?
   emergencyContactPhone    String?
   emergencyContactRelation String?
   emergencyContactAddress  String?
 
-  user          User?
-  sponsorships  Sponsorship[]
-  documents     Document[]
-  timesheets    Timesheet[]
-  leaveRequests LeaveRequest[]
-  absences      AbsenceRecord[]
-  payRecords    PayRecord[]
+  manager           Employee?                 @relation("ReportingLine", fields: [managerId], references: [id], onDelete: SetNull)
+  reports           Employee[]                @relation("ReportingLine")
+  user              User?
+  sponsorships      Sponsorship[]
+  documents         Document[]
+  timesheets        Timesheet[]
+  leaveRequests     LeaveRequest[]
+  absences          AbsenceRecord[]
+  payRecords        PayRecord[]
+  rightToWorkChecks RightToWorkCheck[]
+  reviews           PerformanceReview[]       @relation("ReviewSubject")
+  reviewsGiven      PerformanceReview[]       @relation("Reviewer")
+  checklistItems    ChecklistItem[]
+  acknowledgements  DocumentAcknowledgement[]
+  expenseClaims     ExpenseClaim[]
+  trainingRecords   TrainingRecord[]
+  caseRecords       CaseRecord[]
 
   @@unique([tenantId, email])
+  @@index([tenantId, managerId])
+}
+
+// Every right-to-work check ever performed, not just the latest: the statutory
+// excuse depends on being able to show the check that was done at the time.
+// The most recent row per employee drives recheck reminders.
+model RightToWorkCheck {
+  id          Int       @id @default(autoincrement())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    Int
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId  Int
+  checkDate   DateTime
+  method      String // MANUAL | IDVT | HOME_OFFICE_ONLINE
+  shareCode   String?   @db.Text // encrypted at rest
+  outcome     String    @default("PASS") // PASS | FAIL
+  timeLimited Boolean   @default(false)
+  recheckDue  DateTime?
+  document    Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentId  Int?
+  checkedBy   Int? // User id
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, employeeId, checkDate])
 }
 
 model Sponsorship {
@@ -182,6 +281,13 @@ model Sponsorship {
   // from a vendored rate table, which moves with every guidance revision.
   goingRateSalary      Float?
   workLocation         String?
+  // Certificate of Sponsorship lifecycle: defined (overseas) or undefined
+  // (in-country) allocation, when it was assigned, and the date the worker
+  // must have started by (a CoS lapses three months after assignment).
+  cosType              String? // DEFINED | UNDEFINED
+  cosAssignedDate      DateTime?
+  cosStartBy           DateTime?
+  iscAmount            Float? // Immigration Skills Charge paid
   startDate            DateTime
   endDate              DateTime?
   complianceNotes      String?
@@ -257,18 +363,27 @@ model Timesheet {
 }
 
 model LeaveRequest {
-  id         Int      @id @default(autoincrement())
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tenantId   Int
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  employeeId Int
-  type       String
-  startDate  DateTime
-  endDate    DateTime
-  status     String   @default("PENDING")
-  reason     String?
+  id           Int       @id @default(autoincrement())
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId     Int
+  employee     Employee  @relation(fields: [employeeId], references: [id])
+  employeeId   Int
+  type         String
+  startDate    DateTime
+  endDate      DateTime
+  // Working days the request consumes, counted against the tenant's calendar
+  // when it is raised so history survives a later calendar change. Legacy
+  // rows carry 0 and are counted on the fly.
+  days         Float     @default(0)
+  status       String    @default("PENDING")
+  reason       String?
+  createdAt    DateTime  @default(now())
+  decidedAt    DateTime?
+  decidedBy    String?
+  decisionNote String?
 
   @@index([tenantId])
+  @@index([tenantId, employeeId, startDate])
 }
 
 // One row per employee per calendar day, only for days that are not plain
@@ -325,7 +440,14 @@ model Document {
   type                          String? // Document type (e.g., CONTRACT, PASSPORT, etc.)
   expiryDate                    DateTime? // Optional expiry date for documents
   uploadedAt                    DateTime                        @default(now())
+  // Contracts and policies the employee has to confirm they have read. This
+  // is an acknowledgement, not a qualified electronic signature.
+  requiresAcknowledgement       Boolean                         @default(false)
   sponsorshipComplianceEvidence SponsorshipComplianceEvidence[]
+  rightToWorkChecks             RightToWorkCheck[]
+  acknowledgements              DocumentAcknowledgement[]
+  expenseClaims                 ExpenseClaim[]
+  trainingRecords               TrainingRecord[]
 
   @@index([tenantId])
 }
@@ -334,8 +456,11 @@ model GoogleAccount {
   id           Int       @id @default(autoincrement())
   user         User      @relation(fields: [userId], references: [id])
   userId       Int       @unique
-  refreshToken String
-  accessToken  String?
+  // Long-lived Google credentials. Encrypted at rest by field name like every
+  // other secret column — a refresh token is a standing grant on someone's
+  // calendar and Drive, so it must not sit in the database in the clear.
+  refreshToken String    @db.Text
+  accessToken  String?   @db.Text
   scope        String?
   expiry       DateTime?
   createdAt    DateTime  @default(now())
@@ -376,4 +501,159 @@ model DataConsent {
   updatedAt     DateTime  @updatedAt
 
   @@index([tenantId])
+}
+
+// In-app inbox. Written by lib/notify.ts alongside (not instead of) email so
+// a user who ignores email still sees the leave decision, expiry or approval
+// request in the bell. Rows are per user; the tenant column keeps the sweep
+// and the inbox query scoped.
+model Notification {
+  id        Int       @id @default(autoincrement())
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId  Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  type      String // LEAVE_REQUEST, LEAVE_DECISION, EXPIRY, ...
+  title     String
+  body      String?   @db.Text
+  link      String? // in-app path, e.g. /leave
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([tenantId, userId, readAt])
+}
+
+// --- Phase 5: the rest of the HR file --------------------------------------
+// Each of these is deliberately small. They exist so the work is recorded and
+// findable at audit, not to be a workflow engine.
+
+model PerformanceReview {
+  id          Int       @id @default(autoincrement())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    Int
+  employee    Employee  @relation("ReviewSubject", fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId  Int
+  reviewer    Employee? @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewerId  Int?
+  type        String // PROBATION | ANNUAL | MID_YEAR
+  dueDate     DateTime
+  completedAt DateTime?
+  rating      String? // e.g. EXCEEDS | MEETS | BELOW
+  summary     String?   @db.Text
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, dueDate])
+}
+
+model ChecklistItem {
+  id          Int       @id @default(autoincrement())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    Int
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId  Int
+  kind        String // ONBOARDING | OFFBOARDING
+  /// Matches a key in lib/checklists.ts when the item performs an action.
+  actionKey   String?
+  title       String
+  dueDate     DateTime?
+  completedAt DateTime?
+  completedBy String?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, employeeId, kind])
+}
+
+model DocumentTemplate {
+  id                      Int      @id @default(autoincrement())
+  tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId                Int
+  name                    String
+  /// Document type generated documents are filed under, e.g. CONTRACT.
+  documentType            String   @default("CONTRACT")
+  /// HTML with {{firstName}}-style placeholders.
+  body                    String   @db.Text
+  requiresAcknowledgement Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model DocumentAcknowledgement {
+  id             Int      @id @default(autoincrement())
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId       Int
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId     Int
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId     Int
+  /// What the person typed as their name — the whole of the "signature".
+  typedName      String
+  ip             String?
+  userAgent      String?  @db.Text
+  acknowledgedAt DateTime @default(now())
+
+  @@unique([documentId, employeeId])
+  @@index([tenantId, employeeId])
+}
+
+model ExpenseClaim {
+  id                Int       @id @default(autoincrement())
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId          Int
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId        Int
+  date              DateTime
+  category          String // TRAVEL | SUBSISTENCE | EQUIPMENT | TRAINING | OTHER
+  amount            Float
+  description       String?   @db.Text
+  receipt           Document? @relation(fields: [receiptDocumentId], references: [id], onDelete: SetNull)
+  receiptDocumentId Int?
+  status            String    @default("PENDING") // PENDING | APPROVED | REJECTED | PAID
+  decidedBy         String?
+  decidedAt         DateTime?
+  decisionNote      String?
+  createdAt         DateTime  @default(now())
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, status])
+}
+
+model TrainingRecord {
+  id                    Int       @id @default(autoincrement())
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId              Int
+  employee              Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId            Int
+  title                 String
+  provider              String?
+  completedAt           DateTime
+  /// Feeds the nightly expiry sweep, so a lapsed certificate is chased.
+  expiresAt             DateTime?
+  certificate           Document? @relation(fields: [certificateDocumentId], references: [id], onDelete: SetNull)
+  certificateDocumentId Int?
+  createdAt             DateTime  @default(now())
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, expiresAt])
+}
+
+model CaseRecord {
+  id         Int       @id @default(autoincrement())
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId   Int
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId Int
+  type       String // DISCIPLINARY | GRIEVANCE | CAPABILITY
+  openedAt   DateTime
+  closedAt   DateTime?
+  stage      String // INFORMAL | INVESTIGATION | HEARING | APPEAL | CLOSED
+  outcome    String?
+  notes      String?   @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([tenantId, employeeId])
 }

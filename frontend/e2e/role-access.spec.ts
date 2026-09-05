@@ -5,7 +5,7 @@ import { E2E_EMPLOYEE_EMAIL, E2E_EMPLOYEE_PASSWORD, E2E_MANAGER_EMAIL, E2E_MANAG
 test('manager is redirected away from admin-only routes', async ({ page }) => {
   await loginAs(page, E2E_MANAGER_EMAIL, E2E_MANAGER_PASSWORD)
 
-  await page.goto('/users')
+  await page.goto('/settings')
   await expect(page).toHaveURL(/\/dashboard$/)
 
   await page.goto('/audit-logs')
@@ -15,8 +15,11 @@ test('manager is redirected away from admin-only routes', async ({ page }) => {
   await expect(page).toHaveURL(/\/dashboard$/)
 })
 
-test('employee is redirected away from the user management route', async ({ page }) => {
+test('employee is redirected away from the admin routes', async ({ page }) => {
   await loginAs(page, E2E_EMPLOYEE_EMAIL, E2E_EMPLOYEE_PASSWORD)
-  await page.goto('/users')
+  await page.goto('/settings')
+  await expect(page).toHaveURL(/\/dashboard$/)
+
+  await page.goto('/reports')
   await expect(page).toHaveURL(/\/dashboard$/)
 })

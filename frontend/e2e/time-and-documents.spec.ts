@@ -16,9 +16,19 @@ test('monthly timesheet view shows monthly summary state', async ({ page }) => {
 test('admin can upload a near-expiry document and see the expiry warning', async ({ page }) => {
   const documentName = `BDD Near Expiry Document ${Date.now()}`
   await loginAs(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD)
-  await page.goto('/documents')
 
-  await expect.poll(async () => page.locator('#document-employee option').count()).toBeGreaterThan(1)
+  // Polling the option count for 10s made this the first test to fail
+  // whenever the machine was busy, and an empty dropdown reads exactly like
+  // "no employees exist". Wait for the response that fills it instead.
+  const employees = page.waitForResponse(
+    (r) => r.url().includes('/api/employees') && r.status() === 200,
+  )
+  await page.goto('/documents')
+  await employees
+
+  await expect
+    .poll(async () => page.locator('#document-employee option').count())
+    .toBeGreaterThan(1)
   await page.locator('#document-employee').selectOption({ index: 1 })
   await page.getByLabel(/Document Name/i).fill(documentName)
   await page.getByLabel(/Document Type/i).selectOption('CONTRACT')

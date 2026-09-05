@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
-import request from 'supertest';
+import request from './helpers/http';
 import express from 'express';
 import * as XLSX from 'xlsx';
 import gdprRouter from '../routes/gdpr';

@@ -31,7 +31,14 @@ test('employee can submit leave and manager can approve it', async ({ browser })
   const requestCard = managerPage.locator('[class*="p-4"]').filter({ hasText: reason }).first()
   await expect(requestCard.getByRole('button', { name: 'Approve' })).toBeVisible()
   await requestCard.getByRole('button', { name: 'Approve' }).click()
-  await expect(requestCard.getByText('APPROVED')).toBeVisible()
+
+  // The decision is recorded with an optional note, so it is confirmed in a
+  // dialog rather than taken on the first click.
+  const dialog = managerPage.getByRole('dialog')
+  await dialog.getByLabel(/note/i).fill('Approved in the E2E walkthrough')
+  await dialog.getByRole('button', { name: 'Approve' }).click()
+
+  await expect(requestCard.getByText('APPROVED', { exact: true })).toBeVisible()
 
   await managerContext.close()
 })

@@ -3,8 +3,6 @@ import Card from '../components/Card';
 import { apiGet, getCurrentUser, hasRole } from '../lib/api';
 import { Link } from 'react-router-dom';
 
-const ANNUAL_LEAVE_ALLOWANCE_DAYS = 28;
-
 function formatDashboardDate(date = new Date()) {
   return date.toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -14,24 +12,8 @@ function formatDashboardDate(date = new Date()) {
   });
 }
 
-function dayCountInclusive(startDate: string, endDate: string) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const millisecondsPerDay = 1000 * 60 * 60 * 24;
-  return Math.max(
-    1,
-    Math.floor((end.getTime() - start.getTime()) / millisecondsPerDay) + 1,
-  );
-}
-
 function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-function isAnnualLeave(leave: any) {
-  return String(leave.type || '')
-    .toLowerCase()
-    .includes('annual');
 }
 
 function calculateMonthlyOvertime(timesheets: any[], now = new Date()) {
@@ -81,14 +63,49 @@ export default function Dashboard() {
     'leave',
   );
   const [readiness, setReadiness] = React.useState<any>(null);
+  const [balance, setBalance] = React.useState<any>(null);
+  const [summary, setSummary] = React.useState<any>(null);
 
   const user = getCurrentUser();
   const isAdmin = hasRole(user, 'ADMIN');
+  const isElevated = hasRole(user, 'ADMIN', 'DIRECTOR');
   const linkedEmployeeId = user?.employeeId ? Number(user.employeeId) : null;
   const hasEmployeeProfile = linkedEmployeeId !== null;
   const today = formatDashboardDate();
 
   React.useEffect(() => {
+    // Elevated users read the organisation-wide numbers from the reporting
+    // endpoint rather than counting four collections client-side. Leave and
+    // timesheets are still fetched, but only for their own summary card.
+    if (isElevated) {
+      Promise.all([
+        apiGet('/reports/summary').catch(() => null),
+        apiGet('/documents/expiring').catch(() => []),
+        apiGet('/sponsorships/expiring').catch(() => []),
+        hasEmployeeProfile
+          ? apiGet('/leave').catch(() => [])
+          : Promise.resolve([]),
+        hasEmployeeProfile
+          ? apiGet('/timesheets').catch(() => [])
+          : Promise.resolve([]),
+      ]).then(
+        ([
+          reportSummary,
+          expiringDocs,
+          expiringSponsorships,
+          leave,
+          timesheets,
+        ]) => {
+          setSummary(reportSummary);
+          setExpiringDocs(expiringDocs);
+          setExpiringSponsorships(expiringSponsorships);
+          setLeaveRequests(leave);
+          setTimesheets(timesheets);
+        },
+      );
+      return;
+    }
+
     // Load dashboard statistics
     Promise.all([
       apiGet('/employees').catch(() => []),
@@ -120,7 +137,7 @@ export default function Dashboard() {
         setExpiringSponsorships(expiringSponsorships);
       },
     );
-  }, []);
+  }, [isElevated, hasEmployeeProfile]);
 
   React.useEffect(() => {
     // Compliance is a paid feature; a 403 here simply means no tile.
@@ -129,6 +146,13 @@ export default function Dashboard() {
       .then(setReadiness)
       .catch(() => setReadiness(null));
   }, [isAdmin]);
+
+  React.useEffect(() => {
+    if (!hasEmployeeProfile) return;
+    apiGet('/leave/balance')
+      .then((r) => setBalance(typeof r?.remaining === 'number' ? r : null))
+      .catch(() => setBalance(null));
+  }, [hasEmployeeProfile]);
 
   const ownLeaveRequests = hasEmployeeProfile
     ? leaveRequests.filter(
@@ -141,16 +165,20 @@ export default function Dashboard() {
       )
     : [];
 
-  const approvedAnnualLeaveDays = ownLeaveRequests
-    .filter((leave) => leave.status === 'APPROVED' && isAnnualLeave(leave))
-    .reduce(
-      (sum, leave) => sum + dayCountInclusive(leave.startDate, leave.endDate),
-      0,
-    );
-  const remainingAnnualLeaveDays = Math.max(
-    0,
-    ANNUAL_LEAVE_ALLOWANCE_DAYS - approvedAnnualLeaveDays,
-  );
+  // Entitlement is the allowance actually available this leave year: the
+  // prorated allowance plus anything carried over from last year.
+  const leaveEntitlement = balance ? balance.prorated + balance.carriedOver : 0;
+  const leaveAllowanceLabel = balance
+    ? [
+        `${formatNumber(leaveEntitlement)} days allowance`,
+        balance.carriedOver
+          ? `${formatNumber(balance.carriedOver)} carried over`
+          : null,
+        balance.leaveYear?.label,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
   const pendingLeaveCount = ownLeaveRequests.filter(
     (leave) => leave.status === 'PENDING',
   ).length;
@@ -182,7 +210,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-{/* Audit readiness — the number a director checks weekly. Home Office
+      {/* Audit readiness — the number a director checks weekly. Home Office
           visits can be unannounced, so readiness is the product, not records. */}
       {readiness && typeof readiness.score === 'number' && readiness.band && (
         <div className="mb-8">
@@ -253,46 +281,133 @@ export default function Dashboard() {
 
       {/* Statistics Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-blue-100 text-sm mb-1">Total Employees</div>
-              <div className="text-4xl font-bold">{stats.totalEmployees}</div>
-            </div>
-            <div className="text-5xl opacity-20">👥</div>
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-purple-100 text-sm mb-1">
-                Active Projects
+        {isElevated ? (
+          <>
+            <Link
+              to="/reports"
+              className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-blue-100 text-sm mb-1">
+                    Active Headcount
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {summary?.headcount?.active ?? 0}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">👥</div>
               </div>
-              <div className="text-4xl font-bold">{stats.totalProjects}</div>
+            </Link>
+            <Link
+              to="/reports"
+              className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-purple-100 text-sm mb-1">
+                    Starters / Leavers
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {summary?.headcount?.starters30d ?? 0} /{' '}
+                    {summary?.headcount?.leavers30d ?? 0}
+                  </div>
+                  <div className="text-purple-100 text-xs mt-1">
+                    Last 30 days
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">📊</div>
+              </div>
+            </Link>
+            <Link
+              to="/reports"
+              className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-green-100 text-sm mb-1">
+                    Hours This Month
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {formatNumber(summary?.timesheets?.hours ?? 0)}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">⏱</div>
+              </div>
+            </Link>
+            <Link
+              to="/reports"
+              className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-orange-100 text-sm mb-1">
+                    Pending Leave
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {summary?.leave?.pending ?? 0}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20 flex-shrink-0" aria-hidden>
+                  🗓
+                </div>
+              </div>
+            </Link>
+          </>
+        ) : (
+          <>
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-blue-100 text-sm mb-1">
+                    Total Employees
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {stats.totalEmployees}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">👥</div>
+              </div>
             </div>
-            <div className="text-5xl opacity-20">📊</div>
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-green-100 text-sm mb-1">Documents</div>
-              <div className="text-4xl font-bold">{stats.totalDocuments}</div>
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-purple-100 text-sm mb-1">
+                    Active Projects
+                  </div>
+                  <div className="text-4xl font-bold">
+                    {stats.totalProjects}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">📊</div>
+              </div>
             </div>
-            <div className="text-5xl opacity-20">📁</div>
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="text-orange-100 text-sm mb-1">Pending Leave</div>
-              <div className="text-4xl font-bold">{stats.pendingLeave}</div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-green-100 text-sm mb-1">Documents</div>
+                  <div className="text-4xl font-bold">
+                    {stats.totalDocuments}
+                  </div>
+                </div>
+                <div className="text-5xl opacity-20">📁</div>
+              </div>
             </div>
-            <div className="text-5xl opacity-20 flex-shrink-0" aria-hidden>
-              🗓
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-orange-100 text-sm mb-1">
+                    Pending Leave
+                  </div>
+                  <div className="text-4xl font-bold">{stats.pendingLeave}</div>
+                </div>
+                <div className="text-5xl opacity-20 flex-shrink-0" aria-hidden>
+                  🗓
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {hasEmployeeProfile && (
@@ -331,21 +446,23 @@ export default function Dashboard() {
                   Annual leave
                 </div>
                 <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {remainingAnnualLeaveDays} days remaining
+                  {balance
+                    ? `${formatNumber(balance.remaining)} days remaining`
+                    : 'Balance unavailable'}
                 </div>
                 <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  {approvedAnnualLeaveDays} days approved
+                  {balance ? `${formatNumber(balance.used)} days approved` : ''}
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-blue-100 dark:bg-blue-950">
                   <div
                     className="h-2 rounded-full bg-blue-600"
                     style={{
-                      width: `${Math.min(100, (remainingAnnualLeaveDays / ANNUAL_LEAVE_ALLOWANCE_DAYS) * 100)}%`,
+                      width: `${leaveEntitlement > 0 ? Math.min(100, (balance.remaining / leaveEntitlement) * 100) : 0}%`,
                     }}
                   />
                 </div>
                 <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  {ANNUAL_LEAVE_ALLOWANCE_DAYS} days allowance
+                  {leaveAllowanceLabel}
                 </div>
               </div>
               <div className="rounded-lg bg-orange-50 p-4 dark:bg-orange-900/20">

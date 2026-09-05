@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import express from 'express';
-import request from 'supertest';
+import request from './helpers/http';
 import app from '../app';
 
 // The rate limiters key on req.ip. With `trust proxy: true` Express takes the

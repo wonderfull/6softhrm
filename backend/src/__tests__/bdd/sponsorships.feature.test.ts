@@ -1,5 +1,5 @@
 import path from 'path'
-import request from 'supertest'
+import request from '../helpers/http';
 import { afterEach, beforeEach, expect } from '@jest/globals'
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'

@@ -2,6 +2,8 @@ import { Router } from 'express'
 import prisma from '../prismaClient'
 import { currentTenantId } from '../lib/tenantContext'
 import { requireAuth } from '../middleware/auth'
+import { requireRole } from '../middleware/roles'
+import { auditLog } from '../middleware/audit'
 import fs from 'fs/promises'
 import path from 'path'
 import bcrypt from 'bcryptjs'
@@ -26,14 +28,8 @@ async function restoreRow(model: any, row: any): Promise<boolean> {
 const router = Router()
 
 // Backup database - exports all data to JSON
-router.get('/backup', requireAuth, async (req: any, res) => {
+router.get('/backup', requireAuth, requireRole('ADMIN'), async (req: any, res) => {
   try {
-    // Check if user is admin
-    const userRole = req.user?.role || 'USER'
-    if (userRole !== 'ADMIN') {
-      return res.status(403).json({ error: 'Admin access required' })
-    }
-
     // Export all tables
     const [users, employees, projects, documents, timesheets, leaveRequests, sponsorships] = await Promise.all([
       prisma.user.findMany(),
@@ -61,6 +57,10 @@ router.get('/backup', requireAuth, async (req: any, res) => {
 
     const filename = `onsidehr-backup-${new Date().toISOString().split('T')[0]}.json`
     
+    await auditLog(req, 'BACKUP_EXPORT', 'System', undefined, {
+      employees: employees.length,
+      users: users.length,
+    })
     res.setHeader('Content-Type', 'application/json')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     res.json(backup)
@@ -71,14 +71,8 @@ router.get('/backup', requireAuth, async (req: any, res) => {
 })
 
 // Seed sample data (employees, projects, timesheets, leave, sponsorships)
-router.post('/seed-data', requireAuth, async (req: any, res) => {
+router.post('/seed-data', requireAuth, requireRole('ADMIN'), async (req: any, res) => {
   try {
-    // Check if user is admin
-    const userRole = req.user?.role || 'USER'
-    if (userRole !== 'ADMIN') {
-      return res.status(403).json({ error: 'Admin access required' })
-    }
-
     const results = {
       employees: 0,
       projects: 0,
@@ -209,8 +203,8 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
     // Create sample leave requests
     console.log('[SEED] Creating leave requests...')
     const leaveRequests = [
-      { employeeId: (empRecords[0] as Employee).id, type: 'Annual Leave', startDate: new Date('2025-12-23'), endDate: new Date('2025-12-27'), status: 'PENDING', reason: 'Christmas holiday' },
-      { employeeId: (empRecords[1] as Employee).id, type: 'Sick Leave', startDate: new Date('2025-11-10'), endDate: new Date('2025-11-11'), status: 'APPROVED', reason: 'Flu' }
+      { employeeId: (empRecords[0] as Employee).id, type: 'ANNUAL', startDate: new Date('2025-12-23'), endDate: new Date('2025-12-27'), status: 'PENDING', reason: 'Christmas holiday' },
+      { employeeId: (empRecords[1] as Employee).id, type: 'SICK', startDate: new Date('2025-11-10'), endDate: new Date('2025-11-11'), status: 'APPROVED', reason: 'Flu' }
     ]
 
     for (const lr of leaveRequests) {
@@ -251,6 +245,7 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
     console.log(`[SEED] Sponsorships created: ${results.sponsorships}`)
     console.log(`[SEED] Final results:`, results)
 
+    await auditLog(req, 'SEED_DATA', 'System', undefined, results)
     res.json({ 
       message: 'Sample data seeded successfully', 
       results,
@@ -263,14 +258,8 @@ router.post('/seed-data', requireAuth, async (req: any, res) => {
 })
 
 // Clear all data EXCEPT users (dangerous!)
-router.post('/clear-data', requireAuth, async (req: any, res) => {
+router.post('/clear-data', requireAuth, requireRole('ADMIN'), async (req: any, res) => {
   try {
-    // Check if user is admin
-    const userRole = req.user?.role || 'USER'
-    if (userRole !== 'ADMIN') {
-      return res.status(403).json({ error: 'Admin access required' })
-    }
-
     const results = {
       timesheets: 0,
       leaveRequests: 0,
@@ -305,6 +294,7 @@ router.post('/clear-data', requireAuth, async (req: any, res) => {
     const deletedProjects = await prisma.project.deleteMany({})
     results.projects = deletedProjects.count
 
+    await auditLog(req, 'CLEAR_DATA', 'System', undefined, results)
     res.json({ 
       message: 'All data cleared (users preserved)', 
       results 
@@ -316,14 +306,8 @@ router.post('/clear-data', requireAuth, async (req: any, res) => {
 })
 
 // Restore database from JSON backup
-router.post('/restore', requireAuth, async (req: any, res) => {
+router.post('/restore', requireAuth, requireRole('ADMIN'), async (req: any, res) => {
   try {
-    // Check if user is admin
-    const userRole = req.user?.role || 'ADMIN'
-    if (userRole !== 'ADMIN') {
-      return res.status(403).json({ error: 'Admin access required' })
-    }
-
     const { data } = req.body
     
     if (!data) {
@@ -412,6 +396,7 @@ router.post('/restore', requireAuth, async (req: any, res) => {
       }
     }
 
+    await auditLog(req, 'RESTORE', 'System', undefined, results)
     res.json({ 
       message: 'Restore completed', 
       results 

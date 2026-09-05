@@ -275,4 +275,31 @@ export const EmailTemplates = {
       </div>
     `,
   }),
+
+  // Generic compliance deadline (passport, DBS, RTW recheck, licence, CoS start-by).
+  complianceReminder: (label: string, subjectName: string, dueDate: string, daysRemaining: number, action: string) => ({
+    subject: `⚠️ ${label}: ${subjectName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #f59e0b; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+          <h2 style="margin: 0;">⚠️ ${label}</h2>
+        </div>
+        <div style="padding: 20px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
+          <p style="font-size: 16px; color: #111827;">
+            <strong>Regarding:</strong> ${subjectName}<br>
+            <strong>Due Date:</strong> ${dueDate}<br>
+            <strong>Days Remaining:</strong> ${daysRemaining}
+          </p>
+          <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px; margin: 20px 0;">
+            <p style="margin: 0; color: #92400e;">
+              <strong>Action Required:</strong> ${action}
+            </p>
+          </div>
+          <p style="color: #6b7280; font-size: 14px;">
+            This is an automated notification from OnsideHR. Please login to the system to update records.
+          </p>
+        </div>
+      </div>
+    `,
+  }),
 }

@@ -1,6 +1,6 @@
 import path from 'path'
 import { afterEach, beforeEach, describe, expect } from '@jest/globals'
-import request from 'supertest'
+import request from '../helpers/http';
 import jwt from 'jsonwebtoken'
 import { defineFeature, loadFeature } from 'jest-cucumber'
 import app from '../../app'
