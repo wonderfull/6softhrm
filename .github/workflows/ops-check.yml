@@ -22,7 +22,7 @@ jobs:
           test -n "${{ secrets.VPS_SSH_KEY }}" || (echo "Missing VPS_SSH_KEY secret" && exit 1)
 
       - name: Inspect the VPS
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
