@@ -24,4 +24,14 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 15m
-          script: DEPLOY_MAIN_SITE=0 bash /var/www/6softhrm/scripts/deploy-vps.sh
+          # These two lines run from this file, not from the copy of the deploy
+          # script on the server — which matters, because the script cannot fix
+          # its own inability to be pulled. `npm install` used to rewrite the
+          # lockfiles in place, and those writes then blocked `git pull`, so a
+          # deploy that changed a dependency locked the server out of the next
+          # one. The script now uses `npm ci` and no longer causes it, but the
+          # server only receives that fix once a pull succeeds.
+          script: |
+            cd /var/www/6softhrm
+            git checkout -- backend/package-lock.json frontend/package-lock.json 2>/dev/null || true
+            DEPLOY_MAIN_SITE=0 bash /var/www/6softhrm/scripts/deploy-vps.sh
