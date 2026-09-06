@@ -41,7 +41,7 @@ export default function Logo({
       <LogoMark className={markClassName} />
       <span className={`font-semibold tracking-tight ${textClassName}`}>
         Onside
-        <span className="font-normal text-primary-600 dark:text-primary-300">
+        <span className="font-medium text-ink-2">
           HR
         </span>
       </span>
