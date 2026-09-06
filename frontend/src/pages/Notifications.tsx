@@ -275,27 +275,27 @@ const Notifications: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
  onClick={checkAndNotify}
  disabled={checking}
- className="px-6 py-2 bg-accent text-white rounded-md hover:bg-accent disabled:bg-surface-2 disabled:cursor-not-allowed transition-colors font-medium"
+ className="btn-secondary whitespace-nowrap"
                 >
                   {checking ? 'Checking…' : 'Force run now'}
                 </button>
 
-                <div className="flex items-center gap-2 flex-1">
+                <div className="flex min-w-[240px] flex-1 items-center gap-2">
                   <input
  type="email"
  value={testEmail}
  onChange={(e) => setTestEmail(e.target.value)}
  placeholder="your-email@example.com"
- className="flex-1 px-3 py-2 border border-line rounded-md bg-surface text-ink placeholder:text-ink-3 "
+ className="form-input flex-1"
                   />
                   <button
  onClick={sendTestEmail}
  disabled={testingEmail}
- className="px-6 py-2 bg-accent text-white rounded-md hover:bg-accent disabled:bg-surface-2 disabled:cursor-not-allowed transition-colors font-medium"
+ className="btn-secondary whitespace-nowrap"
                   >
                     {testingEmail ? 'Sending…' : 'Send test email'}
                   </button>

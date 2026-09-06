@@ -65,7 +65,7 @@ describe('Consent Page', () => {
 
     render(<Consent />)
 
-    await screen.findAllByRole('button', { name: 'Grant Consent' })
+    await screen.findAllByRole('button', { name: 'Give consent' })
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenLastCalledWith(

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import Card from '../components/Card'
 import { API_BASE_URL, apiGet } from '../lib/api'
-import { PageHeader } from '../components/ui';
+import { Badge, Card as UiCard, PageHeader, Table, Td, Th, Tr } from '../components/ui';
 
 interface AuditLog {
  id: number
@@ -108,24 +108,15 @@ const AuditLogs: React.FC = () => {
     })
   }
 
- const getActionColor = (action: string) => {
- const colors: Record<string, string> = {
- 'LOGIN_SUCCESS': 'text-ok bg-ok-tint',
- 'LOGIN_FAILED': 'text-bad bg-bad-tint',
- 'CREATE': 'text-ink-2 bg-surface-2',
- 'READ': 'text-ink-2 bg-surface-2',
- 'UPDATE': 'text-warn bg-warn-tint',
- 'DELETE': 'text-bad bg-bad-tint',
- 'APPROVE': 'text-ok bg-ok-tint',
- 'REJECT': 'text-warn bg-warn-tint',
- 'UPLOAD': 'text-ink-2 bg-surface-2',
- 'EXPORT': 'text-ink-2 bg-surface-2',
- 'DATA_EXPORT': 'text-ink-2 bg-surface-2',
- 'CONSENT_GIVEN': 'text-ok bg-ok-tint',
- 'CONSENT_WITHDRAWN': 'text-warn bg-warn-tint'
-    }
- return colors[action] || 'text-ink-2 bg-surface-2'
-  }
+  // Only the three status tones exist, and most actions are simply neutral.
+  const actionTone = (action: string): 'ok' | 'warn' | 'bad' | 'neutral' => {
+    if (action === 'LOGIN_SUCCESS' || action === 'APPROVE' || action === 'CONSENT_GIVEN')
+      return 'ok';
+    if (action === 'LOGIN_FAILED' || action === 'DELETE') return 'bad';
+    if (action === 'UPDATE' || action === 'REJECT' || action === 'CONSENT_WITHDRAWN')
+      return 'warn';
+    return 'neutral';
+  };
 
  const handlePrevious = () => {
  setFilters(prev => ({
@@ -215,17 +206,17 @@ const AuditLogs: React.FC = () => {
 
           <button
  onClick={() => setFilters({ entity: '', action: '', from: '', to: '', limit: 50, offset: 0 })}
- className="px-4 py-2 bg-surface-2 text-ink-2 rounded-md hover:bg-surface-2"
+ className="btn-ghost"
           >
- Clear Filters
+ Clear filters
           </button>
 
           <button
  onClick={exportLogs}
  disabled={exporting}
- className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent disabled:bg-surface-2 disabled:cursor-not-allowed"
+ className="btn-secondary"
           >
-            {exporting ? 'Exporting…' : 'Export to Excel'}
+            {exporting ? 'Exporting…' : 'Export'}
           </button>
         </div>
 
@@ -250,70 +241,65 @@ const AuditLogs: React.FC = () => {
         </Card>
       ) : (
         <>
-          <div className="space-y-3">
-            {logs.map(log => (
-              <Card key={log.id} className="hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getActionColor(log.action)}`}>
-                        {log.action}
-                      </span>
-                      <span className="text-sm font-medium text-ink-2">{log.entity}</span>
-                      {log.entityId && (
-                        <span className="text-xs text-ink-3">ID: {log.entityId}</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm text-ink-2 mb-2">
-                      <span className="flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        {log.userEmail || 'System'}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {formatDate(log.timestamp)}
-                      </span>
-                      {log.ipAddress && (
-                        <span className="flex items-center gap-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                          </svg>
-                          {log.ipAddress}
+          <UiCard flush>
+            <Table className="min-w-[820px]">
+              <thead>
+                <tr>
+                  <Th>Action</Th>
+                  <Th>Entity</Th>
+                  <Th>User</Th>
+                  <Th>When</Th>
+                  <Th>IP</Th>
+                  <Th>Details</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => (
+                  <Tr key={log.id}>
+                    <Td>
+                      <Badge tone={actionTone(log.action)}>{log.action}</Badge>
+                    </Td>
+                    <Td className="text-ink">
+                      {log.entity}
+                      {log.entityId ? (
+                        <span className="ml-1 font-mono text-xs text-ink-3">
+                          #{log.entityId}
                         </span>
-                      )}
-                    </div>
-
-                    {log.details && typeof log.details === 'object' && Object.keys(log.details).length > 0 && (
-                      <div className="mt-2 p-2 bg-surface-2 rounded text-xs">
-                        <strong className="text-ink-2">Details:</strong>
-                        <pre className="mt-1 text-ink-2 whitespace-pre-wrap">
-                          {JSON.stringify(log.details, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-
-                    {log.userAgent && (
-                      <div className="mt-2 text-xs text-ink-3 truncate" title={log.userAgent}>
-                        {log.userAgent}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+                      ) : null}
+                    </Td>
+                    <Td className="font-mono text-[13px] text-ink-2">
+                      {log.userEmail || 'System'}
+                    </Td>
+                    <Td className="font-mono text-[13px] text-ink-2 whitespace-nowrap">
+                      {formatDate(log.timestamp)}
+                    </Td>
+                    <Td className="font-mono text-[13px] text-ink-3">
+                      {log.ipAddress || 'Not recorded'}
+                    </Td>
+                    <Td className="max-w-[280px]">
+                      <span
+                        className="block truncate text-xs text-ink-3"
+                        title={
+                          log.details ? JSON.stringify(log.details) : log.userAgent || ''
+                        }
+                      >
+                        {log.details && Object.keys(log.details).length > 0
+                          ? JSON.stringify(log.details)
+                          : log.userAgent || ''}
+                      </span>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          </UiCard>
 
           <Card className="mt-6">
             <div className="flex justify-between items-center">
               <button
  onClick={handlePrevious}
  disabled={filters.offset === 0}
- className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent disabled:bg-surface-2 disabled:cursor-not-allowed"
+ className="btn-secondary"
               >
  Previous
               </button>
@@ -323,7 +309,7 @@ const AuditLogs: React.FC = () => {
               <button
  onClick={handleNext}
  disabled={filters.offset + filters.limit >= total}
- className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent disabled:bg-surface-2 disabled:cursor-not-allowed"
+ className="btn-secondary"
               >
  Next
               </button>

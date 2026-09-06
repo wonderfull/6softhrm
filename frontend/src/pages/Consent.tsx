@@ -380,19 +380,17 @@ const Consent: React.FC = () => {
                         <button
  onClick={() => handleConsentChange(type.key, true)}
  disabled={saving === type.key}
- className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent disabled:bg-surface-2 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+ className="btn-secondary"
                         >
-                          {saving === type.key ? 'Saving...' : 'Grant Consent'}
+                          {saving === type.key ? 'Saving…' : 'Give consent'}
                         </button>
                       ) : (
                         <button
  onClick={() => handleConsentChange(type.key, false)}
  disabled={saving === type.key}
- className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent disabled:bg-surface-2 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+ className="btn-destructive"
                         >
-                          {saving === type.key
-                            ? 'Saving...'
-                            : 'Withdraw Consent'}
+                          {saving === type.key ? 'Saving…' : 'Withdraw consent'}
                         </button>
                       )}
                     </>
