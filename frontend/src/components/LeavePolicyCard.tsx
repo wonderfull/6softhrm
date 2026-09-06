@@ -7,30 +7,30 @@ import Card from './Card';
 // holiday region that decide which days a request actually consumes.
 
 type Settings = {
-  leaveYearStart: string;
-  defaultLeaveDays: number;
-  carryoverCapDays: number;
-  bankHolidayRegion: string;
-  workingDays: string;
-  companyAddress: string | null;
+ leaveYearStart: string;
+ defaultLeaveDays: number;
+ carryoverCapDays: number;
+ bankHolidayRegion: string;
+ workingDays: string;
+ companyAddress: string | null;
 };
 
 type Form = {
-  leaveYearStart: string;
-  defaultLeaveDays: number;
-  carryoverCapDays: number;
-  bankHolidayRegion: string;
-  workingDays: string;
-  companyAddress: string;
+ leaveYearStart: string;
+ defaultLeaveDays: number;
+ carryoverCapDays: number;
+ bankHolidayRegion: string;
+ workingDays: string;
+ companyAddress: string;
 };
 
 const EMPTY: Form = {
-  leaveYearStart: '04-06',
-  defaultLeaveDays: 28,
-  carryoverCapDays: 5,
-  bankHolidayRegion: 'england-and-wales',
-  workingDays: '1,2,3,4,5',
-  companyAddress: '',
+ leaveYearStart: '04-06',
+ defaultLeaveDays: 28,
+ carryoverCapDays: 5,
+ bankHolidayRegion: 'england-and-wales',
+ workingDays: '1,2,3,4,5',
+ companyAddress: '',
 };
 
 const REGIONS = [
@@ -51,81 +51,80 @@ const WEEKDAYS = [
 ];
 
 const inputClass =
-  'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 disabled:bg-slate-100 dark:disabled:bg-slate-800';
+ 'form-input mt-1 disabled:bg-surface-2';
 
 function fromSettings(settings: Settings | null): Form {
-  if (!settings) return EMPTY;
-  return {
-    leaveYearStart: settings.leaveYearStart || EMPTY.leaveYearStart,
-    defaultLeaveDays: settings.defaultLeaveDays,
-    carryoverCapDays: settings.carryoverCapDays,
-    bankHolidayRegion: settings.bankHolidayRegion || EMPTY.bankHolidayRegion,
-    workingDays: settings.workingDays || EMPTY.workingDays,
-    companyAddress: settings.companyAddress ?? '',
+ if (!settings) return EMPTY;
+ return {
+ leaveYearStart: settings.leaveYearStart || EMPTY.leaveYearStart,
+ defaultLeaveDays: settings.defaultLeaveDays,
+ carryoverCapDays: settings.carryoverCapDays,
+ bankHolidayRegion: settings.bankHolidayRegion || EMPTY.bankHolidayRegion,
+ workingDays: settings.workingDays || EMPTY.workingDays,
+ companyAddress: settings.companyAddress ?? '',
   };
 }
 
 function toggleWorkingDay(workingDays: string, day: string) {
-  const selected = workingDays.split(',').filter(Boolean);
-  const next = selected.includes(day)
+ const selected = workingDays.split(',').filter(Boolean);
+ const next = selected.includes(day)
     ? selected.filter((d) => d !== day)
     : [...selected, day];
-  return next.sort().join(',');
+ return next.sort().join(',');
 }
 
 export default function LeavePolicyCard({ canEdit }: { canEdit: boolean }) {
-  const [form, setForm] = React.useState<Form>(EMPTY);
-  const [loaded, setLoaded] = React.useState(false);
-  const [message, setMessage] = React.useState('');
-  const [error, setError] = React.useState('');
+ const [form, setForm] = React.useState<Form>(EMPTY);
+ const [loaded, setLoaded] = React.useState(false);
+ const [message, setMessage] = React.useState('');
+ const [error, setError] = React.useState('');
 
-  React.useEffect(() => {
-    apiGet('/tenant/settings')
+ React.useEffect(() => {
+ apiGet('/tenant/settings')
       .then((settings) => {
-        setForm(fromSettings(settings));
-        setLoaded(true);
+ setForm(fromSettings(settings));
+ setLoaded(true);
       })
       .catch((e) => setError(e.message));
   }, []);
 
-  const set = <K extends keyof Form>(key: K, value: Form[K]) =>
-    setForm((f) => ({ ...f, [key]: value }));
+ const set = <K extends keyof Form>(key: K, value: Form[K]) =>
+ setForm((f) => ({ ...f, [key]: value }));
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setMessage('');
-    try {
-      const saved = await apiPut('/tenant/settings', form);
-      setForm(fromSettings(saved));
-      setMessage('Leave policy saved.');
+ async function save(e: React.FormEvent) {
+ e.preventDefault();
+ setError('');
+ setMessage('');
+ try {
+ const saved = await apiPut('/tenant/settings', form);
+ setForm(fromSettings(saved));
+ setMessage('Leave policy saved.');
     } catch (e: any) {
-      setError(e.message);
+ setError(e.message);
     }
   }
 
-  const selectedDays = form.workingDays.split(',').filter(Boolean);
-  const disabled = !canEdit;
+ const selectedDays = form.workingDays.split(',').filter(Boolean);
+ const disabled = !canEdit;
 
-  return (
+ return (
     <Card className="p-6">
-      <h3 className="mb-1 flex items-center gap-2 text-lg font-semibold">
-        <span className="text-2xl">🌴</span>
-        Leave policy
+      <h3 className="mb-1 text-lg font-semibold">
+ Leave policy
       </h3>
-      <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
-        The leave year, default allowance and working pattern every employee
-        inherits. Requests only consume the working days set here, and bank
-        holidays for the chosen region are never deducted.
+      <p className="mb-4 text-sm text-ink-2">
+ The leave year, default allowance and working pattern every employee
+ inherits. Requests only consume the working days set here, and bank
+ holidays for the chosen region are never deducted.
       </p>
 
       {message && (
-        <div className="mb-3 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
+        <div className="mb-3 rounded-md border border-ok bg-ok-tint px-3 py-2 text-sm text-ok ">
           {message}
         </div>
       )}
       {error && (
-        <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200">
+        <div className="mb-3 rounded-md border border-bad bg-bad-tint px-3 py-2 text-sm text-bad ">
           {error}
         </div>
       )}
@@ -134,21 +133,21 @@ export default function LeavePolicyCard({ canEdit }: { canEdit: boolean }) {
         <label className="block text-sm">
           <span className="font-medium">Leave year starts (MM-DD)</span>
           <input
-            value={form.leaveYearStart}
-            onChange={(e) => set('leaveYearStart', e.target.value)}
-            pattern="\d{2}-\d{2}"
-            placeholder="04-06"
-            disabled={disabled}
-            className={inputClass}
+ value={form.leaveYearStart}
+ onChange={(e) => set('leaveYearStart', e.target.value)}
+ pattern="\d{2}-\d{2}"
+ placeholder="04-06"
+ disabled={disabled}
+ className={inputClass}
           />
         </label>
         <label className="block text-sm">
           <span className="font-medium">Bank holiday region</span>
           <select
-            value={form.bankHolidayRegion}
-            onChange={(e) => set('bankHolidayRegion', e.target.value)}
-            disabled={disabled}
-            className={inputClass}
+ value={form.bankHolidayRegion}
+ onChange={(e) => set('bankHolidayRegion', e.target.value)}
+ disabled={disabled}
+ className={inputClass}
           >
             {REGIONS.map((region) => (
               <option key={region.value} value={region.value}>
@@ -160,23 +159,23 @@ export default function LeavePolicyCard({ canEdit }: { canEdit: boolean }) {
         <label className="block text-sm">
           <span className="font-medium">Default allowance (days)</span>
           <input
-            type="number"
-            min={0}
-            value={form.defaultLeaveDays}
-            onChange={(e) => set('defaultLeaveDays', Number(e.target.value))}
-            disabled={disabled}
-            className={inputClass}
+ type="number"
+ min={0}
+ value={form.defaultLeaveDays}
+ onChange={(e) => set('defaultLeaveDays', Number(e.target.value))}
+ disabled={disabled}
+ className={inputClass}
           />
         </label>
         <label className="block text-sm">
           <span className="font-medium">Carryover cap (days)</span>
           <input
-            type="number"
-            min={0}
-            value={form.carryoverCapDays}
-            onChange={(e) => set('carryoverCapDays', Number(e.target.value))}
-            disabled={disabled}
-            className={inputClass}
+ type="number"
+ min={0}
+ value={form.carryoverCapDays}
+ onChange={(e) => set('carryoverCapDays', Number(e.target.value))}
+ disabled={disabled}
+ className={inputClass}
           />
         </label>
 
@@ -186,16 +185,16 @@ export default function LeavePolicyCard({ canEdit }: { canEdit: boolean }) {
             {WEEKDAYS.map((day) => (
               <label key={day.value} className="flex items-center gap-2">
                 <input
-                  type="checkbox"
-                  checked={selectedDays.includes(day.value)}
-                  onChange={() =>
-                    set(
-                      'workingDays',
-                      toggleWorkingDay(form.workingDays, day.value),
+ type="checkbox"
+ checked={selectedDays.includes(day.value)}
+ onChange={() =>
+ set(
+ 'workingDays',
+ toggleWorkingDay(form.workingDays, day.value),
                     )
                   }
-                  disabled={disabled}
-                  className="h-4 w-4"
+ disabled={disabled}
+ className="h-4 w-4"
                 />
                 {day.label}
               </label>
@@ -206,18 +205,18 @@ export default function LeavePolicyCard({ canEdit }: { canEdit: boolean }) {
         <label className="block text-sm md:col-span-2">
           <span className="font-medium">Company address</span>
           <textarea
-            value={form.companyAddress}
-            onChange={(e) => set('companyAddress', e.target.value)}
-            rows={3}
-            disabled={disabled}
-            className={inputClass}
+ value={form.companyAddress}
+ onChange={(e) => set('companyAddress', e.target.value)}
+ rows={3}
+ disabled={disabled}
+ className={inputClass}
           />
         </label>
 
         {canEdit && (
           <div className="md:col-span-2">
             <button type="submit" className="btn-primary" disabled={!loaded}>
-              Save leave policy
+ Save leave policy
             </button>
           </div>
         )}

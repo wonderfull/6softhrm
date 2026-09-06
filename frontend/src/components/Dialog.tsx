@@ -39,19 +39,19 @@ export default function Dialog({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-[fade-in_200ms_var(--ease-out)] motion-reduce:animate-none"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700"
+        className="w-full max-w-md rounded-xl bg-surface shadow-lg border border-line animate-[dialog-in_320ms_var(--ease-out)] motion-reduce:animate-none"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="px-5 pt-5">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+          <h2 className="text-xl leading-[1.3] tracking-[-0.01em] font-semibold text-ink">
             {title}
           </h2>
           {description && (
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-1 text-sm text-ink-2">
               {description}
             </p>
           )}

@@ -47,9 +47,9 @@ test('admin can upload a near-expiry document and see the expiry warning', async
     await dialog.accept()
   })
 
-  await page.getByRole('button', { name: 'Upload Document' }).click()
+  await page.getByRole('button', { name: 'Upload document' }).click()
   await expect(page.getByText(documentName)).toBeVisible()
 
-  const row = page.locator('[class*="p-4"]').filter({ hasText: documentName }).first()
-  await expect(row).toContainText(/Expires in|EXPIRED/)
+  const row = page.locator('tr').filter({ hasText: documentName }).first()
+  await expect(row).toContainText(/Expires in|Expired/)
 })

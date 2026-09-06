@@ -104,7 +104,7 @@ const renderReports = () =>
 // Several figures repeat across the page, so KPI assertions are scoped to the
 // card carrying the label rather than matched globally.
 const kpi = (label: string) =>
-  within(screen.getByText(label).closest('.card') as HTMLElement);
+  within(screen.getByText(label).closest('.bg-surface') as HTMLElement);
 
 describe('Reports page', () => {
   beforeEach(() => {
@@ -140,7 +140,7 @@ describe('Reports page', () => {
     expect(screen.getByText('200 h')).toBeInTheDocument();
     expect(screen.getByText('120.5 h')).toBeInTheDocument();
 
-    const bars = container.querySelectorAll<HTMLElement>('.bg-primary-500');
+    const bars = container.querySelectorAll<HTMLElement>('[data-bar]');
     // Two departments, two sickness rows, two projects.
     expect(bars).toHaveLength(6);
     expect(bars[0].style.width).toBe('100%');
@@ -160,7 +160,7 @@ describe('Reports page', () => {
     renderReports();
 
     const section = (await screen.findByText('HR file')).closest(
-      '.card',
+      '.bg-surface',
     ) as HTMLElement;
     expect(within(section).getByText('Reviews overdue')).toBeInTheDocument();
     expect(within(section).getByText('2')).toBeInTheDocument();
@@ -199,7 +199,7 @@ describe('Reports page', () => {
     renderReports();
     const section = (
       await screen.findByText('Headcount by department')
-    ).closest('.card') as HTMLElement;
+    ).closest('.bg-surface') as HTMLElement;
 
     // Spying on the anchor prototype rather than document.createElement keeps
     // React's own DOM calls working while the download runs.

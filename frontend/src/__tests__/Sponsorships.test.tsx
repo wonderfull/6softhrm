@@ -205,15 +205,17 @@ describe('Sponsorships Page', () => {
     });
   });
 
-  it('should delete sponsorship when delete clicked', async () => {
+  it('should delete sponsorship when delete confirmed', async () => {
     (api.apiDelete as any).mockResolvedValue({ success: true });
-    window.confirm = vi.fn(() => true);
+    window.alert = vi.fn();
 
     render(<Sponsorships />);
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete sponsorship' }));
+
     await waitFor(() => {
-      fireEvent.click(screen.getByText(/Delete/i));
-      expect(api.apiDelete).toHaveBeenCalled();
+      expect(api.apiDelete).toHaveBeenCalledWith('/sponsorships/1');
     });
   });
 

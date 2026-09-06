@@ -7,17 +7,17 @@ import Card from './Card';
 // it downloads and deletes like anything else in their file.
 
 type Template = {
-  id: number;
-  name: string;
-  body: string;
-  documentType: string;
-  requiresAcknowledgement: boolean;
+ id: number;
+ name: string;
+ body: string;
+ documentType: string;
+ requiresAcknowledgement: boolean;
 };
 
 type EmployeeOption = {
-  id: number;
-  firstName: string;
-  lastName: string;
+ id: number;
+ firstName: string;
+ lastName: string;
 };
 
 const DOCUMENT_TYPES = [
@@ -28,177 +28,176 @@ const DOCUMENT_TYPES = [
 ];
 
 const PLACEHOLDERS = [
-  'firstName',
-  'lastName',
-  'fullName',
-  'jobTitle',
-  'department',
-  'employeeType',
-  'email',
-  'startDate',
-  'endDate',
-  'probationEndDate',
-  'today',
+ 'firstName',
+ 'lastName',
+ 'fullName',
+ 'jobTitle',
+ 'department',
+ 'employeeType',
+ 'email',
+ 'startDate',
+ 'endDate',
+ 'probationEndDate',
+ 'today',
 ];
 
 const inputClass =
-  'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700';
+ 'form-input mt-1';
 
 const emptyForm = {
-  id: null as number | null,
-  name: '',
-  documentType: 'CONTRACT',
-  body: '',
-  requiresAcknowledgement: true,
+ id: null as number | null,
+ name: '',
+ documentType: 'CONTRACT',
+ body: '',
+ requiresAcknowledgement: true,
 };
 
 export default function DocumentTemplatesCard({
-  canEdit,
+ canEdit,
 }: {
-  canEdit: boolean;
+ canEdit: boolean;
 }) {
-  const [templates, setTemplates] = React.useState<Template[]>([]);
-  const [employees, setEmployees] = React.useState<EmployeeOption[]>([]);
-  const [form, setForm] = React.useState(emptyForm);
-  const [editing, setEditing] = React.useState(false);
-  const [generateTemplateId, setGenerateTemplateId] = React.useState('');
-  const [generateEmployeeId, setGenerateEmployeeId] = React.useState('');
-  const [generating, setGenerating] = React.useState(false);
-  const [message, setMessage] = React.useState('');
-  const [error, setError] = React.useState('');
+ const [templates, setTemplates] = React.useState<Template[]>([]);
+ const [employees, setEmployees] = React.useState<EmployeeOption[]>([]);
+ const [form, setForm] = React.useState(emptyForm);
+ const [editing, setEditing] = React.useState(false);
+ const [generateTemplateId, setGenerateTemplateId] = React.useState('');
+ const [generateEmployeeId, setGenerateEmployeeId] = React.useState('');
+ const [generating, setGenerating] = React.useState(false);
+ const [message, setMessage] = React.useState('');
+ const [error, setError] = React.useState('');
 
-  React.useEffect(() => {
-    apiGet('/document-templates')
+ React.useEffect(() => {
+ apiGet('/document-templates')
       .then(setTemplates)
       .catch((e: any) => setError(e.message || 'Could not load templates.'));
-    apiGet('/employees')
+ apiGet('/employees')
       .then(setEmployees)
       .catch(() => setEmployees([]));
   }, []);
 
-  function startNew() {
-    setForm(emptyForm);
-    setEditing(true);
-    setMessage('');
-    setError('');
+ function startNew() {
+ setForm(emptyForm);
+ setEditing(true);
+ setMessage('');
+ setError('');
   }
 
-  function startEdit(template: Template) {
-    setForm({
-      id: template.id,
-      name: template.name,
-      documentType: template.documentType,
-      body: template.body,
-      requiresAcknowledgement: template.requiresAcknowledgement,
+ function startEdit(template: Template) {
+ setForm({
+ id: template.id,
+ name: template.name,
+ documentType: template.documentType,
+ body: template.body,
+ requiresAcknowledgement: template.requiresAcknowledgement,
     });
-    setEditing(true);
-    setMessage('');
-    setError('');
+ setEditing(true);
+ setMessage('');
+ setError('');
   }
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setMessage('');
-    try {
-      const payload = {
-        name: form.name,
-        body: form.body,
-        documentType: form.documentType,
-        requiresAcknowledgement: form.requiresAcknowledgement,
+ async function save(e: React.FormEvent) {
+ e.preventDefault();
+ setError('');
+ setMessage('');
+ try {
+ const payload = {
+ name: form.name,
+ body: form.body,
+ documentType: form.documentType,
+ requiresAcknowledgement: form.requiresAcknowledgement,
       };
-      if (form.id) {
-        const updated = await apiPut(`/document-templates/${form.id}`, payload);
-        setTemplates((list) =>
-          list.map((t) => (t.id === updated.id ? updated : t)),
+ if (form.id) {
+ const updated = await apiPut(`/document-templates/${form.id}`, payload);
+ setTemplates((list) =>
+ list.map((t) => (t.id === updated.id ? updated : t)),
         );
-        setMessage('Template saved.');
+ setMessage('Template saved.');
       } else {
-        const created = await apiPost('/document-templates', payload);
-        setTemplates((list) => [...list, created]);
-        setMessage('Template created.');
+ const created = await apiPost('/document-templates', payload);
+ setTemplates((list) => [...list, created]);
+ setMessage('Template created.');
       }
-      setForm(emptyForm);
-      setEditing(false);
+ setForm(emptyForm);
+ setEditing(false);
     } catch (e: any) {
-      setError(e.message || 'Failed to save the template.');
+ setError(e.message || 'Failed to save the template.');
     }
   }
 
-  async function remove(template: Template) {
-    if (!confirm(`Delete the "${template.name}" template?`)) return;
-    setError('');
-    setMessage('');
-    try {
-      await apiDelete(`/document-templates/${template.id}`);
-      setTemplates((list) => list.filter((t) => t.id !== template.id));
-      if (generateTemplateId === String(template.id)) setGenerateTemplateId('');
+ async function remove(template: Template) {
+ if (!confirm(`Delete the "${template.name}" template?`)) return;
+ setError('');
+ setMessage('');
+ try {
+ await apiDelete(`/document-templates/${template.id}`);
+ setTemplates((list) => list.filter((t) => t.id !== template.id));
+ if (generateTemplateId === String(template.id)) setGenerateTemplateId('');
     } catch (e: any) {
-      setError(e.message || 'Failed to delete the template.');
+ setError(e.message || 'Failed to delete the template.');
     }
   }
 
-  async function generate(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setMessage('');
-    try {
-      setGenerating(true);
-      const document = await apiPost(
-        `/document-templates/${generateTemplateId}/generate`,
+ async function generate(e: React.FormEvent) {
+ e.preventDefault();
+ setError('');
+ setMessage('');
+ try {
+ setGenerating(true);
+ const document = await apiPost(
+ `/document-templates/${generateTemplateId}/generate`,
         { employeeId: Number(generateEmployeeId) },
       );
-      setMessage(`Filed "${document.name}" in their documents.`);
-      setGenerateEmployeeId('');
+ setMessage(`Filed "${document.name}" in their documents.`);
+ setGenerateEmployeeId('');
     } catch (e: any) {
-      setError(e.message || 'Failed to generate the document.');
+ setError(e.message || 'Failed to generate the document.');
     } finally {
-      setGenerating(false);
+ setGenerating(false);
     }
   }
 
-  return (
+ return (
     <Card className="p-6">
-      <h3 className="mb-1 flex items-center gap-2 text-lg font-semibold">
-        <span className="text-2xl">📄</span>
+      <h3 className="mb-1 text-base font-semibold text-ink">
         Document templates
       </h3>
-      <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
-        Write a contract or policy once as HTML, then generate it for an
-        employee — the merge fields are filled from their record and the result
-        is filed in their documents.
+      <p className="mb-4 text-sm text-ink-2">
+ Write a contract or policy once as HTML, then generate it for an
+ employee. The merge fields are filled from their record and the result
+ is filed in their documents.
       </p>
 
       {message && (
-        <div className="mb-3 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
+        <div className="mb-3 rounded-md border border-ok bg-ok-tint px-3 py-2 text-sm text-ok ">
           {message}
         </div>
       )}
       {error && (
         <div
-          role="alert"
-          className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
+ role="alert"
+ className="mb-3 rounded-md border border-bad bg-bad-tint px-3 py-2 text-sm text-bad "
         >
           {error}
         </div>
       )}
 
       {templates.length === 0 ? (
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          No templates yet.
+        <p className="text-sm text-ink-2">
+ No templates yet.
         </p>
       ) : (
         <ul className="space-y-2">
           {templates.map((template) => (
             <li
-              key={template.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 p-3 text-sm dark:border-slate-700"
+ key={template.id}
+ className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line p-3 text-sm "
             >
               <div>
-                <span className="font-semibold text-slate-900 dark:text-white">
+                <span className="font-semibold text-ink">
                   {template.name}
                 </span>
-                <span className="ml-2 text-slate-600 dark:text-slate-400">
+                <span className="ml-2 text-ink-2">
                   {template.documentType}
                   {template.requiresAcknowledgement
                     ? ' · needs acknowledgement'
@@ -208,18 +207,18 @@ export default function DocumentTemplatesCard({
               {canEdit && (
                 <div className="flex gap-3">
                   <button
-                    type="button"
-                    onClick={() => startEdit(template)}
-                    className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
+ type="button"
+ onClick={() => startEdit(template)}
+ className="font-semibold text-ink-2 hover:underline dark:text-ink-2"
                   >
-                    Edit
+ Edit
                   </button>
                   <button
-                    type="button"
-                    onClick={() => remove(template)}
-                    className="font-semibold text-red-600 hover:underline"
+ type="button"
+ onClick={() => remove(template)}
+ className="font-semibold text-bad hover:underline"
                   >
-                    Delete
+ Delete
                   </button>
                 </div>
               )}
@@ -230,9 +229,9 @@ export default function DocumentTemplatesCard({
 
       {canEdit && !editing && (
         <button
-          type="button"
-          onClick={startNew}
-          className="mt-3 text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400"
+ type="button"
+ onClick={startNew}
+ className="mt-3 text-sm font-semibold text-ink-2 hover:underline dark:text-ink-2"
         >
           + New template
         </button>
@@ -243,21 +242,21 @@ export default function DocumentTemplatesCard({
           <label className="block text-sm">
             <span className="font-medium">Name</span>
             <input
-              required
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. Statement of main terms"
-              className={inputClass}
+ required
+ value={form.name}
+ onChange={(e) => setForm({ ...form, name: e.target.value })}
+ placeholder="e.g. Statement of main terms"
+ className={inputClass}
             />
           </label>
           <label className="block text-sm">
             <span className="font-medium">Document type</span>
             <select
-              value={form.documentType}
-              onChange={(e) =>
-                setForm({ ...form, documentType: e.target.value })
+ value={form.documentType}
+ onChange={(e) =>
+ setForm({ ...form, documentType: e.target.value })
               }
-              className={inputClass}
+ className={inputClass}
             >
               {DOCUMENT_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -269,46 +268,46 @@ export default function DocumentTemplatesCard({
           <label className="block text-sm md:col-span-2">
             <span className="font-medium">Body (HTML)</span>
             <textarea
-              required
-              rows={10}
-              value={form.body}
-              onChange={(e) => setForm({ ...form, body: e.target.value })}
-              placeholder="<h1>Statement of main terms</h1><p>Dear {{firstName}},</p>"
-              className={`${inputClass} font-mono text-xs`}
+ required
+ rows={10}
+ value={form.body}
+ onChange={(e) => setForm({ ...form, body: e.target.value })}
+ placeholder="<h1>Statement of main terms</h1><p>Dear {{firstName}},</p>"
+ className={`${inputClass} font-mono text-xs`}
             />
           </label>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 md:col-span-2 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
-            <p className="font-semibold text-slate-700 dark:text-slate-300">
-              Available placeholders
+          <div className="rounded-md border border-line bg-surface-2 p-3 text-xs text-ink-2 md:col-span-2 dark:text-ink-3">
+            <p className="font-semibold text-ink-2">
+ Available placeholders
             </p>
             <p className="mt-1 flex flex-wrap gap-1">
               {PLACEHOLDERS.map((placeholder) => (
                 <code
-                  key={placeholder}
-                  className="rounded bg-white px-1 py-0.5 dark:bg-slate-800"
+ key={placeholder}
+ className="rounded bg-white px-1 py-0.5 "
                 >
                   {`{{${placeholder}}}`}
                 </code>
               ))}
             </p>
             <p className="mt-2">
-              Anything else is left in the finished document exactly as typed,
-              so a misspelt placeholder is visible rather than quietly blank.
+ Anything else is left in the finished document exactly as typed,
+ so a misspelt placeholder is visible rather than quietly blank.
             </p>
           </div>
           <label className="flex items-start gap-2 text-sm md:col-span-2">
             <input
-              type="checkbox"
-              checked={form.requiresAcknowledgement}
-              onChange={(e) =>
-                setForm({ ...form, requiresAcknowledgement: e.target.checked })
+ type="checkbox"
+ checked={form.requiresAcknowledgement}
+ onChange={(e) =>
+ setForm({ ...form, requiresAcknowledgement: e.target.checked })
               }
-              className="mt-1 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+ className="mt-1 h-4 w-4 rounded border-line-2 text-link focus:ring-accent-tint"
             />
             <span>
-              Ask the employee to acknowledge it
-              <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
-                They type their name to record that they have read it.
+ Ask the employee to acknowledge it
+              <span className="mt-1 block text-xs text-ink-3">
+ They type their name to record that they have read it.
               </span>
             </span>
           </label>
@@ -317,14 +316,14 @@ export default function DocumentTemplatesCard({
               {form.id ? 'Save template' : 'Create template'}
             </button>
             <button
-              type="button"
-              onClick={() => {
-                setEditing(false);
-                setForm(emptyForm);
+ type="button"
+ onClick={() => {
+ setEditing(false);
+ setForm(emptyForm);
               }}
-              className="btn-ghost"
+ className="btn-ghost"
             >
-              Cancel
+ Cancel
             </button>
           </div>
         </form>
@@ -332,19 +331,19 @@ export default function DocumentTemplatesCard({
 
       {templates.length > 0 && (
         <form
-          onSubmit={generate}
-          className="mt-6 grid gap-4 border-t border-slate-200 pt-4 md:grid-cols-2 dark:border-slate-700"
+ onSubmit={generate}
+ className="mt-6 grid gap-4 border-t border-line pt-4 md:grid-cols-2 "
         >
           <div className="md:col-span-2 text-sm font-semibold">
-            Generate for employee
+ Generate for employee
           </div>
           <label className="block text-sm">
             <span className="font-medium">Template</span>
             <select
-              required
-              value={generateTemplateId}
-              onChange={(e) => setGenerateTemplateId(e.target.value)}
-              className={inputClass}
+ required
+ value={generateTemplateId}
+ onChange={(e) => setGenerateTemplateId(e.target.value)}
+ className={inputClass}
             >
               <option value="">Select a template</option>
               {templates.map((template) => (
@@ -357,10 +356,10 @@ export default function DocumentTemplatesCard({
           <label className="block text-sm">
             <span className="font-medium">Employee</span>
             <select
-              required
-              value={generateEmployeeId}
-              onChange={(e) => setGenerateEmployeeId(e.target.value)}
-              className={inputClass}
+ required
+ value={generateEmployeeId}
+ onChange={(e) => setGenerateEmployeeId(e.target.value)}
+ className={inputClass}
             >
               <option value="">Select an employee</option>
               {employees.map((employee) => (
@@ -372,10 +371,10 @@ export default function DocumentTemplatesCard({
           </label>
           <div className="md:col-span-2">
             <button
-              type="submit"
-              className="btn-primary"
-              disabled={
-                generating || !generateTemplateId || !generateEmployeeId
+ type="submit"
+ className="btn-primary"
+ disabled={
+ generating || !generateTemplateId || !generateEmployeeId
               }
             >
               {generating ? 'Generating…' : 'Generate document'}

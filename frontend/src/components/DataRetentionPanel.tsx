@@ -1,27 +1,32 @@
 import React from 'react';
 import { apiPost, apiPut } from '../lib/api';
 import Dialog from './Dialog';
+import { Button, Input } from './ui';
 
 // Leaver retention: when the record may be anonymised, and the owner's
-// "erase now" for subject requests — which strips the person but keeps the
+// "erase now" for subject requests, which strips the person but keeps the
 // row so leave and timesheet history still adds up.
 
 const day = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString('en-GB') : null;
-
-const inputClass =
-  'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700';
 
 export default function DataRetentionPanel({
   employee,
   isAdmin,
   onChange,
 }: {
-  employee: { id: number; endDate?: string | null; retainUntil?: string | null; anonymisedAt?: string | null };
+  employee: {
+    id: number;
+    endDate?: string | null;
+    retainUntil?: string | null;
+    anonymisedAt?: string | null;
+  };
   isAdmin: boolean;
   onChange: () => Promise<void> | void;
 }) {
-  const [retainUntil, setRetainUntil] = React.useState(employee.retainUntil?.slice(0, 10) ?? '');
+  const [retainUntil, setRetainUntil] = React.useState(
+    employee.retainUntil?.slice(0, 10) ?? '',
+  );
   const [open, setOpen] = React.useState(false);
   const [reason, setReason] = React.useState('');
   const [force, setForce] = React.useState(false);
@@ -68,34 +73,30 @@ export default function DataRetentionPanel({
 
   if (employee.anonymisedAt) {
     return (
-      <div className="border-b border-slate-200 p-5 dark:border-slate-700">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Data retention
-        </div>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          Personal data erased on {day(employee.anonymisedAt)}. Only aggregate leave and
-          timesheet history remains.
-        </p>
-      </div>
+      <p className="text-[13px] text-ink-2">
+        Personal data erased on{' '}
+        <span className="font-mono">{day(employee.anonymisedAt)}</span>. Only
+        aggregate leave and timesheet history remains.
+      </p>
     );
   }
 
   return (
-    <div className="border-b border-slate-200 p-5 dark:border-slate-700">
-      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        Data retention
-      </div>
+    <div>
       {message && (
-        <div className="mb-3 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
+        <div className="mb-3 rounded-md bg-ok-tint px-3 py-2 text-[13px] text-ok">
           {message}
         </div>
       )}
       {error && (
-        <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200">
+        <div
+          role="alert"
+          className="mb-3 rounded-md bg-bad-tint px-3 py-2 text-[13px] text-bad"
+        >
           {error}
         </div>
       )}
-      <p className="text-sm text-slate-900 dark:text-slate-100">
+      <p className="text-sm text-ink">
         {employee.retainUntil
           ? `Keep until ${day(employee.retainUntil)}, then anonymise automatically.`
           : employee.endDate
@@ -104,27 +105,27 @@ export default function DataRetentionPanel({
       </p>
       {isAdmin && (
         <>
-          <form onSubmit={saveRetainUntil} className="mt-3 flex items-end gap-2">
-            <label className="block flex-1 text-sm">
-              <span className="font-medium">Keep until</span>
-              <input
-                type="date"
-                value={retainUntil}
-                onChange={(e) => setRetainUntil(e.target.value)}
-                className={inputClass}
-              />
-            </label>
-            <button type="submit" className="btn-primary min-h-10">
-              Save
-            </button>
+          <form
+            onSubmit={saveRetainUntil}
+            className="mt-4 flex items-end gap-2"
+          >
+            <Input
+              label="Keep until"
+              type="date"
+              value={retainUntil}
+              wrapperClassName="flex-1"
+              onChange={(e) => setRetainUntil(e.target.value)}
+            />
+            <Button type="submit">Save</Button>
           </form>
-          <button
-            type="button"
+          <Button
+            variant="destructive"
+            size="sm"
+            className="mt-4"
             onClick={() => setOpen(true)}
-            className="mt-3 text-sm font-semibold text-red-600 hover:underline"
           >
             Erase personal data now
-          </button>
+          </Button>
         </>
       )}
 
@@ -135,18 +136,15 @@ export default function DataRetentionPanel({
         onClose={() => setOpen(false)}
       >
         <form onSubmit={erase} className="space-y-3">
-          <label className="block text-sm">
-            <span className="font-medium">Reason (recorded in the audit log)</span>
-            <input
-              required
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Subject erasure request received 3 Sep 2026"
-              className={inputClass}
-            />
-          </label>
+          <Input
+            label="Reason (recorded in the audit log)"
+            required
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Subject erasure request received 3 Sep 2026"
+          />
           {blockers.length > 0 && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
+            <div className="rounded-md bg-warn-tint px-3 py-2 text-[13px] text-warn">
               <p className="font-medium">Cannot erase yet:</p>
               <ul className="ml-4 list-disc">
                 {blockers.map((b) => (
@@ -154,25 +152,23 @@ export default function DataRetentionPanel({
                 ))}
               </ul>
               <label className="mt-2 flex items-center gap-2">
-                <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
-                <span>Override — I have a legal basis to erase now</span>
+                <input
+                  type="checkbox"
+                  checked={force}
+                  onChange={(e) => setForce(e.target.checked)}
+                  className="h-4 w-4 rounded-sm border-line-2 text-accent focus:ring-accent-tint"
+                />
+                <span>Override, I have a legal basis to erase now</span>
               </label>
             </div>
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm dark:border-slate-600"
-            >
+            <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-            >
+            </Button>
+            <Button type="submit" variant="destructive">
               Erase
-            </button>
+            </Button>
           </div>
         </form>
       </Dialog>

@@ -80,7 +80,12 @@ describe('Leave page', () => {
     });
   });
 
-  const stat = (label: string) => screen.getByText(label).parentElement!;
+  // Scope to the balance card: "Pending" also appears as a status badge on
+  // the request rows.
+  const balanceCard = () =>
+    screen.getByText('Your leave balance').closest('.card') as HTMLElement;
+  const stat = (label: string) =>
+    within(balanceCard()).getByText(label).parentElement!;
 
   it('shows the balance strip for the leave year', async () => {
     render(
@@ -105,7 +110,7 @@ describe('Leave page', () => {
         <Leave />
       </MemoryRouter>,
     );
-    await user.click(screen.getByRole('button', { name: /Request Leave/ }));
+    await user.click(screen.getByRole('button', { name: /Request leave/i }));
 
     const select = screen.getByLabelText('Leave Type *');
     expect(
@@ -130,7 +135,7 @@ describe('Leave page', () => {
         <Leave />
       </MemoryRouter>,
     );
-    await user.click(screen.getByRole('button', { name: /Request Leave/ }));
+    await user.click(screen.getByRole('button', { name: /Request leave/i }));
 
     fireEvent.change(screen.getByLabelText('Start Date *'), {
       target: { value: '2026-09-07' },
@@ -169,7 +174,7 @@ describe('Leave page', () => {
         <Leave />
       </MemoryRouter>,
     );
-    await user.click(screen.getByRole('button', { name: /Request Leave/ }));
+    await user.click(screen.getByRole('button', { name: /Request leave/i }));
     fireEvent.change(screen.getByLabelText('Start Date *'), {
       target: { value: '2026-09-07' },
     });
@@ -177,7 +182,7 @@ describe('Leave page', () => {
       target: { value: '2026-09-09' },
     });
     await user.click(
-      screen.getByRole('button', { name: 'Submit Leave Request' }),
+      screen.getByRole('button', { name: 'Submit request' }),
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(

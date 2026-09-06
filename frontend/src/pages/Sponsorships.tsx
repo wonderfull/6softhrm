@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  HiArrowDownTray,
-  HiCheckCircle,
-  HiClipboardDocumentList,
-  HiPaperClip,
-  HiPencilSquare,
-  HiPlus,
-  HiTrash,
-} from 'react-icons/hi2';
+import { IdentificationIcon } from '@heroicons/react/24/outline';
 import {
   apiDelete,
   apiGet,
@@ -17,7 +9,21 @@ import {
   getCurrentUser,
 } from '../lib/api';
 import { isElevatedRole, normalizeRole } from '../lib/roles';
-import * as XLSX from 'xlsx';
+import Dialog from '../components/Dialog';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  PageHeader,
+  Select,
+  Table,
+  Td,
+  Textarea,
+  Th,
+  Tr,
+} from '../components/ui';
 
 const EVENT_TYPES = [
   'DELAYED_START',
@@ -44,16 +50,23 @@ const EVIDENCE_DOCUMENT_TYPES: Record<string, string> = {
   SKILL_LEVEL_EVIDENCE: 'CERTIFICATE',
 };
 
+const STATUS_TONE: Record<string, 'ok' | 'warn' | 'bad'> = {
+  Complete: 'ok',
+  Expiring: 'warn',
+  Expired: 'bad',
+  Incomplete: 'warn',
+};
+
+const FILE_INPUT_CLASS =
+  'block w-full cursor-pointer rounded-md border border-line-2 bg-surface text-sm text-ink-2 file:mr-3 file:h-[34px] file:cursor-pointer file:border-0 file:border-r file:border-line-2 file:bg-surface-2 file:px-3 file:text-[13px] file:font-medium file:text-ink';
+
 function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleDateString('en-GB') : '';
 }
 
 function labelEventType(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+  const words = value.toLowerCase().split('_').join(' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function employeeName(sponsorship: any, employees: any[]) {
@@ -61,16 +74,6 @@ function employeeName(sponsorship: any, employees: any[]) {
     sponsorship.employee ||
     employees.find((item) => item.id === sponsorship.employeeId);
   return employee ? `${employee.firstName} ${employee.lastName}` : 'N/A';
-}
-
-function statusClass(status: string) {
-  if (status === 'Complete')
-    return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-800';
-  if (status === 'Expired')
-    return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800';
-  if (status === 'Expiring')
-    return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800';
-  return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600';
 }
 
 function getEvidenceFileError(file: File) {
@@ -107,6 +110,7 @@ export default function Sponsorships() {
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [showForm, setShowForm] = React.useState(false);
   const [editingId, setEditingId] = React.useState<number | null>(null);
+  const [deleting, setDeleting] = React.useState<any | null>(null);
   const [eventForm, setEventForm] = React.useState({
     eventType: 'DELAYED_START',
     eventDate: '',
@@ -300,8 +304,10 @@ export default function Sponsorships() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this sponsorship?')) return;
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    const id = deleting.id;
+    setDeleting(null);
 
     try {
       await apiDelete(`/sponsorships/${id}`);
@@ -322,7 +328,7 @@ export default function Sponsorships() {
     resetForm();
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
       const exportData = items.map((item) => ({
         Employee: employeeName(item, employees),
@@ -334,6 +340,10 @@ export default function Sponsorships() {
         'Compliance Notes': item.complianceNotes || '',
         Status: item.active ? 'Active' : 'Inactive',
       }));
+
+      // 300 kB of spreadsheet writer, pulled in only when someone exports.
+
+      const XLSX = await import('xlsx');
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
@@ -483,7 +493,9 @@ export default function Sponsorships() {
           evidenceType: evidenceForm.evidenceType,
           documentId: document.id,
           notes: evidenceForm.notes.trim(),
-          verifiedAt: evidenceForm.verified ? new Date().toISOString() : undefined,
+          verifiedAt: evidenceForm.verified
+            ? new Date().toISOString()
+            : undefined,
         },
       );
 
@@ -504,550 +516,406 @@ export default function Sponsorships() {
     }
   };
 
+  const missingCount = selectedCompliance?.missingCount ?? 0;
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
-            Sponsorships
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Compliance evidence and reportable event tracking
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canManageCore && (
-            <button
-              onClick={handleExport}
-              className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 font-medium text-white transition-colors hover:bg-emerald-700"
-            >
-              <HiArrowDownTray size={18} />
-              Export to Excel
-            </button>
-          )}
-          {canManageCore && (
-            <button
-              onClick={() => {
-                setEditingId(null);
-                if (!showForm) resetForm();
-                setShowForm(!showForm);
-              }}
-              className="btn-primary inline-flex items-center gap-2"
-            >
-              <HiPlus size={18} />
-              {showForm ? 'Cancel' : 'Add Sponsorship'}
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Sponsorships"
+        subline="Compliance evidence and reportable event tracking for sponsored workers."
+        actions={
+          canManageCore ? (
+            <>
+              <Button variant="secondary" size="sm" onClick={handleExport}>
+                Export to Excel
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setEditingId(null);
+                  if (!showForm) resetForm();
+                  setShowForm(!showForm);
+                }}
+              >
+                {showForm ? 'Cancel' : 'Add sponsorship'}
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
 
       {showForm && (
-        <div className="rounded-md border border-slate-300 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800">
-          <h3 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">
-            {editingId ? 'Edit Sponsorship' : 'New Sponsorship'}
-          </h3>
+        <Card
+          title={editingId ? 'Edit sponsorship' : 'New sponsorship'}
+          description="Record the details exactly as they appear on the certificate of sponsorship."
+        >
           <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label
-                htmlFor="sponsorship-employee"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Employee *
-              </label>
-              <select
-                id="sponsorship-employee"
-                value={formData.employeeId}
-                onChange={(e) =>
-                  setFormData({ ...formData, employeeId: e.target.value })
-                }
-                required
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              >
-                <option value="">Select Employee</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.firstName} {emp.lastName}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Employee"
+              id="sponsorship-employee"
+              value={formData.employeeId}
+              onChange={(e) =>
+                setFormData({ ...formData, employeeId: e.target.value })
+              }
+              required
+            >
+              <option value="">Select employee</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.firstName} {emp.lastName}
+                </option>
+              ))}
+            </Select>
 
-            <div>
-              <label
-                htmlFor="sponsorship-visa-type"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Visa Type *
-              </label>
-              <input
-                id="sponsorship-visa-type"
-                value={formData.visaType}
-                onChange={(e) =>
-                  setFormData({ ...formData, visaType: e.target.value })
-                }
-                placeholder="e.g., Skilled Worker"
-                required
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Input
+              label="Visa type"
+              id="sponsorship-visa-type"
+              value={formData.visaType}
+              onChange={(e) =>
+                setFormData({ ...formData, visaType: e.target.value })
+              }
+              placeholder="Skilled Worker"
+              required
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-cas-number"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                CAS Number
-              </label>
-              <input
-                id="sponsorship-cas-number"
-                value={formData.casNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, casNumber: e.target.value })
-                }
-                placeholder="Certificate of Sponsorship Number"
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Input
+              label="CAS number"
+              id="sponsorship-cas-number"
+              value={formData.casNumber}
+              onChange={(e) =>
+                setFormData({ ...formData, casNumber: e.target.value })
+              }
+              placeholder="Certificate of sponsorship number"
+              className="font-mono"
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-license-number"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Sponsor License Number
-              </label>
-              <input
-                id="sponsorship-license-number"
-                value={formData.sponsorLicenseNumber}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    sponsorLicenseNumber: e.target.value,
-                  })
-                }
-                placeholder="Company Sponsor License"
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Leave blank to use the licence recorded in Settings.
-              </p>
-            </div>
+            <Input
+              label="Sponsor licence number"
+              id="sponsorship-license-number"
+              value={formData.sponsorLicenseNumber}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  sponsorLicenseNumber: e.target.value,
+                })
+              }
+              placeholder="Company sponsor licence"
+              className="font-mono"
+              help="Leave blank to use the licence recorded in Settings."
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-cos-type"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                CoS type
-              </label>
-              <select
-                id="sponsorship-cos-type"
-                value={formData.cosType}
-                onChange={(e) =>
-                  setFormData({ ...formData, cosType: e.target.value })
-                }
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              >
-                <option value="">Not recorded</option>
-                <option value="DEFINED">Defined (worker applying from outside the UK)</option>
-                <option value="UNDEFINED">Undefined (in-country application)</option>
-              </select>
-            </div>
+            <Select
+              label="CoS type"
+              id="sponsorship-cos-type"
+              value={formData.cosType}
+              onChange={(e) =>
+                setFormData({ ...formData, cosType: e.target.value })
+              }
+            >
+              <option value="">Not recorded</option>
+              <option value="DEFINED">
+                Defined (worker applying from outside the UK)
+              </option>
+              <option value="UNDEFINED">
+                Undefined (in-country application)
+              </option>
+            </Select>
 
-            <div>
-              <label
-                htmlFor="sponsorship-cos-assigned"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                CoS assigned on
-              </label>
-              <input
-                id="sponsorship-cos-assigned"
-                type="date"
-                value={formData.cosAssignedDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, cosAssignedDate: e.target.value })
-                }
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Input
+              label="CoS assigned on"
+              id="sponsorship-cos-assigned"
+              type="date"
+              value={formData.cosAssignedDate}
+              onChange={(e) =>
+                setFormData({ ...formData, cosAssignedDate: e.target.value })
+              }
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-cos-start-by"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Worker must start by
-              </label>
-              <input
-                id="sponsorship-cos-start-by"
-                type="date"
-                value={formData.cosStartBy}
-                onChange={(e) =>
-                  setFormData({ ...formData, cosStartBy: e.target.value })
-                }
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Defaults to three months after assignment.
-              </p>
-            </div>
+            <Input
+              label="Worker must start by"
+              id="sponsorship-cos-start-by"
+              type="date"
+              value={formData.cosStartBy}
+              onChange={(e) =>
+                setFormData({ ...formData, cosStartBy: e.target.value })
+              }
+              help="Defaults to three months after assignment."
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-isc"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Immigration Skills Charge paid (£)
-              </label>
-              <input
-                id="sponsorship-isc"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.iscAmount}
-                onChange={(e) =>
-                  setFormData({ ...formData, iscAmount: e.target.value })
-                }
-                placeholder="e.g. 1000"
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Input
+              label="Immigration skills charge paid (£)"
+              id="sponsorship-isc"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.iscAmount}
+              onChange={(e) =>
+                setFormData({ ...formData, iscAmount: e.target.value })
+              }
+              placeholder="1000"
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-soc-code"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                SOC Code
-              </label>
-              <input
-                id="sponsorship-soc-code"
-                type="text"
-                value={formData.socCode}
-                onChange={(e) =>
-                  setFormData({ ...formData, socCode: e.target.value })
-                }
-                placeholder="e.g. 6145"
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Input
+              label="SOC code"
+              id="sponsorship-soc-code"
+              type="text"
+              value={formData.socCode}
+              onChange={(e) =>
+                setFormData({ ...formData, socCode: e.target.value })
+              }
+              placeholder="6145"
+              className="font-mono"
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-cos-job-title"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Job Title on CoS
-              </label>
-              <input
-                id="sponsorship-cos-job-title"
-                type="text"
-                value={formData.jobTitleOnCos}
-                onChange={(e) =>
-                  setFormData({ ...formData, jobTitleOnCos: e.target.value })
-                }
-                placeholder="As stated on the CoS"
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Input
+              label="Job title on CoS"
+              id="sponsorship-cos-job-title"
+              type="text"
+              value={formData.jobTitleOnCos}
+              onChange={(e) =>
+                setFormData({ ...formData, jobTitleOnCos: e.target.value })
+              }
+              placeholder="As stated on the CoS"
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-cos-salary"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                CoS Salary (annual gross)
-              </label>
-              <input
-                id="sponsorship-cos-salary"
-                type="number" step="any"
-                value={formData.cosSalary}
-                onChange={(e) =>
-                  setFormData({ ...formData, cosSalary: e.target.value })
-                }
-                placeholder="30000"
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Pay is reconciled against this every pay period.</p>
-            </div>
+            <Input
+              label="CoS salary (annual gross)"
+              id="sponsorship-cos-salary"
+              type="number"
+              step="any"
+              value={formData.cosSalary}
+              onChange={(e) =>
+                setFormData({ ...formData, cosSalary: e.target.value })
+              }
+              placeholder="30000"
+              help="Pay is reconciled against this every pay period."
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-cos-weekly-hours"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Weekly Hours on CoS
-              </label>
-              <input
-                id="sponsorship-cos-weekly-hours"
-                type="number" step="any"
-                value={formData.cosWeeklyHours}
-                onChange={(e) =>
-                  setFormData({ ...formData, cosWeeklyHours: e.target.value })
-                }
-                placeholder="37.5"
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Input
+              label="Weekly hours on CoS"
+              id="sponsorship-cos-weekly-hours"
+              type="number"
+              step="any"
+              value={formData.cosWeeklyHours}
+              onChange={(e) =>
+                setFormData({ ...formData, cosWeeklyHours: e.target.value })
+              }
+              placeholder="37.5"
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-going-rate"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Going Rate for SOC Code
-              </label>
-              <input
-                id="sponsorship-going-rate"
-                type="number" step="any"
-                value={formData.goingRateSalary}
-                onChange={(e) =>
-                  setFormData({ ...formData, goingRateSalary: e.target.value })
-                }
-                placeholder="38700"
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">The higher of this and the CoS salary is the threshold.</p>
-            </div>
+            <Input
+              label="Going rate for SOC code"
+              id="sponsorship-going-rate"
+              type="number"
+              step="any"
+              value={formData.goingRateSalary}
+              onChange={(e) =>
+                setFormData({ ...formData, goingRateSalary: e.target.value })
+              }
+              placeholder="38700"
+              help="The higher of this and the CoS salary is the threshold."
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-work-location"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Work Location
-              </label>
-              <input
-                id="sponsorship-work-location"
-                type="text"
-                value={formData.workLocation}
-                onChange={(e) =>
-                  setFormData({ ...formData, workLocation: e.target.value })
-                }
-                placeholder="Primary work address"
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Input
+              label="Work location"
+              id="sponsorship-work-location"
+              type="text"
+              value={formData.workLocation}
+              onChange={(e) =>
+                setFormData({ ...formData, workLocation: e.target.value })
+              }
+              placeholder="Primary work address"
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-start-date"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Start Date *
-              </label>
-              <input
-                id="sponsorship-start-date"
-                value={formData.startDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, startDate: e.target.value })
-                }
-                type="date"
-                required
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Input
+              label="Start date"
+              id="sponsorship-start-date"
+              value={formData.startDate}
+              onChange={(e) =>
+                setFormData({ ...formData, startDate: e.target.value })
+              }
+              type="date"
+              required
+            />
 
-            <div>
-              <label
-                htmlFor="sponsorship-end-date"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                End Date (Visa Expiry)
-              </label>
-              <input
-                id="sponsorship-end-date"
-                value={formData.endDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, endDate: e.target.value })
-                }
-                type="date"
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Input
+              label="End date (visa expiry)"
+              id="sponsorship-end-date"
+              value={formData.endDate}
+              onChange={(e) =>
+                setFormData({ ...formData, endDate: e.target.value })
+              }
+              type="date"
+            />
 
-            <div className="md:col-span-2">
-              <label
-                htmlFor="sponsorship-compliance-notes"
-                className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                Compliance Notes
-              </label>
-              <textarea
-                id="sponsorship-compliance-notes"
-                value={formData.complianceNotes}
-                onChange={(e) =>
-                  setFormData({ ...formData, complianceNotes: e.target.value })
-                }
-                placeholder="Any compliance-related notes..."
-                rows={3}
-                className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
+            <Textarea
+              label="Compliance notes"
+              id="sponsorship-compliance-notes"
+              value={formData.complianceNotes}
+              onChange={(e) =>
+                setFormData({ ...formData, complianceNotes: e.target.value })
+              }
+              placeholder="Any compliance-related notes"
+              rows={3}
+              wrapperClassName="md:col-span-2"
+            />
 
-            <label className="flex items-center gap-2 text-slate-700 dark:text-slate-300 md:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-ink md:col-span-2">
               <input
                 type="checkbox"
                 checked={formData.active}
                 onChange={(e) =>
                   setFormData({ ...formData, active: e.target.checked })
                 }
-                className="h-4 w-4"
+                className="h-4 w-4 rounded-sm border-line-2 accent-accent"
               />
-              <span>Active Sponsorship</span>
+              <span>Active sponsorship</span>
             </label>
 
             <div className="flex gap-2 md:col-span-2">
-              <button
-                type="submit"
-                className="flex-1 rounded bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-700"
-              >
-                {editingId ? 'Update Sponsorship' : 'Add Sponsorship'}
-              </button>
+              <Button type="submit">
+                {editingId ? 'Save changes' : 'Add sponsorship'}
+              </Button>
               {editingId && (
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="rounded bg-slate-500 px-4 py-2 font-medium text-white hover:bg-slate-600"
-                >
+                <Button variant="ghost" onClick={handleCancel}>
                   Cancel
-                </button>
+                </Button>
               )}
             </div>
           </form>
-        </div>
+        </Card>
       )}
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-        <table className="w-full min-w-[860px] text-left text-sm">
-          <thead className="bg-slate-100 text-xs uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-            <tr>
-              <th className="px-4 py-3">Employee</th>
-              <th className="px-4 py-3">Visa</th>
-              <th className="px-4 py-3">Dates</th>
-              <th className="px-4 py-3">Compliance</th>
-              <th className="px-4 py-3">Open Events</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-            {items.map((sponsorship) => {
-              const pack = complianceById[sponsorship.id];
-              const missingCount = pack?.missingCount ?? 0;
-              const eventCount = openEvents.filter(
-                (event) => event.sponsorshipId === sponsorship.id,
-              ).length;
-              const status = complianceStatus(sponsorship);
+      <Card
+        flush
+        title="Sponsored workers"
+        description="Select a row to open its evidence checklist and reportable events."
+      >
+        {items.length === 0 ? (
+          <div className="p-5">
+            <EmptyState
+              icon={<IdentificationIcon />}
+              title="No sponsorships yet"
+              body="Record a certificate of sponsorship and the evidence checklist appears here."
+            />
+          </div>
+        ) : (
+          <Table className="min-w-[880px]">
+            <thead>
+              <tr>
+                <Th>Employee</Th>
+                <Th>Visa</Th>
+                <Th>Start</Th>
+                <Th>End</Th>
+                <Th>Compliance</Th>
+                <Th>Open events</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((sponsorship) => {
+                const pack = complianceById[sponsorship.id];
+                const missing = pack?.missingCount ?? 0;
+                const eventCount = openEvents.filter(
+                  (event) => event.sponsorshipId === sponsorship.id,
+                ).length;
+                const status = complianceStatus(sponsorship);
 
-              return (
-                <tr
-                  key={sponsorship.id}
-                  className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 ${selected?.id === sponsorship.id ? 'bg-blue-50 dark:bg-blue-950/40' : ''}`}
-                  onClick={() => {
-                    setSelectedId(sponsorship.id);
-                    loadCompliancePack(sponsorship.id);
-                  }}
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-slate-900 dark:text-white">
-                      {employeeName(sponsorship, employees)}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                      {sponsorship.sponsorLicenseNumber ||
-                        'No licence recorded'}
-                      {sponsorship.cosType &&
-                        ` · ${sponsorship.cosType === 'DEFINED' ? 'Defined' : 'Undefined'} CoS`}
-                      {sponsorship.cosStartBy &&
-                        !sponsorship.employee?.startDate &&
-                        ` · start by ${formatDate(sponsorship.cosStartBy)}`}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
-                    {sponsorship.visaType}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                    <div>Start: {formatDate(sponsorship.startDate)}</div>
-                    <div>
-                      End: {formatDate(sponsorship.endDate) || 'Not set'}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(status)}`}
-                    >
-                      {status}
-                    </span>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {missingCount} missing
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
-                      <HiClipboardDocumentList size={15} />
-                      {eventCount}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {canManageCore ? (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEdit(sponsorship);
-                          }}
-                          className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
-                        >
-                          <HiPencilSquare className="inline" size={16} /> Edit
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(sponsorship.id);
-                          }}
-                          className="rounded bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-700"
-                        >
-                          <HiTrash className="inline" size={16} /> Delete
-                        </button>
+                return (
+                  <Tr
+                    key={sponsorship.id}
+                    clickable
+                    selected={selected?.id === sponsorship.id}
+                    onClick={() => {
+                      setSelectedId(sponsorship.id);
+                      loadCompliancePack(sponsorship.id);
+                    }}
+                  >
+                    <Td>
+                      <div className="font-medium text-ink">
+                        {employeeName(sponsorship, employees)}
                       </div>
-                    ) : (
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        View only
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {items.length === 0 && (
-          <div className="p-6 text-slate-500">No sponsorships yet.</div>
+                      <div className="mt-0.5 text-xs text-ink-3">
+                        <span className="font-mono">
+                          {sponsorship.sponsorLicenseNumber ||
+                            'No licence recorded'}
+                        </span>
+                        {sponsorship.cosType &&
+                          ` · ${sponsorship.cosType === 'DEFINED' ? 'Defined' : 'Undefined'} CoS`}
+                        {sponsorship.cosStartBy &&
+                          !sponsorship.employee?.startDate &&
+                          ` · start by ${formatDate(sponsorship.cosStartBy)}`}
+                      </div>
+                    </Td>
+                    <Td className="text-ink-2">{sponsorship.visaType}</Td>
+                    <Td className="whitespace-nowrap font-mono text-[13px] text-ink-2">
+                      {formatDate(sponsorship.startDate)}
+                    </Td>
+                    <Td className="whitespace-nowrap font-mono text-[13px] text-ink-2">
+                      {formatDate(sponsorship.endDate) || 'Not set'}
+                    </Td>
+                    <Td>
+                      <Badge tone={STATUS_TONE[status]}>{status}</Badge>
+                      <div className="mt-1 text-xs text-ink-3">
+                        {missing} missing
+                      </div>
+                    </Td>
+                    <Td>
+                      {eventCount > 0 ? (
+                        <Badge tone="warn">{eventCount} open</Badge>
+                      ) : (
+                        <span className="text-ink-3">None</span>
+                      )}
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </tbody>
+          </Table>
         )}
-      </div>
+      </Card>
 
       {selected && (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <section className="rounded-md border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                  {employeeName(selected, employees)}
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Evidence checklist for {selected.visaType}
-                </p>
-              </div>
-              <span
-                className={`rounded-full border px-3 py-1 text-xs font-medium ${statusClass(complianceStatus(selected))}`}
-              >
-                {selectedCompliance?.missingCount ?? 0} missing
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <Card
+            title={employeeName(selected, employees)}
+            description={`Evidence checklist for ${selected.visaType}`}
+            action={
+              canManageCore ? (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleEdit(selected)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDeleting(selected)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              ) : undefined
+            }
+          >
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <Badge tone={missingCount === 0 ? 'ok' : 'warn'}>
+                {missingCount} missing
+              </Badge>
+              <span className="text-[13px] text-ink-3">
+                of {(selectedCompliance?.requiredEvidence || []).length}{' '}
+                required records
               </span>
             </div>
 
-            <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-100">
-              <div className="font-medium">Sponsor licence evidence</div>
-              <p className="mt-1">
+            <div className="mb-4">
+              <h4 className="text-[13px] font-medium text-ink">
+                Sponsor licence evidence
+              </h4>
+              <p className="mt-1 text-[13px] text-ink-2">
                 These records prove the checks behind a Skilled Worker
                 sponsorship: right to work, employment terms, recruitment,
                 salary level and skill level. Uploading evidence here stores the
@@ -1056,17 +924,17 @@ export default function Sponsorships() {
               </p>
             </div>
 
-            <div className="divide-y divide-slate-200 dark:divide-slate-700">
+            <div className="divide-y divide-line border-t border-line">
               {(selectedCompliance?.requiredEvidence || []).map((item: any) => (
                 <div
                   key={item.key}
                   className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
-                    <div className="font-medium text-slate-900 dark:text-white">
+                    <div className="text-sm font-medium text-ink">
                       {item.label}
                     </div>
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                    <div className="text-[13px] text-ink-2">
                       {item.status === 'COMPLETE'
                         ? item.evidence?.notes?.trim() ||
                           `Linked: ${item.evidence?.document?.name || 'evidence on file'}`
@@ -1074,83 +942,68 @@ export default function Sponsorships() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.status === 'COMPLETE' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'}`}
-                    >
+                    <Badge tone={item.status === 'COMPLETE' ? 'ok' : 'bad'}>
                       {item.status === 'COMPLETE' ? 'Complete' : 'Missing'}
-                    </span>
+                    </Badge>
                     {canUploadEvidence && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => openEvidenceForm(item)}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-950/40"
                         aria-label={`${item.status === 'COMPLETE' ? 'Replace' : 'Add'} evidence for ${item.label}`}
                       >
-                        <HiPaperClip size={16} />
                         {item.status === 'COMPLETE'
                           ? 'Replace evidence'
                           : 'Add evidence'}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
               ))}
               {!selectedCompliance && (
-                <div className="py-3 text-sm text-slate-500 dark:text-slate-400">
+                <p className="py-3 text-[13px] text-ink-3">
                   Compliance pack unavailable.
-                </div>
+                </p>
               )}
             </div>
 
             {evidenceForm.sponsorshipId === selected.id && (
               <form
                 onSubmit={handleEvidenceSubmit}
-                className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60"
+                className="mt-5 border-t border-line pt-5"
               >
-                <div className="mb-4">
-                  <h4 className="font-semibold text-slate-900 dark:text-white">
-                    {evidenceForm.replacing
-                      ? 'Replace evidence'
-                      : 'Add evidence'}
-                    : {evidenceForm.label}
-                  </h4>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {evidenceForm.replacing
-                      ? 'Upload a corrected file to replace the current evidence. '
-                      : ''}
-                    This file will be stored in{' '}
-                    {employeeName(selected, employees)}&apos;s documents and
-                    linked to this sponsorship checklist.
-                  </p>
-                </div>
+                <h4 className="text-base font-semibold text-ink">
+                  {evidenceForm.replacing ? 'Replace evidence' : 'Add evidence'}
+                  : {evidenceForm.label}
+                </h4>
+                <p className="mt-1 text-[13px] text-ink-2">
+                  {evidenceForm.replacing
+                    ? 'Upload a corrected file to replace the current evidence. '
+                    : ''}
+                  This file will be stored in{' '}
+                  {employeeName(selected, employees)}&apos;s documents and
+                  linked to this sponsorship checklist.
+                </p>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label
-                      htmlFor="evidence-document-name"
-                      className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-                    >
-                      Document name
-                    </label>
-                    <input
-                      id="evidence-document-name"
-                      value={evidenceForm.documentName}
-                      onChange={(event) =>
-                        setEvidenceForm((current) => ({
-                          ...current,
-                          documentName: event.target.value,
-                          error: '',
-                        }))
-                      }
-                      className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-                      required
-                    />
-                  </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="Document name"
+                    id="evidence-document-name"
+                    value={evidenceForm.documentName}
+                    onChange={(event) =>
+                      setEvidenceForm((current) => ({
+                        ...current,
+                        documentName: event.target.value,
+                        error: '',
+                      }))
+                    }
+                    required
+                  />
 
                   <div>
                     <label
                       htmlFor="evidence-file"
-                      className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+                      className="mb-1.5 block text-[13px] font-medium text-ink"
                     >
                       Evidence file
                     </label>
@@ -1159,32 +1012,29 @@ export default function Sponsorships() {
                       type="file"
                       accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                       onChange={handleEvidenceFileChange}
-                      className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:font-medium file:text-white hover:file:bg-blue-700 dark:text-slate-200"
+                      className={FILE_INPUT_CLASS}
                     />
+                    <p className="mt-1.5 text-xs text-ink-3">
+                      PDF, PNG, JPG, DOC or DOCX up to 5MB.
+                    </p>
                   </div>
 
-                  <div className="md:col-span-2">
-                    <label
-                      htmlFor="evidence-notes"
-                      className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-                    >
-                      Evidence notes
-                    </label>
-                    <textarea
-                      id="evidence-notes"
-                      value={evidenceForm.notes}
-                      onChange={(event) =>
-                        setEvidenceForm((current) => ({
-                          ...current,
-                          notes: event.target.value,
-                        }))
-                      }
-                      rows={3}
-                      placeholder="What was checked, who verified it, or where the proof came from..."
-                      className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-                    />
-                  </div>
-                  <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300 md:col-span-2">
+                  <Textarea
+                    label="Evidence notes"
+                    id="evidence-notes"
+                    value={evidenceForm.notes}
+                    onChange={(event) =>
+                      setEvidenceForm((current) => ({
+                        ...current,
+                        notes: event.target.value,
+                      }))
+                    }
+                    rows={3}
+                    placeholder="What was checked, who verified it, or where the proof came from"
+                    wrapperClassName="md:col-span-2"
+                  />
+
+                  <label className="flex items-start gap-2 text-[13px] text-ink-2 md:col-span-2">
                     <input
                       type="checkbox"
                       checked={evidenceForm.verified}
@@ -1194,190 +1044,169 @@ export default function Sponsorships() {
                           verified: event.target.checked,
                         }))
                       }
-                      className="mt-0.5"
+                      className="mt-0.5 h-4 w-4 rounded-sm border-line-2 accent-accent"
                     />
                     <span>
-                      I have checked this document against the original and it is
-                      genuine. Marks the evidence as verified today, under my name.
+                      I have checked this document against the original and it
+                      is genuine. Marks the evidence as verified today, under my
+                      name.
                     </span>
                   </label>
                 </div>
 
                 {evidenceForm.error && (
-                  <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
+                  <p role="alert" className="mt-3 text-sm text-bad">
                     {evidenceForm.error}
-                  </div>
+                  </p>
                 )}
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="submit"
-                    disabled={evidenceForm.submitting}
-                    className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <HiPaperClip size={18} />
-                    {evidenceForm.submitting
-                      ? 'Uploading...'
-                      : evidenceForm.replacing
-                        ? 'Replace and re-link evidence'
-                        : 'Upload and link evidence'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={closeEvidenceForm}
-                    className="rounded bg-slate-200 px-4 py-2 font-medium text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
-                  >
+                  <Button type="submit" loading={evidenceForm.submitting}>
+                    {evidenceForm.replacing
+                      ? 'Replace and re-link evidence'
+                      : 'Upload and link evidence'}
+                  </Button>
+                  <Button variant="ghost" onClick={closeEvidenceForm}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
-          </section>
+          </Card>
 
-          <section className="rounded-md border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                Reportable events
-              </h3>
-              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
+          <Card
+            title="Reportable events"
+            description="Changes the Home Office must be told about."
+            action={
+              <Badge tone={selectedEvents.length > 0 ? 'warn' : 'ok'}>
                 {selectedEvents.length} open
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              {selectedEvents.map((event) => (
-                <div
-                  key={
-                    event.id ??
-                    `auto-${event.sponsorshipId}-${event.eventType}-${event.dueDate}`
-                  }
-                  className="rounded-md border border-slate-200 p-3 dark:border-slate-700"
-                >
-                  <div className="font-medium text-slate-900 dark:text-white">
-                    {labelEventType(event.eventType)}
-                  </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Due {formatDate(event.dueDate)}
-                  </div>
-                  {event.notes && (
-                    <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                      {event.notes}
+              </Badge>
+            }
+          >
+            {selectedEvents.length === 0 ? (
+              <p className="text-[13px] text-ink-3">
+                No open reportable events.
+              </p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {selectedEvents.map((event) => (
+                  <li
+                    key={
+                      event.id ??
+                      `auto-${event.sponsorshipId}-${event.eventType}-${event.dueDate}`
+                    }
+                    className="py-3 first:pt-0"
+                  >
+                    <div className="text-sm font-medium text-ink">
+                      {labelEventType(event.eventType)}
                     </div>
-                  )}
-                  {canManageCore && event.id && (
-                    <button
-                      onClick={() => handleMarkReported(event.id)}
-                      className="mt-3 inline-flex items-center gap-2 rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-                    >
-                      <HiCheckCircle size={16} />
-                      Mark reported
-                    </button>
-                  )}
-                </div>
-              ))}
-              {selectedEvents.length === 0 && (
-                <div className="text-sm text-slate-500 dark:text-slate-400">
-                  No open reportable events.
-                </div>
-              )}
-            </div>
+                    <div className="mt-0.5 font-mono text-[13px] text-ink-2">
+                      Due {formatDate(event.dueDate)}
+                    </div>
+                    {event.notes && (
+                      <p className="mt-1 text-[13px] text-ink-2">
+                        {event.notes}
+                      </p>
+                    )}
+                    {canManageCore && event.id && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => handleMarkReported(event.id)}
+                      >
+                        Mark reported
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
 
             {canSupportReporting && (
               <form
                 onSubmit={handleCreateEvent}
-                className="mt-5 space-y-3 border-t border-slate-200 pt-4 dark:border-slate-700"
+                className="mt-5 space-y-4 border-t border-line pt-5"
               >
-                <label
-                  htmlFor="reportable-event-type"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300"
-                >
-                  Reportable event type
-                </label>
-                <select
+                <Select
+                  label="Reportable event type"
                   id="reportable-event-type"
                   value={eventForm.eventType}
                   onChange={(e) =>
                     setEventForm({ ...eventForm, eventType: e.target.value })
                   }
-                  className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
                 >
                   {EVENT_TYPES.map((eventType) => (
                     <option key={eventType} value={eventType}>
                       {labelEventType(eventType)}
                     </option>
                   ))}
-                </select>
+                </Select>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label
-                      htmlFor="reportable-event-date"
-                      className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-                    >
-                      Event date
-                    </label>
-                    <input
-                      id="reportable-event-date"
-                      type="date"
-                      value={eventForm.eventDate}
-                      onChange={(e) =>
-                        setEventForm({
-                          ...eventForm,
-                          eventDate: e.target.value,
-                        })
-                      }
-                      required
-                      className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="reportable-due-date"
-                      className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-                    >
-                      Due date
-                    </label>
-                    <input
-                      id="reportable-due-date"
-                      type="date"
-                      value={eventForm.dueDate}
-                      onChange={(e) =>
-                        setEventForm({ ...eventForm, dueDate: e.target.value })
-                      }
-                      required
-                      className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Event date"
+                    id="reportable-event-date"
+                    type="date"
+                    value={eventForm.eventDate}
+                    onChange={(e) =>
+                      setEventForm({
+                        ...eventForm,
+                        eventDate: e.target.value,
+                      })
+                    }
+                    required
+                  />
+                  <Input
+                    label="Due date"
+                    id="reportable-due-date"
+                    type="date"
+                    value={eventForm.dueDate}
+                    onChange={(e) =>
+                      setEventForm({ ...eventForm, dueDate: e.target.value })
+                    }
+                    required
+                  />
                 </div>
 
-                <label
-                  htmlFor="reportable-notes"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300"
-                >
-                  Notes
-                </label>
-                <textarea
+                <Textarea
+                  label="Notes"
                   id="reportable-notes"
                   value={eventForm.notes}
                   onChange={(e) =>
                     setEventForm({ ...eventForm, notes: e.target.value })
                   }
                   rows={3}
-                  className="form-input w-full bg-white text-slate-900 dark:bg-slate-700 dark:text-white"
                 />
 
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
-                >
-                  <HiPlus size={18} />
+                <Button type="submit" variant="secondary">
                   Add reportable event
-                </button>
+                </Button>
               </form>
             )}
-          </section>
+          </Card>
         </div>
       )}
+
+      <Dialog
+        open={!!deleting}
+        title="Delete sponsorship"
+        description={
+          deleting
+            ? `Delete the sponsorship record for ${employeeName(deleting, employees)}? Linked evidence documents stay in the employee's file.`
+            : undefined
+        }
+        onClose={() => setDeleting(null)}
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setDeleting(null)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={confirmDelete}>
+            Delete sponsorship
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

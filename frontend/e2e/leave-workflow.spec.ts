@@ -29,8 +29,8 @@ test('employee can submit leave and manager can approve it', async ({ browser })
   await employeePage.getByLabel('Start Date *').fill(week.start)
   await employeePage.getByLabel('End Date *').fill(week.end)
   await employeePage.getByLabel('Reason').fill(reason)
-  await employeePage.getByRole('button', { name: 'Submit Leave Request' }).click()
-  const employeeRequestCard = employeePage.locator('[class*="p-4"]').filter({ hasText: reason }).first()
+  await employeePage.getByRole('button', { name: 'Submit request' }).click()
+  const employeeRequestCard = employeePage.locator('.card').filter({ hasText: reason }).first()
   await expect(employeeRequestCard).toBeVisible()
 
   await logout(employeePage)
@@ -43,7 +43,7 @@ test('employee can submit leave and manager can approve it', async ({ browser })
   await managerPage.goto('/leave')
   await expect(managerPage.getByText('Review and approve employee leave requests.')).toBeVisible()
 
-  const requestCard = managerPage.locator('[class*="p-4"]').filter({ hasText: reason }).first()
+  const requestCard = managerPage.locator('.card').filter({ hasText: reason }).first()
   await expect(requestCard.getByRole('button', { name: 'Approve' })).toBeVisible()
   await requestCard.getByRole('button', { name: 'Approve' }).click()
 
@@ -53,7 +53,7 @@ test('employee can submit leave and manager can approve it', async ({ browser })
   await dialog.getByLabel(/note/i).fill('Approved in the E2E walkthrough')
   await dialog.getByRole('button', { name: 'Approve' }).click()
 
-  await expect(requestCard.getByText('APPROVED', { exact: true })).toBeVisible()
+  await expect(requestCard.getByText('Approved', { exact: true })).toBeVisible()
 
   await managerContext.close()
 })

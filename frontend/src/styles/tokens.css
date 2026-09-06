@@ -1,0 +1,71 @@
+/* Design tokens. Source of truth: DESIGN.md. Light values on :root, dark on
+   .dark, so Tailwind's class-based dark mode and these stay in step. Every
+   colour utility in the app resolves to one of these; nothing is hardcoded. */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --surface-3: #e7eaef;
+  --border: #e3e6eb;
+  --border-2: #ccd2db;
+  --text: #0e1420;
+  --text-2: #4a5464;
+  --text-3: #6b7585;
+  --accent: #206fd6;
+  --accent-hover: #1a57a6;
+  --accent-tint: #e8f1fc;
+  --link: #1a57a6;
+  --ok: #1b7a48;
+  --ok-tint: #e4f4ea;
+  --warn: #8f5400;
+  --warn-tint: #fbf1dc;
+  --bad: #b3261e;
+  --bad-tint: #fcebea;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 1px 2px rgba(16, 24, 40, 0.04), 0 6px 16px -4px rgba(16, 24, 40, 0.1);
+  --shadow-lg: 0 1px 2px rgba(16, 24, 40, 0.06), 0 32px 64px -24px rgba(16, 24, 40, 0.22);
+
+  --dur-hover: 120ms;
+  --dur-state: 200ms;
+  --dur-layout: 320ms;
+  --dur-hero: 600ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: linear(0, 0.35 8%, 0.9 20%, 1.06 30%, 1 45%, 0.995 60%, 1);
+}
+
+.dark {
+  --bg: #0b0e13;
+  --surface: #12161d;
+  --surface-2: #181d26;
+  --surface-3: #1f2530;
+  --border: #232a35;
+  --border-2: #313a48;
+  --text: #eef1f5;
+  --text-2: #a3acba;
+  --text-3: #7b869a;
+  --accent: #206fd6;
+  --accent-hover: #2b7ee6;
+  --accent-tint: #16283f;
+  --link: #7fc6ff;
+  --ok: #5cc48e;
+  --ok-tint: #13291d;
+  --warn: #e2a83f;
+  --warn-tint: #2c2311;
+  --bad: #f07a72;
+  --bad-tint: #331a19;
+
+  /* Shadows read as dirt on a dark ground; a hairline does the same job. */
+  --shadow-sm: 0 0 0 1px var(--border);
+  --shadow-md: 0 0 0 1px var(--border);
+  --shadow-lg: 0 0 0 1px var(--border), 0 32px 64px -24px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-state: 0ms;
+    --dur-layout: 0ms;
+    --dur-hero: 0ms;
+  }
+}

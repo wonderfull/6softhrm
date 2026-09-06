@@ -38,7 +38,7 @@ describe('AuditLogs Page', () => {
 
     render(<AuditLogs />)
 
-    expect(await screen.findByRole('heading', { name: 'Audit Logs' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Audit logs' })).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.getAllByText('LOGIN_SUCCESS').length).toBeGreaterThan(1)
     })
@@ -57,7 +57,7 @@ describe('AuditLogs Page', () => {
 
     render(<AuditLogs />)
 
-    expect(await screen.findByRole('heading', { name: 'Audit Logs' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Audit logs' })).toBeInTheDocument()
     expect(await screen.findByText('No audit logs found')).toBeInTheDocument()
   })
 })

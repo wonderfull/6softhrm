@@ -116,7 +116,7 @@ describe('Documents Page', () => {
       expect(screen.getByLabelText(/Document Name/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Document Type/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Expiry Date/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/^File \*$/i)).toBeInTheDocument();
+      expect(screen.getByLabelText('File')).toBeInTheDocument();
     });
   });
 
@@ -348,7 +348,7 @@ describe('Documents Page', () => {
     });
 
     const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
-    fireEvent.change(screen.getByLabelText(/^File \*$/i), {
+    fireEvent.change(screen.getByLabelText('File'), {
       target: { files: [file] },
     });
     fireEvent.click(screen.getByText(/Upload Document/i));
@@ -387,17 +387,20 @@ describe('Documents Page', () => {
       makeToken({ role: 'ADMIN', email: 'admin@example.com' }),
     );
     (api.apiDelete as any).mockResolvedValue({ success: true });
-    window.confirm = vi.fn(() => true);
 
     renderDocuments();
     await selectJohnDocuments();
 
+    const deleteButtons = await screen.findAllByRole('button', {
+      name: 'Delete',
+    });
+    fireEvent.click(deleteButtons[0]);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Delete document' }),
+    );
+
     await waitFor(() => {
-      const deleteButtons = screen.queryAllByText(/Delete/i);
-      if (deleteButtons.length > 0) {
-        fireEvent.click(deleteButtons[0]);
-        expect(api.apiDelete).toHaveBeenCalled();
-      }
+      expect(api.apiDelete).toHaveBeenCalledWith('/documents/1');
     });
   });
 

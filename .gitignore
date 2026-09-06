@@ -46,3 +46,6 @@ backend/backups/
 # Playwright run artifacts (traces, screenshots)
 frontend/test-results/
 frontend/playwright-report/
+
+# Claude Design handoff pack (screenshots + brief), regenerable
+design-handoff/

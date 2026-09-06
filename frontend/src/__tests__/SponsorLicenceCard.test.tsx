@@ -56,7 +56,7 @@ describe('SponsorLicenceCard', () => {
     const number = await screen.findByDisplayValue('ABC123');
     await user.clear(number);
     await user.type(number, 'XYZ999');
-    await user.selectOptions(screen.getByDisplayValue('B — action plan in place'), 'A');
+    await user.selectOptions(screen.getByDisplayValue('B, action plan in place'), 'A');
     expect(screen.queryByDisplayValue('Fix reporting')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save sponsor licence' }));
 

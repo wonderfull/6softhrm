@@ -1,6 +1,28 @@
 import React from 'react';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  UsersIcon,
+} from '@heroicons/react/24/outline';
 import { apiGet, apiPost, apiPut, apiDelete, getCurrentUser } from '../lib/api';
 import { normalizeRole } from '../lib/roles';
+import Dialog from '../components/Dialog';
+import {
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  KpiTile,
+  PageHeader,
+  Select,
+  Table,
+  Td,
+  Th,
+  Tr,
+} from '../components/ui';
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function Time() {
   const currentUser = getCurrentUser();
@@ -19,10 +41,7 @@ export default function Time() {
   const [showForm, setShowForm] = React.useState(false);
   const [showQuickAdd, setShowQuickAdd] = React.useState(false);
   const [editingId, setEditingId] = React.useState<number | null>(null);
-  const [quickAddDate, setQuickAddDate] = React.useState<Date | null>(null);
-  const [quickAddEmployee, setQuickAddEmployee] = React.useState<number | null>(
-    null,
-  );
+  const [deletingId, setDeletingId] = React.useState<number | null>(null);
   const [formData, setFormData] = React.useState({
     employeeId: '',
     projectId: '',
@@ -141,8 +160,6 @@ export default function Time() {
   };
 
   const handleQuickAdd = (employeeId: number, date: Date) => {
-    setQuickAddEmployee(employeeId);
-    setQuickAddDate(date);
     const existingTotal = getTotalHoursForDate(employeeId, date);
     const defaultHours =
       existingTotal >= 8 ? 1 : Math.max(1, 8 - existingTotal);
@@ -185,10 +202,14 @@ export default function Time() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this timesheet entry?')) return;
+  const confirmDelete = async () => {
+    if (deletingId === null) return;
+    const id = deletingId;
+    setDeletingId(null);
     try {
       await apiDelete(`/timesheets/${id}`);
+      setShowForm(false);
+      setEditingId(null);
       loadTimesheets();
     } catch (err: any) {
       alert('Failed to delete: ' + err.message);
@@ -224,9 +245,9 @@ export default function Time() {
   };
 
   const formatDate = (date: Date) => {
-    const month = date.toLocaleDateString('en-US', { month: 'short' });
+    const month = date.toLocaleDateString('en-GB', { month: 'short' });
     const day = date.getDate();
-    return `${month} ${day}`;
+    return `${day} ${month}`;
   };
 
   // Monthly view functions
@@ -260,7 +281,7 @@ export default function Time() {
   };
 
   const formatMonth = (date: Date) => {
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    return date.toLocaleDateString('en-GB', { year: 'numeric', month: 'long' });
   };
 
   const getTotalHoursForMonth = (employeeId: number) => {
@@ -296,581 +317,459 @@ export default function Time() {
     return { totalHours, daysWorked };
   }, [currentWeek, filteredEmployees, items, selectedProject, viewMode]);
 
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold">Timesheets</h2>
-        <div className="flex gap-2">
-          <div className="flex rounded-lg border border-slate-300 dark:border-slate-600 overflow-hidden">
-            <button
-              onClick={() => setViewMode('week')}
-              className={`px-4 py-2 ${viewMode === 'week' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
-            >
-              Weekly
-            </button>
-            <button
-              onClick={() => setViewMode('month')}
-              className={`px-4 py-2 ${viewMode === 'month' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
-            >
-              Monthly
-            </button>
+  const employeeName = (emp: any) => `${emp.firstName} ${emp.lastName}`;
+
+  const rangeLabel =
+    viewMode === 'week'
+      ? `${formatDate(weekDays[0])} - ${formatDate(weekDays[6])}`
+      : formatMonth(currentWeek);
+
+  const projectOptions = (
+    <>
+      <option value="">No project</option>
+      {projects.map((proj) => (
+        <option key={proj.id} value={proj.id}>
+          {proj.code} - {proj.name}
+        </option>
+      ))}
+    </>
+  );
+
+  const renderDayCell = (emp: any, day: Date, key: React.Key) => {
+    const timesheets = getTimesheetsForDate(emp.id, day);
+    const totalHours = getTotalHoursForDate(emp.id, day);
+    const label = `${employeeName(emp)} on ${formatDate(day)}`;
+
+    return (
+      <Td
+        key={key}
+        className="cursor-pointer text-center"
+        onClick={() => handleQuickAdd(emp.id, day)}
+      >
+        {timesheets.length > 0 ? (
+          <div className="flex flex-col items-stretch gap-1">
+            {timesheets.map((ts) => (
+              <button
+                key={ts.id}
+                type="button"
+                aria-label={`Edit ${ts.hours}h entry for ${label}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(ts);
+                }}
+                className="rounded-md border border-line bg-surface-2 px-2 py-1 text-left transition-colors duration-hover ease-out hover:bg-surface-3"
+              >
+                <span className="block text-[13px] font-semibold tabular-nums text-ink">
+                  {ts.hours}h
+                </span>
+                {ts.project && (
+                  <span className="block font-mono text-[11px] text-ink-2">
+                    {ts.project.code}
+                  </span>
+                )}
+                {ts.notes && (
+                  <span className="block truncate text-[11px] text-ink-3">
+                    {ts.notes}
+                  </span>
+                )}
+              </button>
+            ))}
+            {timesheets.length > 1 && (
+              <span className="text-[11px] font-medium tabular-nums text-ink-2">
+                {totalHours}h total
+              </span>
+            )}
           </div>
+        ) : (
           <button
-            onClick={() => {
-              setEditingId(null);
-              setShowForm(!showForm);
+            type="button"
+            aria-label={`Add hours for ${label}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleQuickAdd(emp.id, day);
             }}
-            className="btn-primary"
+            className="mx-auto flex h-6 w-6 items-center justify-center rounded-md text-ink-3 transition-colors duration-hover ease-out hover:bg-surface-2 hover:text-ink"
           >
-            {showForm ? 'Cancel' : '+ Add Entry'}
+            <PlusIcon className="h-4 w-4" />
           </button>
-        </div>
-      </div>
+        )}
+      </Td>
+    );
+  };
 
-      {showQuickAdd && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl max-w-md w-full border border-slate-300 dark:border-slate-600">
-            <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
-              Add Time Entry
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="quick-add-project"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-                >
-                  Project (Optional)
-                </label>
-                <select
-                  id="quick-add-project"
-                  value={formData.projectId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, projectId: e.target.value })
-                  }
-                  className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                >
-                  <option value="">No Project</option>
-                  {projects.map((proj) => (
-                    <option key={proj.id} value={proj.id}>
-                      {proj.code} - {proj.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+  const monthDays = getMonthDays(currentWeek);
 
-              <div>
-                <label
-                  htmlFor="quick-add-hours"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-                >
-                  Hours *
-                </label>
-                <input
-                  id="quick-add-hours"
-                  value={formData.hours}
-                  onChange={(e) =>
-                    setFormData({ ...formData, hours: e.target.value })
-                  }
-                  type="number"
-                  step="0.5"
-                  placeholder="8"
-                  className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="quick-add-notes"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-                >
-                  Notes (Optional)
-                </label>
-                <input
-                  id="quick-add-notes"
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  placeholder="Add any notes..."
-                  className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Timesheets"
+        subline="Hours booked against employees and projects. Select a day to log time."
+        actions={
+          <>
+            <div
+              role="group"
+              aria-label="View mode"
+              className="inline-flex rounded-md border border-line-2 bg-surface p-0.5"
+            >
+              {(['week', 'month'] as const).map((mode) => (
                 <button
-                  onClick={submitQuickAdd}
-                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 font-medium"
+                  key={mode}
+                  type="button"
+                  aria-pressed={viewMode === mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`h-7 rounded-sm px-3 text-[13px] font-medium transition-colors duration-hover ease-out ${
+                    viewMode === mode
+                      ? 'bg-surface-3 text-ink'
+                      : 'text-ink-2 hover:bg-surface-2'
+                  }`}
                 >
-                  Add Entry
+                  {mode === 'week' ? 'Weekly' : 'Monthly'}
                 </button>
-                <button
-                  onClick={() => setShowQuickAdd(false)}
-                  className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
+              ))}
             </div>
-          </div>
-        </div>
-      )}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setEditingId(null);
+                setShowForm(!showForm);
+              }}
+            >
+              {showForm ? 'Cancel' : 'New entry'}
+            </Button>
+          </>
+        }
+      />
 
       {showForm && (
-        <div className="mb-6 p-4 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800">
-          <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
-            {editingId ? 'Edit Entry' : 'New Entry'}
-          </h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+        <Card
+          title={editingId ? 'Edit entry' : 'New entry'}
+          description="Hours are recorded per person, per day, against an optional project."
+        >
+          <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
             {isElevated ? (
-              <div>
-                <label
-                  htmlFor="timesheet-employee"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-                >
-                  Employee *
-                </label>
-                <select
-                  id="timesheet-employee"
-                  value={formData.employeeId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, employeeId: e.target.value })
-                  }
-                  required
-                  className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                >
-                  <option value="">Select Employee</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                label="Employee"
+                id="timesheet-employee"
+                value={formData.employeeId}
+                onChange={(e) =>
+                  setFormData({ ...formData, employeeId: e.target.value })
+                }
+                required
+              >
+                <option value="">Select employee</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {employeeName(emp)}
+                  </option>
+                ))}
+              </Select>
             ) : (
               // Self-only: employee field is locked to the signed-in user.
               <input type="hidden" value={ownEmployeeId} readOnly />
             )}
 
-            <div>
-              <label
-                htmlFor="timesheet-project"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-              >
-                Project (Optional)
-              </label>
-              <select
-                id="timesheet-project"
-                value={formData.projectId}
-                onChange={(e) =>
-                  setFormData({ ...formData, projectId: e.target.value })
-                }
-                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-              >
-                <option value="">No Project</option>
-                {projects.map((proj) => (
-                  <option key={proj.id} value={proj.id}>
-                    {proj.code} - {proj.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Project"
+              id="timesheet-project"
+              value={formData.projectId}
+              onChange={(e) =>
+                setFormData({ ...formData, projectId: e.target.value })
+              }
+              help="Optional. Leave as no project for general time."
+            >
+              {projectOptions}
+            </Select>
 
-            <div>
-              <label
-                htmlFor="timesheet-date"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-              >
-                Date *
-              </label>
-              <input
-                id="timesheet-date"
-                value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
-                type="date"
-                required
-                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-              />
-            </div>
+            <Input
+              label="Date"
+              id="timesheet-date"
+              value={formData.date}
+              onChange={(e) =>
+                setFormData({ ...formData, date: e.target.value })
+              }
+              type="date"
+              required
+            />
 
-            <div>
-              <label
-                htmlFor="timesheet-hours"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-              >
-                Hours *
-              </label>
-              <input
-                id="timesheet-hours"
-                value={formData.hours}
-                onChange={(e) =>
-                  setFormData({ ...formData, hours: e.target.value })
-                }
-                type="number"
-                step="0.5"
-                placeholder="8"
-                required
-                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-              />
-            </div>
+            <Input
+              label="Hours"
+              id="timesheet-hours"
+              value={formData.hours}
+              onChange={(e) =>
+                setFormData({ ...formData, hours: e.target.value })
+              }
+              type="number"
+              step="0.5"
+              placeholder="8"
+              required
+            />
 
-            <div className="col-span-2">
-              <label
-                htmlFor="timesheet-notes"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-              >
-                Notes (Optional)
-              </label>
-              <input
-                id="timesheet-notes"
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
-                placeholder="Add any notes..."
-                className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-              />
-            </div>
+            <Input
+              label="Notes"
+              id="timesheet-notes"
+              value={formData.notes}
+              onChange={(e) =>
+                setFormData({ ...formData, notes: e.target.value })
+              }
+              placeholder="What the time was spent on"
+              wrapperClassName="sm:col-span-2"
+            />
 
-            <div className="col-span-2 flex gap-2">
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-              >
-                {editingId ? 'Update Entry' : 'Add Entry'}
-              </button>
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+              <Button type="submit">
+                {editingId ? 'Save changes' : 'Add entry'}
+              </Button>
               {editingId && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditingId(null);
-                  }}
-                  className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
+                <>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingId(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="ml-auto"
+                    onClick={() => setDeletingId(editingId)}
+                  >
+                    Delete entry
+                  </Button>
+                </>
               )}
             </div>
           </form>
+        </Card>
+      )}
+
+      {viewMode === 'month' && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:max-w-[520px]">
+          <KpiTile
+            label="Total hours"
+            value={`${monthSummary?.totalHours ?? 0}h`}
+            footnote={formatMonth(currentWeek)}
+          />
+          <KpiTile
+            label="Days worked"
+            value={monthSummary?.daysWorked ?? 0}
+            footnote="Days with at least one entry"
+          />
         </div>
       )}
 
-      {/* Week/Month Navigation */}
-      <div className="flex justify-between items-center mb-4 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
-        <button
-          onClick={viewMode === 'week' ? previousWeek : previousMonth}
-          className="px-4 py-2 bg-slate-300 dark:bg-slate-600 text-slate-900 dark:text-white rounded hover:bg-slate-400 dark:hover:bg-slate-500 font-medium"
-        >
-          ← Previous
-        </button>
-        <div className="flex gap-2 items-center">
-          <span className="font-semibold text-slate-900 dark:text-white">
-            {viewMode === 'week'
-              ? `${formatDate(weekDays[0])} - ${formatDate(weekDays[6])}`
-              : formatMonth(currentWeek)}
-          </span>
-          <button
-            onClick={viewMode === 'week' ? thisWeek : thisMonth}
-            className="btn-ghost text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            {viewMode === 'week' ? 'This Week' : 'This Month'}
-          </button>
+      <Card
+        flush
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+          <h2 className="text-base font-semibold leading-snug text-ink">
+            {rangeLabel}
+          </h2>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={viewMode === 'week' ? previousWeek : previousMonth}
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={viewMode === 'week' ? thisWeek : thisMonth}
+            >
+              {viewMode === 'week' ? 'This week' : 'This month'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={viewMode === 'week' ? nextWeek : nextMonth}
+            >
+              Next
+              <ChevronRightIcon className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        <button
-          onClick={viewMode === 'week' ? nextWeek : nextMonth}
-          className="px-4 py-2 bg-slate-300 dark:bg-slate-600 text-slate-900 dark:text-white rounded hover:bg-slate-400 dark:hover:bg-slate-500 font-medium"
-        >
-          Next →
-        </button>
-      </div>
 
-      {/* Filters */}
-      <div className="mb-4 grid grid-cols-2 gap-4">
-        <div>
-          <label
-            htmlFor="timesheet-filter-employee"
-            className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-          >
-            Filter by Employee
-          </label>
-          <select
+        <div className="grid gap-4 border-b border-line px-5 py-4 sm:grid-cols-2">
+          <Select
+            label="Filter by employee"
             id="timesheet-filter-employee"
             value={selectedEmployee}
             onChange={(e) => setSelectedEmployee(e.target.value)}
-            className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
           >
-            <option value="">All Employees</option>
+            <option value="">All employees</option>
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>
-                {emp.firstName} {emp.lastName}
+                {employeeName(emp)}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
 
-        <div>
-          <label
-            htmlFor="timesheet-filter-project"
-            className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-          >
-            Filter by Project
-          </label>
-          <select
+          <Select
+            label="Filter by project"
             id="timesheet-filter-project"
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
-            className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
           >
-            <option value="">All Projects</option>
+            <option value="">All projects</option>
             {projects.map((proj) => (
               <option key={proj.id} value={proj.id}>
                 {proj.code} - {proj.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
-      </div>
 
-      {viewMode === 'week' && (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        {filteredEmployees.length === 0 ? (
+          <div className="p-5">
+            <EmptyState
+              icon={<UsersIcon />}
+              title="No employees found"
+              body="Add employees before hours can be booked against them."
+            />
+          </div>
+        ) : viewMode === 'week' ? (
+          <Table className="min-w-[860px]">
             <thead>
-              <tr className="bg-slate-200 dark:bg-slate-700">
-                <th className="border p-2 text-left">Employee</th>
+              <tr>
+                <Th>Employee</Th>
                 {weekDays.map((day, i) => (
-                  <th key={i} className="border p-2 text-center min-w-[100px]">
-                    <div className="text-xs">
-                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i]}
-                    </div>
-                    <div className="text-sm font-normal">{formatDate(day)}</div>
-                  </th>
+                  <Th key={i} className="min-w-[104px] text-center">
+                    <span className="block">{WEEKDAYS[i]}</span>
+                    <span className="mt-0.5 block font-mono font-normal normal-case tracking-normal text-ink-2">
+                      {formatDate(day)}
+                    </span>
+                  </Th>
                 ))}
-                <th className="border p-2 text-center">Total</th>
+                <Th className="text-right">Total</Th>
               </tr>
             </thead>
             <tbody>
               {filteredEmployees.map((emp) => (
-                <tr
-                  key={emp.id}
-                  className="hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <td className="border p-2 font-medium">
+                <Tr key={emp.id}>
+                  <Td className="whitespace-nowrap font-medium text-ink">
                     {emp.firstName} {emp.lastName}
-                  </td>
-                  {weekDays.map((day, i) => {
-                    const timesheets = getTimesheetsForDate(emp.id, day);
-                    const totalHours = getTotalHoursForDate(emp.id, day);
-                    return (
-                      <td
-                        key={i}
-                        className="border p-1 text-center cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900"
-                        onClick={() => handleQuickAdd(emp.id, day)}
-                      >
-                        {timesheets.length > 0 ? (
-                          <div className="space-y-1">
-                            {timesheets.map((ts) => (
-                              <div
-                                key={ts.id}
-                                className="group relative bg-slate-50 dark:bg-slate-700 rounded p-1"
-                              >
-                                <div className="font-semibold text-green-600 dark:text-green-400">
-                                  {ts.hours}h
-                                </div>
-                                {ts.project && (
-                                  <div className="text-xs text-blue-600 dark:text-blue-400">
-                                    {ts.project.code}
-                                  </div>
-                                )}
-                                {ts.notes && (
-                                  <div className="text-xs text-slate-500 truncate">
-                                    {ts.notes}
-                                  </div>
-                                )}
-                                <div className="absolute hidden group-hover:flex gap-1 top-0 right-0 p-1 bg-white dark:bg-slate-800 rounded shadow">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEdit(ts);
-                                    }}
-                                    className="px-2 py-1 bg-blue-500 text-white text-xs rounded"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDelete(ts.id);
-                                    }}
-                                    className="px-2 py-1 bg-red-500 text-white text-xs rounded"
-                                  >
-                                    Del
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                            {timesheets.length > 1 && (
-                              <div className="text-xs font-bold text-slate-600 dark:text-slate-400 border-t pt-1">
-                                Total: {totalHours}h
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-slate-300 dark:text-slate-600 text-xs">
-                            +
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="border p-2 text-center font-bold">
+                  </Td>
+                  {weekDays.map((day, i) => renderDayCell(emp, day, i))}
+                  <Td className="text-right font-semibold tabular-nums text-ink">
                     {getTotalHours(emp.id)}h
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      )}
+          </Table>
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <Th className="sticky left-0 z-10 bg-surface">Employee</Th>
+                {monthDays.map((day, i) => (
+                  <Th key={i} className="min-w-[76px] text-center">
+                    <span className="block font-normal text-ink-3">
+                      {day.toLocaleDateString('en-GB', { weekday: 'short' })}
+                    </span>
+                    <span className="mt-0.5 block text-[13px] tabular-nums text-ink-2">
+                      {day.getDate()}
+                    </span>
+                  </Th>
+                ))}
+                <Th className="sticky right-0 z-10 bg-surface text-right">
+                  Total
+                </Th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEmployees.map((emp) => (
+                <Tr key={emp.id}>
+                  <Td className="sticky left-0 z-10 whitespace-nowrap bg-surface font-medium text-ink">
+                    {emp.firstName} {emp.lastName}
+                  </Td>
+                  {monthDays.map((day, i) =>
+                    renderDayCell(emp, day, `${emp.id}-${i}`),
+                  )}
+                  <Td className="sticky right-0 z-10 bg-surface text-right font-semibold tabular-nums text-ink">
+                    {getTotalHoursForMonth(emp.id)}h
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
 
-      {/* Monthly View */}
-      {viewMode === 'month' && (
-        <>
-          <div className="mb-4 grid grid-cols-2 gap-4">
-            <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                Total Hours
-              </div>
-              <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
-                {monthSummary?.totalHours ?? 0}h
-              </div>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                Days Worked
-              </div>
-              <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
-                {monthSummary?.daysWorked ?? 0}
-              </div>
-            </div>
+      <Dialog
+        open={showQuickAdd}
+        title="Add time entry"
+        description={
+          formData.date
+            ? `Logging hours for ${new Date(formData.date).toLocaleDateString('en-GB')}.`
+            : undefined
+        }
+        onClose={() => setShowQuickAdd(false)}
+      >
+        <div className="space-y-4">
+          <Select
+            label="Project"
+            id="quick-add-project"
+            value={formData.projectId}
+            onChange={(e) =>
+              setFormData({ ...formData, projectId: e.target.value })
+            }
+            help="Optional."
+          >
+            {projectOptions}
+          </Select>
+
+          <Input
+            label="Hours"
+            id="quick-add-hours"
+            value={formData.hours}
+            onChange={(e) =>
+              setFormData({ ...formData, hours: e.target.value })
+            }
+            type="number"
+            step="0.5"
+            placeholder="8"
+          />
+
+          <Input
+            label="Notes"
+            id="quick-add-notes"
+            value={formData.notes}
+            onChange={(e) =>
+              setFormData({ ...formData, notes: e.target.value })
+            }
+            placeholder="Optional"
+          />
+
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setShowQuickAdd(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitQuickAdd}>Add entry</Button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="bg-slate-200 dark:bg-slate-700">
-                  <th className="border border-slate-300 dark:border-slate-600 p-2 text-left text-slate-900 dark:text-white">
-                    Employee
-                  </th>
-                  {getMonthDays(currentWeek).map((day, i) => (
-                    <th
-                      key={i}
-                      className="border border-slate-300 dark:border-slate-600 p-1 text-center min-w-[80px] text-slate-900 dark:text-white"
-                    >
-                      <div className="text-xs">
-                        {day.toLocaleDateString('en-US', { weekday: 'short' })}
-                      </div>
-                      <div className="font-bold">{day.getDate()}</div>
-                    </th>
-                  ))}
-                  <th className="border border-slate-300 dark:border-slate-600 p-2 text-center text-slate-900 dark:text-white">
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEmployees.map((emp) => {
-                  const monthDays = getMonthDays(currentWeek);
-                  const monthHours = getTotalHoursForMonth(emp.id);
-
-                  return (
-                    <tr
-                      key={emp.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800"
-                    >
-                      <td className="border border-slate-300 dark:border-slate-600 p-2 font-medium text-slate-900 dark:text-white sticky left-0 bg-white dark:bg-slate-900">
-                        {emp.firstName} {emp.lastName}
-                      </td>
-                      {monthDays.map((day, i) => {
-                        const timesheets = getTimesheetsForDate(emp.id, day);
-                        const totalHours = getTotalHoursForDate(emp.id, day);
-                        const isWeekend =
-                          day.getDay() === 0 || day.getDay() === 6;
-
-                        return (
-                          <td
-                            key={i}
-                            className={`border border-slate-300 dark:border-slate-600 p-1 text-center cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900 ${isWeekend ? 'bg-slate-100 dark:bg-slate-800' : ''}`}
-                            onClick={() => handleQuickAdd(emp.id, day)}
-                          >
-                            {timesheets.length > 0 ? (
-                              <div className="space-y-1">
-                                {timesheets.map((ts) => (
-                                  <div
-                                    key={ts.id}
-                                    className="group relative bg-slate-50 dark:bg-slate-700 rounded p-1"
-                                  >
-                                    <div className="font-semibold text-green-600 dark:text-green-400 text-xs">
-                                      {ts.hours}h
-                                    </div>
-                                    {ts.project && (
-                                      <div className="text-xs text-blue-600 dark:text-blue-400">
-                                        {ts.project.code}
-                                      </div>
-                                    )}
-                                    <div className="absolute hidden group-hover:flex gap-1 top-0 right-0 p-1 bg-white dark:bg-slate-800 rounded shadow z-10">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleEdit(ts);
-                                        }}
-                                        className="px-1 py-0.5 bg-blue-500 text-white text-xs rounded"
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDelete(ts.id);
-                                        }}
-                                        className="px-1 py-0.5 bg-red-500 text-white text-xs rounded"
-                                      >
-                                        Del
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                                {timesheets.length > 1 && (
-                                  <div className="text-xs font-bold text-slate-600 dark:text-slate-400 border-t pt-1">
-                                    {totalHours}h
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="text-slate-300 dark:text-slate-600 text-xs">
-                                +
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td className="border border-slate-300 dark:border-slate-600 p-2 text-center font-bold text-green-600 dark:text-green-400 sticky right-0 bg-white dark:bg-slate-900">
-                        {monthHours}h
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {filteredEmployees.length === 0 && (
-        <div className="text-center text-slate-500 dark:text-slate-400 p-8">
-          No employees found. Add employees first.
         </div>
-      )}
+      </Dialog>
+
+      <Dialog
+        open={deletingId !== null}
+        title="Delete entry"
+        description="This removes the hours from the timesheet. It cannot be undone."
+        onClose={() => setDeletingId(null)}
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setDeletingId(null)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={confirmDelete}>
+            Delete entry
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

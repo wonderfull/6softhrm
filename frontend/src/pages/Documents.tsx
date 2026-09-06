@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { DocumentTextIcon, FolderOpenIcon } from '@heroicons/react/24/outline';
 import {
   apiGet,
   API_BASE_URL,
@@ -10,6 +11,19 @@ import {
   hasRole,
 } from '../lib/api';
 import Dialog from '../components/Dialog';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  PageHeader,
+  Select,
+  Table,
+  Td,
+  Th,
+  Tr,
+} from '../components/ui';
 
 const MAX_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = [
@@ -21,29 +35,14 @@ const ALLOWED_TYPES = [
 ];
 
 const DOCUMENT_TYPE_LABELS: Record<string, string> = {
-  CONTRACT: 'Employment Contracts',
+  CONTRACT: 'Employment contracts',
   PASSPORT: 'Passports',
-  VISA: 'Visa Documents',
-  ID: 'ID Documents',
+  VISA: 'Visa documents',
+  ID: 'ID documents',
   CERTIFICATE: 'Certificates',
   PAYSLIP: 'Payslips',
-  OTHER: 'Other Documents',
+  OTHER: 'Other documents',
   UNCATEGORISED: 'Uncategorised',
-};
-
-const typeColors: Record<string, string> = {
-  CONTRACT: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
-  PASSPORT:
-    'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
-  VISA: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
-  ID: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
-  CERTIFICATE:
-    'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
-  PAYSLIP:
-    'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
-  OTHER: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-400',
-  UNCATEGORISED:
-    'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-400',
 };
 
 type UploadValidationErrors = {
@@ -83,6 +82,27 @@ function getPreviewKind(
   return 'unsupported';
 }
 
+// Expiry is a status, so it reads as a badge plus the date itself rather than
+// a coloured card: tone carries the urgency, the mono date carries the fact.
+function expiryState(expiryDate: string) {
+  const days = Math.ceil(
+    (new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+  );
+  if (days < 0) {
+    return {
+      tone: 'bad' as const,
+      label: `Expired ${Math.abs(days)} days ago`,
+    };
+  }
+  if (days < 7) {
+    return { tone: 'bad' as const, label: `Expires in ${days} days` };
+  }
+  if (days < 30) {
+    return { tone: 'warn' as const, label: `Expires in ${days} days` };
+  }
+  return { tone: 'ok' as const, label: 'In date' };
+}
+
 export default function Documents() {
   const [items, setItems] = React.useState<any[]>([]);
   const [file, setFile] = React.useState<File | null>(null);
@@ -101,6 +121,7 @@ export default function Documents() {
     null,
   );
   const [uploadingPayslips, setUploadingPayslips] = React.useState(false);
+  const [deleting, setDeleting] = React.useState<any | null>(null);
   const [uploadValidationErrors, setUploadValidationErrors] =
     React.useState<UploadValidationErrors>({});
   const [preview, setPreview] = React.useState<{
@@ -343,6 +364,19 @@ export default function Documents() {
     }
   }
 
+  async function confirmDelete() {
+    if (!deleting) return;
+    const id = deleting.id;
+    setDeleting(null);
+    try {
+      await apiDelete(`/documents/${id}`);
+      await loadDocuments();
+      alert('Document deleted successfully!');
+    } catch (err: any) {
+      alert(`Delete error: ${err.message}`);
+    }
+  }
+
   function validateUploadForm() {
     const errors: UploadValidationErrors = {};
 
@@ -438,73 +472,94 @@ export default function Documents() {
   );
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-4">
-        {isElevated ? 'Documents' : 'My Documents'}
-      </h2>
+    <div className="space-y-6">
+      <PageHeader
+        title={isElevated ? 'Documents' : 'My documents'}
+        subline={
+          isElevated
+            ? 'Employment records held against each employee, grouped by type.'
+            : 'Every document your employer holds for you.'
+        }
+        actions={
+          <>
+            {isElevated && viewFilterEmployeeId && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleDownloadAll(viewFilterEmployeeId)}
+              >
+                Download all as ZIP
+              </Button>
+            )}
+            {!isElevated && currentEmployee && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleDownloadAll(String(currentEmployee.id))}
+              >
+                Download all my documents as ZIP
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {preview && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-[fade-in_200ms_var(--ease-out)] motion-reduce:animate-none"
           role="dialog"
           aria-modal="true"
           aria-label={`Preview ${preview.document.name}`}
         >
-          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-700">
-              <div>
-                <div className="text-lg font-semibold text-slate-900 dark:text-white">
+          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
+            <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-3.5">
+              <div className="min-w-0">
+                <h2 className="truncate font-mono text-sm text-ink">
                   {preview.document.name}
-                </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">
+                </h2>
+                <p className="mt-0.5 text-[13px] text-ink-2">
                   {preview.kind === 'unsupported'
                     ? 'Preview unavailable'
                     : 'Secure document preview'}
-                </div>
+                </p>
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label={`Download ${preview.document.name}`}
                   onClick={() => handleDownloadDocument(preview.document)}
                 >
-                  Download {preview.document.name}
-                </button>
-                <button
-                  type="button"
-                  className="rounded bg-slate-200 px-3 py-2 text-sm text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
-                  onClick={closePreview}
-                >
+                  Download
+                </Button>
+                <Button variant="ghost" size="sm" onClick={closePreview}>
                   Close
-                </button>
+                </Button>
               </div>
-            </div>
-            <div className="min-h-[420px] overflow-auto bg-slate-100 p-4 dark:bg-slate-950">
+            </header>
+            <div className="min-h-[420px] overflow-auto bg-surface-2 p-4">
               {(preview.kind === 'pdf' || preview.kind === 'document') &&
                 preview.url && (
                   <iframe
                     title={preview.document.name}
                     src={preview.url}
-                    className="h-[70vh] w-full rounded border border-slate-200 bg-white dark:border-slate-700"
+                    className="h-[70vh] w-full rounded-lg border border-line bg-surface"
                   />
                 )}
               {preview.kind === 'image' && preview.url && (
                 <img
                   src={preview.url}
                   alt={preview.document.name}
-                  className="mx-auto max-h-[70vh] max-w-full rounded bg-white object-contain"
+                  className="mx-auto max-h-[70vh] max-w-full rounded-lg bg-surface object-contain"
                 />
               )}
               {preview.kind === 'unsupported' && (
-                <div className="flex min-h-[360px] flex-col items-center justify-center rounded border border-dashed border-slate-300 bg-white p-8 text-center dark:border-slate-700 dark:bg-slate-900">
-                  <div className="text-lg font-semibold text-slate-900 dark:text-white">
-                    Preview is not available for this file type
-                  </div>
-                  <p className="mt-2 max-w-md text-sm text-slate-600 dark:text-slate-400">
-                    Download the original file to view it in a compatible
-                    desktop or browser application.
-                  </p>
-                </div>
+                <EmptyState
+                  icon={<DocumentTextIcon />}
+                  title="Preview is not available for this file type"
+                  body="Download the original file to view it in a compatible desktop or browser application."
+                  className="min-h-[360px] justify-center bg-surface"
+                />
               )}
             </div>
           </div>
@@ -512,69 +567,47 @@ export default function Documents() {
       )}
 
       {isElevated && (
-        <section className="mb-8 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-5">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <h3 className="text-lg font-semibold">Payslip Drop Zone</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Select an employee, drag in one or more payslips, and the system
-                stores them in that employee&apos;s documents.
-              </p>
-            </div>
-          </div>
-
+        <Card
+          title="Payslip drop zone"
+          description="Select an employee, drag in one or more payslips, and the system stores them in that employee's documents."
+        >
           {employees.length === 0 && (
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-yellow-700">
+            <p className="mb-4 rounded-md bg-warn-tint px-3 py-2 text-[13px] text-warn">
               No employees found. Create employees first on the{' '}
               <Link to="/employees" className="underline">
                 Employees
               </Link>{' '}
               page.
-            </div>
+            </p>
           )}
 
-          <div className="grid gap-4 md:grid-cols-[1fr_1fr] mb-4">
-            <div>
-              <label
-                htmlFor="payslip-employee-search"
-                className="block text-sm font-medium mb-1"
-              >
-                Search employees
-              </label>
-              <input
-                id="payslip-employee-search"
-                placeholder="Search employees..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="form-input w-full"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="document-employee"
-                className="block text-sm font-medium mb-1"
-              >
-                Employee
-              </label>
-              <select
-                id="document-employee"
-                value={employeeId}
-                onChange={(e) => {
-                  setEmployeeId(e.target.value);
-                  setViewFilterEmployeeId(e.target.value);
-                  if (e.target.value) clearUploadValidationError('employeeId');
-                }}
-                className="form-input w-full"
-                disabled={employees.length === 0}
-              >
-                <option value="">Select Employee *</option>
-                {employeeSelectOptions.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.firstName} {emp.lastName} ({emp.id})
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Search employees"
+              id="payslip-employee-search"
+              placeholder="Name, email or ID"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+            <Select
+              label="Employee"
+              id="document-employee"
+              value={employeeId}
+              onChange={(e) => {
+                setEmployeeId(e.target.value);
+                setViewFilterEmployeeId(e.target.value);
+                if (e.target.value) clearUploadValidationError('employeeId');
+              }}
+              disabled={employees.length === 0}
+              help="Payslips and uploads are filed against this person."
+            >
+              <option value="">Select employee</option>
+              {employeeSelectOptions.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.firstName} {emp.lastName} ({emp.id})
+                </option>
+              ))}
+            </Select>
           </div>
 
           <div
@@ -591,21 +624,23 @@ export default function Documents() {
               setPayslipDragActive(false);
               setValidatedPayslipFiles(Array.from(e.dataTransfer.files));
             }}
-            className={`rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
+            className={`mt-4 rounded-lg border border-dashed p-8 text-center transition-colors duration-hover ease-out ${
               payslipDragActive
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900/40'
+                ? 'border-accent bg-accent-tint'
+                : 'border-line-2 bg-surface'
             }`}
           >
-            <p className="font-medium mb-2">Drag and drop payslips here</p>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              PDF, PNG, JPG, DOC, DOCX up to 5MB each
+            <p className="text-[15px] font-semibold text-ink">
+              Drag and drop payslips here
+            </p>
+            <p className="mt-1 text-[13px] text-ink-2">
+              PDF, PNG, JPG, DOC or DOCX up to 5MB each.
             </p>
             <label
               htmlFor="payslip-files"
-              className="btn-primary cursor-pointer inline-flex"
+              className="btn-secondary mt-4 h-8 cursor-pointer px-3 text-[13px]"
             >
-              Select Payslips
+              Select payslips
             </label>
             <input
               id="payslip-files"
@@ -619,344 +654,233 @@ export default function Documents() {
           </div>
 
           {payslipFiles.length > 0 && (
-            <div className="mt-4 rounded-lg bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4">
-              <div className="font-medium mb-2">Ready to upload</div>
-              <div className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                {payslipFiles.map((payslipFile) => (
-                  <div key={`${payslipFile.name}-${payslipFile.size}`}>
-                    {payslipFile.name}
-                  </div>
-                ))}
+            <div className="mt-4 border-t border-line pt-4">
+              <div className="text-[13px] font-medium text-ink">
+                Ready to upload
               </div>
+              <ul className="mt-2 space-y-1 font-mono text-[13px] text-ink-2">
+                {payslipFiles.map((payslipFile) => (
+                  <li key={`${payslipFile.name}-${payslipFile.size}`}>
+                    {payslipFile.name}
+                  </li>
+                ))}
+              </ul>
               <div className="mt-4 flex gap-2">
-                <button
-                  type="button"
-                  className="btn-primary"
+                <Button
+                  variant="secondary"
                   onClick={uploadPayslips}
-                  disabled={!employeeId || uploadingPayslips}
+                  disabled={!employeeId}
+                  loading={uploadingPayslips}
                 >
                   {uploadingPayslips
-                    ? 'Uploading...'
-                    : `Upload ${payslipFiles.length} Payslip${payslipFiles.length > 1 ? 's' : ''}`}
-                </button>
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded bg-slate-200 dark:bg-slate-700"
-                  onClick={() => setPayslipFiles([])}
-                >
+                    ? 'Uploading'
+                    : `Upload ${payslipFiles.length} payslip${payslipFiles.length > 1 ? 's' : ''}`}
+                </Button>
+                <Button variant="ghost" onClick={() => setPayslipFiles([])}>
                   Clear
-                </button>
+                </Button>
               </div>
             </div>
           )}
 
           {payslipResults.length > 0 && (
-            <div className="mt-4 rounded-lg border border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800 p-4">
-              <div className="font-medium text-green-800 dark:text-green-300 mb-2">
+            <div className="mt-4 border-t border-line pt-4">
+              <div className="text-[13px] font-medium text-ok">
                 Payslips uploaded ({payslipResults.length})
               </div>
-              <ul className="list-disc list-inside text-sm text-slate-700 dark:text-slate-200 space-y-1">
+              <ul className="mt-2 space-y-1 font-mono text-[13px] text-ink-2">
                 {payslipResults.map((result) => (
                   <li key={result.id}>{result.name}</li>
                 ))}
               </ul>
             </div>
           )}
-        </section>
+        </Card>
       )}
 
-      <form onSubmit={upload} noValidate className="mb-6 space-y-3">
-        {uploadValidationErrors.employeeId && (
-          <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
-            {uploadValidationErrors.employeeId}
-          </div>
-        )}
+      <Card
+        title="Upload a document"
+        description="Files are stored against the selected employee and logged for audit."
+      >
+        <form
+          onSubmit={upload}
+          noValidate
+          className="grid gap-4 md:grid-cols-2"
+        >
+          {uploadValidationErrors.employeeId && (
+            <p role="alert" className="text-sm text-bad md:col-span-2">
+              {uploadValidationErrors.employeeId}
+            </p>
+          )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label
-              htmlFor="document-name"
-              className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-            >
-              Document Name *
-            </label>
-            <input
-              id="document-name"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (e.target.value.trim()) clearUploadValidationError('name');
-              }}
-              placeholder="e.g., Employment Contract"
-              className={`form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white ${uploadValidationErrors.name ? 'border-red-500 focus:border-red-500' : ''}`}
-              aria-invalid={Boolean(uploadValidationErrors.name)}
-              aria-describedby={
-                uploadValidationErrors.name ? 'document-name-error' : undefined
-              }
-            />
-            {uploadValidationErrors.name && (
-              <div
-                id="document-name-error"
-                className="mt-1 text-sm text-red-600 dark:text-red-400"
-              >
-                {uploadValidationErrors.name}
-              </div>
-            )}
-          </div>
-          <div>
-            <label
-              htmlFor="document-type"
-              className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-            >
-              Document Type (Optional)
-            </label>
-            <select
-              id="document-type"
-              value={docType}
-              onChange={(e) => setDocType(e.target.value)}
-              className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-            >
-              <option value="">Select type...</option>
-              <option value="CONTRACT">Employment Contract</option>
-              <option value="PASSPORT">Passport</option>
-              <option value="VISA">Visa Document</option>
-              <option value="ID">ID Document</option>
-              <option value="CERTIFICATE">Certificate</option>
-              <option value="PAYSLIP">Payslip</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-        </div>
+          <Input
+            label="Document name"
+            id="document-name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (e.target.value.trim()) clearUploadValidationError('name');
+            }}
+            placeholder="Employment contract"
+            error={uploadValidationErrors.name}
+          />
 
-        <div>
-          <label
-            htmlFor="document-expiry-date"
-            className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+          <Select
+            label="Document type"
+            id="document-type"
+            value={docType}
+            onChange={(e) => setDocType(e.target.value)}
+            help="Optional. Sets which group the file appears under."
           >
-            Expiry Date (Optional)
-          </label>
-          <input
+            <option value="">Select type</option>
+            <option value="CONTRACT">Employment contract</option>
+            <option value="PASSPORT">Passport</option>
+            <option value="VISA">Visa document</option>
+            <option value="ID">ID document</option>
+            <option value="CERTIFICATE">Certificate</option>
+            <option value="PAYSLIP">Payslip</option>
+            <option value="OTHER">Other</option>
+          </Select>
+
+          <Input
+            label="Expiry date"
             id="document-expiry-date"
             type="date"
             value={expiryDate}
             onChange={(e) => setExpiryDate(e.target.value)}
-            className="form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+            help="Optional. Drives the expiry alerts."
           />
-        </div>
 
-        <div>
-          <label
-            htmlFor="document-file"
-            className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-          >
-            File *
-          </label>
-          <input
-            id="document-file"
-            type="file"
-            className={`form-input w-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white ${uploadValidationErrors.file ? 'border-red-500 focus:border-red-500' : ''}`}
-            onChange={handleFileChange}
-            disabled={!isElevated && !currentEmployee}
-            aria-invalid={Boolean(uploadValidationErrors.file)}
-            aria-describedby={
-              uploadValidationErrors.file ? 'document-file-error' : undefined
-            }
-          />
-          {uploadValidationErrors.file && (
-            <div
-              id="document-file-error"
-              className="mt-1 text-sm text-red-600 dark:text-red-400"
+          <div>
+            <label
+              htmlFor="document-file"
+              className="mb-1.5 block text-[13px] font-medium text-ink"
             >
-              {uploadValidationErrors.file}
-            </div>
-          )}
-          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Allowed types: PDF, PNG, JPG, DOC, DOCX • Max size: 5MB
+              File
+            </label>
+            <input
+              id="document-file"
+              type="file"
+              onChange={handleFileChange}
+              disabled={!isElevated && !currentEmployee}
+              aria-invalid={uploadValidationErrors.file ? 'true' : undefined}
+              aria-describedby={
+                uploadValidationErrors.file
+                  ? 'document-file-error'
+                  : 'document-file-help'
+              }
+              className="block w-full cursor-pointer rounded-md border border-line-2 bg-surface text-sm text-ink-2 aria-[invalid=true]:border-bad file:mr-3 file:h-[34px] file:cursor-pointer file:border-0 file:border-r file:border-line-2 file:bg-surface-2 file:px-3 file:text-[13px] file:font-medium file:text-ink"
+            />
+            {uploadValidationErrors.file ? (
+              <p id="document-file-error" className="mt-1.5 text-xs text-bad">
+                {uploadValidationErrors.file}
+              </p>
+            ) : (
+              <p id="document-file-help" className="mt-1.5 text-xs text-ink-3">
+                PDF, PNG, JPG, DOC or DOCX up to 5MB.
+              </p>
+            )}
           </div>
-        </div>
 
-        <button
-          className="btn-primary"
-          disabled={!isElevated && !currentEmployee}
-        >
-          Upload Document
-        </button>
-      </form>
+          <div className="md:col-span-2">
+            <Button type="submit" disabled={!isElevated && !currentEmployee}>
+              Upload document
+            </Button>
+          </div>
+        </form>
+      </Card>
 
       {isElevated && (
-        <div className="mb-4 flex items-end gap-4">
-          <div className="flex-1">
-            <label
-              htmlFor="document-filter-employee"
-              className="block text-sm font-medium mb-2"
-            >
-              Selected Employee:
-            </label>
-            <select
-              id="document-filter-employee"
-              value={viewFilterEmployeeId}
-              onChange={(e) => {
-                setViewFilterEmployeeId(e.target.value);
-                setEmployeeId(e.target.value);
-              }}
-              className="form-input"
-            >
-              <option value="">Select an employee to view documents</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.firstName} {emp.lastName}
-                </option>
-              ))}
-            </select>
-          </div>
-          {viewFilterEmployeeId && (
-            <button
-              onClick={() => handleDownloadAll(viewFilterEmployeeId)}
-              className="btn-primary flex items-center gap-2"
-              type="button"
-            >
-              Download All as ZIP
-            </button>
-          )}
-        </div>
+        <Select
+          label="Selected employee"
+          id="document-filter-employee"
+          value={viewFilterEmployeeId}
+          onChange={(e) => {
+            setViewFilterEmployeeId(e.target.value);
+            setEmployeeId(e.target.value);
+          }}
+          wrapperClassName="w-full sm:max-w-xs"
+        >
+          <option value="">Select an employee to view documents</option>
+          {employees.map((emp) => (
+            <option key={emp.id} value={emp.id}>
+              {emp.firstName} {emp.lastName}
+            </option>
+          ))}
+        </Select>
       )}
 
-      {!isElevated && currentEmployee && (
-        <div className="mb-4">
-          <button
-            onClick={() => handleDownloadAll(String(currentEmployee.id))}
-            className="btn-primary flex items-center gap-2 w-fit"
-            type="button"
-          >
-            Download All My Documents as ZIP
-          </button>
-        </div>
+      {isElevated && !viewFilterEmployeeId && (
+        <EmptyState
+          icon={<FolderOpenIcon />}
+          title="No employee selected"
+          body="Select an employee to view their documents."
+        />
       )}
 
-      <div className="space-y-3">
-        {isElevated && !viewFilterEmployeeId && (
-          <div className="p-4 bg-slate-100 dark:bg-slate-700 rounded text-center text-slate-600 dark:text-slate-300">
-            Select an employee to view their documents.
-          </div>
-        )}
-        {(!isElevated || viewFilterEmployeeId) && items.length === 0 && (
-          <div className="p-4 bg-slate-100 dark:bg-slate-700 rounded text-center text-slate-600 dark:text-slate-300">
-            {selectedViewEmployee
-              ? `No documents uploaded yet for ${selectedViewEmployee.firstName} ${selectedViewEmployee.lastName}`
-              : 'No documents uploaded yet'}
-          </div>
-        )}
-        {groupedDocumentEntries.map(([documentType, documents]) => (
-          <section
-            key={documentType}
-            className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                {DOCUMENT_TYPE_LABELS[documentType] || documentType}
-              </h3>
-              <span
-                className={`rounded px-2 py-0.5 text-xs font-semibold ${typeColors[documentType] || typeColors.OTHER}`}
-              >
-                {documents.length}
-              </span>
-            </div>
-            {documents.map((d) => {
-              let daysUntilExpiry: number | null = null;
-              let expiryClass = '';
-              if (d.expiryDate) {
-                const now = new Date();
-                const expiry = new Date(d.expiryDate);
-                daysUntilExpiry = Math.ceil(
-                  (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-                );
+      {(!isElevated || viewFilterEmployeeId) && items.length === 0 && (
+        <EmptyState
+          icon={<FolderOpenIcon />}
+          title="No documents yet"
+          body={
+            selectedViewEmployee
+              ? `No documents uploaded yet for ${selectedViewEmployee.firstName} ${selectedViewEmployee.lastName}.`
+              : 'No documents uploaded yet.'
+          }
+        />
+      )}
 
-                if (daysUntilExpiry < 0) {
-                  expiryClass =
-                    'bg-red-100 dark:bg-red-900/30 border-red-500 text-red-700 dark:text-red-400';
-                } else if (daysUntilExpiry < 7) {
-                  expiryClass =
-                    'bg-red-50 dark:bg-red-900/20 border-red-400 text-red-600 dark:text-red-400';
-                } else if (daysUntilExpiry < 30) {
-                  expiryClass =
-                    'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400 text-yellow-700 dark:text-yellow-400';
-                }
-              }
+      {groupedDocumentEntries.map(([documentType, documents]) => (
+        <Card
+          key={documentType}
+          flush
+          title={DOCUMENT_TYPE_LABELS[documentType] || documentType}
+          description={`${documents.length} ${documents.length === 1 ? 'document' : 'documents'}. Select a file name to preview it.`}
+        >
+          <Table>
+            <thead>
+              <tr>
+                <Th>Document</Th>
+                <Th>Employee</Th>
+                <Th>Expiry</Th>
+                <Th className="text-right">Actions</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {documents.map((d) => {
+                const expiry = d.expiryDate ? expiryState(d.expiryDate) : null;
+                const own = ownAcknowledgement(d);
 
-              return (
-                <div
-                  key={d.id}
-                  className={`p-4 border-2 rounded-lg bg-white dark:bg-slate-800 ${expiryClass || 'border-slate-200 dark:border-slate-700'}`}
-                >
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="font-bold text-lg">{d.name}</div>
-                        {d.type && (
-                          <span
-                            className={`px-2 py-0.5 text-xs font-semibold rounded ${typeColors[d.type] || typeColors.OTHER}`}
-                          >
-                            {d.type}
-                          </span>
-                        )}
+                return (
+                  <Tr key={d.id}>
+                    <Td>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          aria-label={`Preview ${d.name}`}
+                          onClick={() => handlePreviewDocument(d)}
+                          disabled={openDocumentId === d.id}
+                          className="max-w-[340px] truncate font-mono text-[13px] text-link transition-colors duration-hover ease-out hover:underline disabled:opacity-60"
+                        >
+                          {d.name}
+                        </button>
+                        {d.type && <Badge>{d.type}</Badge>}
                       </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                        {d.employee
-                          ? `${d.employee.firstName} ${d.employee.lastName}`
-                          : `Employee ID: ${d.employeeId}`}
-                      </div>
-                      {d.expiryDate && (
-                        <div className="text-sm font-medium">
-                          {daysUntilExpiry !== null && daysUntilExpiry < 0 ? (
-                            <span className="text-red-600 dark:text-red-400 font-bold">
-                              EXPIRED {Math.abs(daysUntilExpiry)} days ago (
-                              {new Date(d.expiryDate).toLocaleDateString(
-                                'en-GB',
-                              )}
-                              )
-                            </span>
-                          ) : daysUntilExpiry !== null &&
-                            daysUntilExpiry < 7 ? (
-                            <span className="text-red-600 dark:text-red-400 font-bold">
-                              Expires in {daysUntilExpiry} days (
-                              {new Date(d.expiryDate).toLocaleDateString(
-                                'en-GB',
-                              )}
-                              )
-                            </span>
-                          ) : daysUntilExpiry !== null &&
-                            daysUntilExpiry < 30 ? (
-                            <span className="text-yellow-700 dark:text-yellow-400 font-semibold">
-                              Expires in {daysUntilExpiry} days (
-                              {new Date(d.expiryDate).toLocaleDateString(
-                                'en-GB',
-                              )}
-                              )
-                            </span>
-                          ) : (
-                            <span className="text-green-600 dark:text-green-400">
-                              Expires:{' '}
-                              {new Date(d.expiryDate).toLocaleDateString(
-                                'en-GB',
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      )}
                       {d.requiresAcknowledgement && (
-                        <div className="mt-2 text-sm">
+                        <div className="mt-1.5 text-[13px]">
                           {isOwnDocument(d) &&
-                            (ownAcknowledgement(d) ? (
-                              <span className="text-green-700 dark:text-green-400">
+                            (own ? (
+                              <span className="text-ok">
                                 You acknowledged this on{' '}
                                 {new Date(
-                                  ownAcknowledgement(d).acknowledgedAt,
+                                  own.acknowledgedAt,
                                 ).toLocaleDateString('en-GB')}{' '}
-                                as “{ownAcknowledgement(d).typedName}”.
+                                as {own.typedName}.
                               </span>
                             ) : (
-                              <button
-                                type="button"
+                              <Button
+                                variant="secondary"
+                                size="sm"
                                 onClick={() => {
                                   setAcknowledgeError('');
                                   setAcknowledging({
@@ -964,17 +888,16 @@ export default function Documents() {
                                     typedName: '',
                                   });
                                 }}
-                                className="rounded bg-amber-600 px-3 py-1 text-sm font-semibold text-white transition-colors hover:bg-amber-700"
                               >
                                 Read and acknowledge
-                              </button>
+                              </Button>
                             ))}
                           {isElevated && (
-                            <div className="mt-1 text-slate-600 dark:text-slate-400">
+                            <div className="mt-1 text-ink-2">
                               {(acknowledgements[d.id] || []).length === 0 ? (
-                                'Acknowledgement required — nobody has acknowledged it yet.'
+                                'Acknowledgement required. Nobody has acknowledged it yet.'
                               ) : (
-                                <ul className="list-inside list-disc">
+                                <ul className="space-y-0.5">
                                   {(acknowledgements[d.id] || []).map(
                                     (record: any) => (
                                       <li key={record.id}>
@@ -991,56 +914,73 @@ export default function Documents() {
                           )}
                         </div>
                       )}
-                    </div>
-                    <div className="flex flex-wrap gap-2 justify-end">
-                      <button
-                        type="button"
-                        className="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                        onClick={() => handlePreviewDocument(d)}
-                        disabled={openDocumentId === d.id}
-                        aria-label={`Preview ${d.name}`}
-                      >
-                        {openDocumentId === d.id ? 'Loading...' : 'Preview'}
-                      </button>
-                      <button
-                        type="button"
-                        className="text-sm px-3 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded transition-colors"
-                        onClick={() => handleDownloadDocument(d)}
-                        disabled={openDocumentId === d.id}
-                        aria-label={`Download ${d.name}`}
-                      >
-                        Download
-                      </button>
-                      {canManageDocuments && (
-                        <button
-                          onClick={async () => {
-                            if (
-                              !confirm(
-                                'Are you sure you want to delete this document?',
-                              )
-                            )
-                              return;
-                            try {
-                              await apiDelete(`/documents/${d.id}`);
-                              await loadDocuments();
-                              alert('Document deleted successfully!');
-                            } catch (err: any) {
-                              alert(`Delete error: ${err.message}`);
-                            }
-                          }}
-                          className="text-sm px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
-                        >
-                          Delete
-                        </button>
+                    </Td>
+                    <Td className="whitespace-nowrap text-ink-2">
+                      {d.employee
+                        ? `${d.employee.firstName} ${d.employee.lastName}`
+                        : `Employee ID: ${d.employeeId}`}
+                    </Td>
+                    <Td>
+                      {expiry ? (
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge tone={expiry.tone}>{expiry.label}</Badge>
+                          <span className="font-mono text-[11px] text-ink-3">
+                            {new Date(d.expiryDate).toLocaleDateString('en-GB')}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-ink-3">Not set</span>
                       )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-        ))}
-      </div>
+                    </Td>
+                    <Td className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          aria-label={`Download ${d.name}`}
+                          onClick={() => handleDownloadDocument(d)}
+                          disabled={openDocumentId === d.id}
+                        >
+                          Download
+                        </Button>
+                        {canManageDocuments && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleting(d)}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        </Card>
+      ))}
+
+      <Dialog
+        open={!!deleting}
+        title="Delete document"
+        description={
+          deleting
+            ? `Delete ${deleting.name}? The file is removed and the deletion is logged.`
+            : undefined
+        }
+        onClose={() => setDeleting(null)}
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setDeleting(null)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={confirmDelete}>
+            Delete document
+          </Button>
+        </div>
+      </Dialog>
 
       <Dialog
         open={!!acknowledging}
@@ -1053,55 +993,39 @@ export default function Documents() {
         onClose={() => (acknowledgeSaving ? undefined : setAcknowledging(null))}
       >
         {acknowledging && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {acknowledgeError && (
-              <div
-                role="alert"
-                className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
-              >
+              <p role="alert" className="text-sm text-bad">
                 {acknowledgeError}
-              </div>
+              </p>
             )}
-            <label
-              htmlFor="acknowledge-name"
-              className="block text-sm font-medium text-slate-700 dark:text-slate-300"
-            >
-              Your full name
-              <input
-                id="acknowledge-name"
-                value={acknowledging.typedName}
-                onChange={(e) =>
-                  setAcknowledging({
-                    ...acknowledging,
-                    typedName: e.target.value,
-                  })
-                }
-                className="form-input mt-1"
-              />
-            </label>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              We store your name, the date and your IP address against this
-              document.
-            </p>
+            <Input
+              label="Your full name"
+              id="acknowledge-name"
+              value={acknowledging.typedName}
+              onChange={(e) =>
+                setAcknowledging({
+                  ...acknowledging,
+                  typedName: e.target.value,
+                })
+              }
+              help="We store your name, the date and your IP address against this document."
+            />
             <div className="flex justify-end gap-2">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => setAcknowledging(null)}
                 disabled={acknowledgeSaving}
-                className="btn-ghost"
               >
                 Cancel
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 onClick={submitAcknowledgement}
-                disabled={
-                  acknowledgeSaving || !acknowledging.typedName.trim().length
-                }
-                className="btn-primary disabled:opacity-50"
+                loading={acknowledgeSaving}
+                disabled={!acknowledging.typedName.trim().length}
               >
-                {acknowledgeSaving ? 'Recording…' : 'I have read this'}
-              </button>
+                {acknowledgeSaving ? 'Recording' : 'I have read this'}
+              </Button>
             </div>
           </div>
         )}

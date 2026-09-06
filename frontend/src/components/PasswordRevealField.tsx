@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from './ui';
 
 interface Props {
   value: string;
@@ -33,30 +34,26 @@ export default function PasswordRevealField({
           type={show ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="form-input flex-1 font-mono text-sm"
+          className="form-input flex-1 font-mono"
           autoComplete="off"
           spellCheck={false}
+          aria-label="Temporary password"
         />
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => setShow((s) => !s)}
-          className="btn-ghost px-3 text-sm"
           aria-pressed={show}
         >
           {show ? 'Hide' : 'Show'}
-        </button>
+        </Button>
       </div>
       <div className="flex gap-2">
-        <button type="button" onClick={copy} className="btn-ghost text-sm">
-          {copied ? 'Copied ✓' : 'Copy'}
-        </button>
-        <button
-          type="button"
-          onClick={onRegenerate}
-          className="btn-ghost text-sm"
-        >
+        <Button variant="ghost" size="sm" onClick={copy}>
+          {copied ? 'Copied' : 'Copy'}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onRegenerate}>
           Regenerate
-        </button>
+        </Button>
       </div>
     </div>
   );

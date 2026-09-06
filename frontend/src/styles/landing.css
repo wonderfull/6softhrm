@@ -1,0 +1,86 @@
+/* Landing page only. Imported from pages/Home.tsx. Every value comes from a
+   token in tokens.css; nothing here names a colour. Reduced motion for
+   .reveal and .reveal-hero is handled in tailwind.css. */
+
+/* 1. Hero entrance: opacity 0 to 1 and a 14px rise, 600ms out, once on load.
+   Delays are set inline per element (0/60/120/180/280ms); the screenshot
+   runs 700ms. */
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.reveal-hero {
+  animation: landing-rise var(--dur-hero) var(--ease-out) both;
+}
+
+/* 2. Section reveals: hidden until 10% of the block enters the viewport
+   (useReveal adds is-visible, once), then 320ms out. */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity var(--dur-layout) var(--ease-out),
+    transform var(--dur-layout) var(--ease-out);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* 3. Primary CTA spring, on the two "Book a demo" buttons only. Hover 1.02,
+   press .97 in 120ms, release along the spring over 400ms. Double class so
+   it beats .btn-primary, which is emitted after the utilities. */
+.btn-primary.cta-spring {
+  transition:
+    transform 400ms var(--ease-spring),
+    background-color var(--dur-hover);
+}
+.btn-primary.cta-spring:hover {
+  transform: scale(1.02);
+}
+.btn-primary.cta-spring:active {
+  transform: scale(0.97);
+  transition-duration: 120ms;
+}
+
+/* Sizes the spec sets outside the 32/36/40 button scale: 44px in the hero
+   and the demo form, 32px in the header, 40px marketing inputs. */
+.btn-primary.btn-hero {
+  height: 44px;
+  padding: 0 20px;
+  font-size: 15px;
+}
+.btn-secondary.btn-hero {
+  height: 44px;
+  padding: 0 18px;
+  font-size: 15px;
+}
+.btn-primary.btn-nav,
+.btn-ghost.btn-nav {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+.btn-ghost.btn-nav {
+  color: var(--text);
+}
+.form-input.input-lg {
+  height: 40px;
+  font-size: 15px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary.cta-spring {
+    transition: background-color var(--dur-hover);
+  }
+  .btn-primary.cta-spring:hover,
+  .btn-primary.cta-spring:active {
+    transform: none;
+  }
+}

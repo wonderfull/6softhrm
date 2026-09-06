@@ -159,8 +159,11 @@ describe('Expenses page', () => {
     mockApi([APPROVED, PAID]);
     renderExpenses();
 
-    expect(await screen.findByText('APPROVED')).toBeInTheDocument();
-    expect(screen.getByText('PAID')).toBeInTheDocument();
+    expect(await screen.findByText('Approved')).toBeInTheDocument();
+    // "Paid" is also a filter option, so match the badge specifically.
+    expect(
+      screen.getAllByText('Paid').some((el) => el.className.includes('badge')),
+    ).toBe(true);
     expect(screen.getByText('Signed off by Priya')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Mark paid' })).toHaveLength(
       1,

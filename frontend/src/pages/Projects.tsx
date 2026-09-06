@@ -1,181 +1,287 @@
-import React from 'react'
-import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api'
+import React from 'react';
+import { RectangleStackIcon } from '@heroicons/react/24/outline';
+import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
+import Dialog from '../components/Dialog';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  PageHeader,
+  Table,
+  Td,
+  Textarea,
+  Th,
+  Tr,
+} from '../components/ui';
 
 export default function Projects() {
-  const [items, setItems] = React.useState<any[]>([])
-  const [showForm, setShowForm] = React.useState(false)
-  const [editingId, setEditingId] = React.useState<number | null>(null)
+  const [items, setItems] = React.useState<any[]>([]);
+  const [showForm, setShowForm] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<number | null>(null);
+  const [deleting, setDeleting] = React.useState<any | null>(null);
   const [formData, setFormData] = React.useState({
     code: '',
     name: '',
     description: '',
-    active: true
-  })
+    active: true,
+  });
 
   const loadProjects = () => {
     apiGet('/projects')
       .then(setItems)
-      .catch(() => setItems([]))
-  }
+      .catch(() => setItems([]));
+  };
 
   React.useEffect(() => {
-    loadProjects()
-  }, [])
+    loadProjects();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
       if (editingId) {
-        await apiPut(`/projects/${editingId}`, formData)
-        alert('Project updated successfully!')
+        await apiPut(`/projects/${editingId}`, formData);
+        alert('Project updated successfully!');
       } else {
-        await apiPost('/projects', formData)
-        alert('Project added successfully!')
+        await apiPost('/projects', formData);
+        alert('Project added successfully!');
       }
-      
-      setShowForm(false)
-      setEditingId(null)
-      setFormData({ code: '', name: '', description: '', active: true })
-      loadProjects()
+
+      setShowForm(false);
+      setEditingId(null);
+      setFormData({ code: '', name: '', description: '', active: true });
+      loadProjects();
     } catch (err: any) {
-      console.error('Error saving project:', err)
-      alert('Failed to save project: ' + (err.message || JSON.stringify(err)))
+      console.error('Error saving project:', err);
+      alert('Failed to save project: ' + (err.message || JSON.stringify(err)));
     }
-  }
+  };
 
   const handleEdit = (project: any) => {
-    setEditingId(project.id)
+    setEditingId(project.id);
     setFormData({
       code: project.code,
       name: project.name,
       description: project.description || '',
-      active: project.active !== false
-    })
-    setShowForm(true)
-  }
+      active: project.active !== false,
+    });
+    setShowForm(true);
+  };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this project?')) return
-    
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    const id = deleting.id;
+    setDeleting(null);
     try {
-      await apiDelete(`/projects/${id}`)
-      alert('Project deleted successfully!')
-      loadProjects()
+      await apiDelete(`/projects/${id}`);
+      alert('Project deleted successfully!');
+      loadProjects();
     } catch (err: any) {
-      console.error('Error deleting project:', err)
-      alert('Failed to delete project: ' + (err.message || JSON.stringify(err)))
+      console.error('Error deleting project:', err);
+      alert(
+        'Failed to delete project: ' + (err.message || JSON.stringify(err)),
+      );
     }
-  }
+  };
 
   const handleCancel = () => {
-    setShowForm(false)
-    setEditingId(null)
-    setFormData({ code: '', name: '', description: '', active: true })
-  }
+    setShowForm(false);
+    setEditingId(null);
+    setFormData({ code: '', name: '', description: '', active: true });
+  };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold">Projects</h2>
-        <button
-          onClick={() => { setEditingId(null); setShowForm(!showForm); }}
-          className="btn-primary"
-        >
-          {showForm ? 'Cancel' : '+ Add Project'}
-        </button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Projects"
+        subline="Codes that hours can be booked against on a timesheet."
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setEditingId(null);
+              setShowForm(!showForm);
+            }}
+          >
+            {showForm ? 'Cancel' : 'New project'}
+          </Button>
+        }
+      />
 
       {showForm && (
-        <div className="mb-6 p-4 border rounded bg-slate-50 dark:bg-slate-800">
-          <h3 className="text-lg font-semibold mb-3">{editingId ? 'Edit Project' : 'New Project'}</h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-            <input
+        <Card
+          title={editingId ? 'Edit project' : 'New project'}
+          description="The code appears on timesheets, so keep it short and stable."
+        >
+          <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Project code"
+              id="project-code"
               value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-              placeholder="Project Code * (e.g., PROJ001)"
+              onChange={(e) =>
+                setFormData({ ...formData, code: e.target.value.toUpperCase() })
+              }
+              placeholder="PROJ001"
+              help="Uppercase, unique to this company."
               required
-              className="form-input"
+              className="font-mono"
             />
-            
-            <input
+
+            <Input
+              label="Project name"
+              id="project-name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Project Name *"
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              placeholder="Night shift cover"
               required
-              className="form-input"
             />
-            
-            <textarea
+
+            <Textarea
+              label="Description"
+              id="project-description"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Description"
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               rows={3}
-              className="form-input"
+              wrapperClassName="sm:col-span-2"
             />
-            
-            <label className="col-span-2 flex items-center gap-2">
+
+            <label className="flex items-center gap-2 text-sm text-ink sm:col-span-2">
               <input
                 type="checkbox"
                 checked={formData.active}
-                onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                className="w-4 h-4"
+                onChange={(e) =>
+                  setFormData({ ...formData, active: e.target.checked })
+                }
+                className="h-4 w-4 rounded-sm border-line-2 accent-accent"
               />
-              <span>Active Project</span>
+              <span>Active project</span>
             </label>
 
-            <div className="col-span-2 flex gap-2">
-              <button type="submit" className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
-                {editingId ? 'Update Project' : 'Add Project'}
-              </button>
+            <div className="flex gap-2 sm:col-span-2">
+              <Button type="submit">
+                {editingId ? 'Save changes' : 'Add project'}
+              </Button>
               {editingId && (
-                <button type="button" onClick={handleCancel} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                <Button variant="ghost" onClick={handleCancel}>
                   Cancel
-                </button>
+                </Button>
               )}
             </div>
           </form>
-        </div>
+        </Card>
       )}
 
-      <div className="grid gap-3">
-        {items.map((project) => (
-          <div key={project.id} className="p-4 border rounded bg-white dark:bg-slate-800">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg text-blue-600 dark:text-blue-400">{project.code}</span>
-                  <span className="font-semibold">{project.name}</span>
-                  {project.active && (
-                    <span className="px-2 py-1 text-xs bg-green-500 text-white rounded">Active</span>
-                  )}
-                </div>
-                {project.description && (
-                  <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">{project.description}</div>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button
+      {items.length === 0 ? (
+        <EmptyState
+          icon={<RectangleStackIcon />}
+          title="No projects yet"
+          body="Add a project and hours can be booked against it on a timesheet."
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setEditingId(null);
+                setShowForm(true);
+              }}
+            >
+              New project
+            </Button>
+          }
+        />
+      ) : (
+        <Card
+          flush
+          title="All projects"
+          description={`${items.length} ${items.length === 1 ? 'project' : 'projects'}. Select a row to edit it.`}
+        >
+          <Table>
+            <thead>
+              <tr>
+                <Th>Code</Th>
+                <Th>Name</Th>
+                <Th>Description</Th>
+                <Th>Status</Th>
+                <Th className="text-right">Action</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((project) => (
+                <Tr
+                  key={project.id}
+                  clickable
+                  selected={editingId === project.id}
                   onClick={() => handleEdit(project)}
-                  className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
                 >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(project.id)}
-                  className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {items.length === 0 && (
-          <div className="text-center text-slate-500 p-8">
-            No projects yet. Add a project to track time against it.
-          </div>
-        )}
-      </div>
+                  <Td>
+                    <button
+                      type="button"
+                      className="font-mono text-[13px] text-link hover:underline"
+                      aria-label={`Edit ${project.code}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(project);
+                      }}
+                    >
+                      {project.code}
+                    </button>
+                  </Td>
+                  <Td className="font-medium text-ink">{project.name}</Td>
+                  <Td className="max-w-[360px] truncate text-ink-2">
+                    {project.description}
+                  </Td>
+                  <Td>
+                    {project.active !== false ? (
+                      <Badge tone="ok">Active</Badge>
+                    ) : (
+                      <Badge tone="warn">Inactive</Badge>
+                    )}
+                  </Td>
+                  <Td className="text-right">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleting(project);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      )}
+
+      <Dialog
+        open={!!deleting}
+        title="Delete project"
+        description={
+          deleting
+            ? `Delete ${deleting.code} (${deleting.name})? Timesheet entries already booked to it keep their hours.`
+            : undefined
+        }
+        onClose={() => setDeleting(null)}
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setDeleting(null)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={confirmDelete}>
+            Delete project
+          </Button>
+        </div>
+      </Dialog>
     </div>
-  )
+  );
 }
