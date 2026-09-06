@@ -59,5 +59,17 @@ jobs:
             git -C "$REPO" status --short 2>/dev/null | head -5
 
             echo
+            echo "=== nginx site roots ==="
+            grep -rhE "^\s*(server_name|root)\s" /etc/nginx/sites-enabled/ 2>/dev/null | sed 's/^ *//' | head -20
+
+            echo
+            echo "=== built assets on disk (newest first) ==="
+            ls -lt "$REPO/frontend/dist/assets" 2>/dev/null | head -4
+            echo "  index.html references:"
+            grep -oE "assets/[A-Za-z0-9_.-]+\.(js|css)" "$REPO/frontend/dist/index.html" 2>/dev/null | head -3
+            echo "  other dist directories under /var/www:"
+            ls -ld /var/www/*/dist /var/www/*/frontend/dist 2>/dev/null | head -5
+
+            echo
             echo "=== disk ==="
             df -h "$REPO" | tail -1
