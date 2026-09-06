@@ -7,31 +7,10 @@ import {
   Navigate,
   useLocation,
 } from 'react-router-dom';
-import Dashboard from './pages/Dashboard';
-import Sponsorships from './pages/Sponsorships';
-import Compliance from './pages/Compliance';
-import Reports from './pages/Reports';
-import Employees from './pages/Employees';
-import Leave from './pages/Leave';
-import Expenses from './pages/Expenses';
-import Cases from './pages/Cases';
-import Time from './pages/Time';
-import Projects from './pages/Projects';
-import Documents from './pages/Documents';
-import Payslips from './pages/Payslips';
-import Account from './pages/Account';
-import Settings from './pages/Settings';
 import Login from './pages/Login';
-import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import AuditLogs from './pages/AuditLogs';
-import DataExport from './pages/DataExport';
-import Consent from './pages/Consent';
-import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
-import Platform from './pages/Platform';
-import PlatformLogin from './pages/PlatformLogin';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Gdpr from './pages/Gdpr';
@@ -43,6 +22,43 @@ import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import './styles/tailwind.css';
+
+// The landing page, sign-in and the legal pages load eagerly; everything
+// behind a login is split out so a first-time visitor does not download the
+// whole product to read the marketing page.
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const Sponsorships = React.lazy(() => import('./pages/Sponsorships'));
+const Compliance = React.lazy(() => import('./pages/Compliance'));
+const Reports = React.lazy(() => import('./pages/Reports'));
+const Employees = React.lazy(() => import('./pages/Employees'));
+const Leave = React.lazy(() => import('./pages/Leave'));
+const Expenses = React.lazy(() => import('./pages/Expenses'));
+const Cases = React.lazy(() => import('./pages/Cases'));
+const Time = React.lazy(() => import('./pages/Time'));
+const Projects = React.lazy(() => import('./pages/Projects'));
+const Documents = React.lazy(() => import('./pages/Documents'));
+const Payslips = React.lazy(() => import('./pages/Payslips'));
+const Account = React.lazy(() => import('./pages/Account'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
+const DataExport = React.lazy(() => import('./pages/DataExport'));
+const Consent = React.lazy(() => import('./pages/Consent'));
+const Notifications = React.lazy(() => import('./pages/Notifications'));
+const Platform = React.lazy(() => import('./pages/Platform'));
+const PlatformLogin = React.lazy(() => import('./pages/PlatformLogin'));
+const Register = React.lazy(() => import('./pages/Register'));
+
+
+// Shown while a lazily loaded page arrives. Deliberately quiet: a skeleton
+// bar rather than a spinner, so a fast connection sees almost nothing.
+function RouteFallback() {
+  return (
+    <div className="p-6">
+      <div className="skeleton h-8 w-48" />
+      <div className="skeleton mt-4 h-4 w-full max-w-lg" />
+    </div>
+  );
+}
 
 // Per-route document.title so browser tabs and screen-reader announcements are
 // disambiguated (test report B13: every page used to read "HRM Starter").
@@ -118,6 +134,7 @@ function App() {
   return (
     <BrowserRouter>
       <RouteTitle />
+      <React.Suspense fallback={<RouteFallback />}>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -295,6 +312,7 @@ function App() {
           }
         />
       </Routes>
+      </React.Suspense>
     </BrowserRouter>
   );
 }
