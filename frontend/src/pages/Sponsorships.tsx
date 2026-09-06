@@ -24,7 +24,6 @@ import {
   Th,
   Tr,
 } from '../components/ui';
-import * as XLSX from 'xlsx';
 
 const EVENT_TYPES = [
   'DELAYED_START',
@@ -329,7 +328,7 @@ export default function Sponsorships() {
     resetForm();
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
       const exportData = items.map((item) => ({
         Employee: employeeName(item, employees),
@@ -341,6 +340,10 @@ export default function Sponsorships() {
         'Compliance Notes': item.complianceNotes || '',
         Status: item.active ? 'Active' : 'Inactive',
       }));
+
+      // 300 kB of spreadsheet writer, pulled in only when someone exports.
+
+      const XLSX = await import('xlsx');
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
