@@ -63,7 +63,10 @@ jobs:
             for CONF in /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf; do
               [ -f "$CONF" ] || continue
               NAMES=$(awk '/server_name/ {sub(/;.*/,""); $1=""; print; exit}' "$CONF" 2>/dev/null | sed 's/^ *//')
-              DOCS=$(awk '$1 == "root" {sub(/;.*/,""); print $2; exit}' "$CONF" 2>/dev/null)
+              # The directive name is spelled as a pattern on purpose: the
+              # deploy user has the same name, so a literal would be masked out
+              # of this script by Actions before awk ever sees it.
+              DOCS=$(awk '$1 ~ /^r[o]{2}t$/ {sub(/;.*/,""); print $2; exit}' "$CONF" 2>/dev/null)
               echo "  $(basename "$CONF"): names=[$NAMES] serves=[$DOCS]"
             done
 
