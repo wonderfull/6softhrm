@@ -1,6 +1,18 @@
 import React from 'react';
+import { DocumentTextIcon } from '@heroicons/react/24/outline';
 import { API_BASE_URL, apiGet, getCurrentUser, hasRole } from '../lib/api';
-import Card from '../components/Card';
+import {
+  Button,
+  Card,
+  EmptyState,
+  PageHeader,
+  Select,
+  Skeleton,
+  Table,
+  Td,
+  Th,
+  Tr,
+} from '../components/ui';
 
 // Payslips are the one document type employees look for on their own, so they
 // get their own screen instead of being buried in the Documents list.
@@ -86,82 +98,117 @@ export default function Payslips() {
     }
   }
 
+  const selectedEmployee = employeeId
+    ? employees.find((emp) => String(emp.id) === employeeId)
+    : null;
+
   return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-4">
-        {isElevated ? 'Payslips' : 'My Payslips'}
-      </h2>
+    <div className="space-y-6">
+      <PageHeader
+        title={isElevated ? 'Payslips' : 'My payslips'}
+        subline={
+          isElevated
+            ? 'Payslips uploaded against an employee record, newest first.'
+            : 'Every payslip your employer has filed for you.'
+        }
+      />
 
       {isElevated && (
-        <div className="mb-4">
-          <label
-            htmlFor="payslip-employee"
-            className="block text-sm font-medium mb-2"
-          >
-            Employee
-          </label>
-          <select
-            id="payslip-employee"
-            value={employeeId}
-            onChange={(e) => setEmployeeId(e.target.value)}
-            className="form-input"
-          >
-            <option value="">Select an employee to view payslips</option>
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.firstName} {emp.lastName}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Select
+          label="Employee"
+          id="payslip-employee"
+          value={employeeId}
+          onChange={(e) => setEmployeeId(e.target.value)}
+          help="Payslips are only visible one employee at a time."
+          wrapperClassName="w-full sm:max-w-xs"
+        >
+          <option value="">Select an employee to view payslips</option>
+          {employees.map((emp) => (
+            <option key={emp.id} value={emp.id}>
+              {emp.firstName} {emp.lastName}
+            </option>
+          ))}
+        </Select>
       )}
 
       {error && (
-        <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200">
+        <p role="alert" className="text-sm text-bad">
           {error}
-        </div>
+        </p>
       )}
 
       {isElevated && !employeeId ? (
-        <Card className="p-6 text-center text-sm text-slate-600 dark:text-slate-300">
-          Select an employee to view their payslips.
-        </Card>
+        <EmptyState
+          icon={<DocumentTextIcon />}
+          title="No employee selected"
+          body="Select an employee to view their payslips."
+        />
       ) : loading ? (
-        <Card className="p-6 text-center text-sm text-slate-600 dark:text-slate-300">
-          Loading payslips…
+        <Card flush title="Payslips">
+          <div className="space-y-3 p-5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center justify-between gap-4">
+                <Skeleton className="h-4 w-64" />
+                <Skeleton className="h-8 w-24" />
+              </div>
+            ))}
+          </div>
         </Card>
       ) : items.length === 0 ? (
-        <Card className="p-6 text-center text-sm text-slate-600 dark:text-slate-300">
-          No payslips have been uploaded yet.
-        </Card>
+        <EmptyState
+          icon={<DocumentTextIcon />}
+          title="No payslips yet"
+          body="No payslips have been uploaded yet."
+        />
       ) : (
-        <div className="space-y-3">
-          {items.map((payslip) => (
-            <Card
-              key={payslip.id}
-              className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div>
-                <div className="font-semibold text-slate-900 dark:text-white">
-                  {payslip.name}
-                </div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">
-                  {new Date(payslip.uploadedAt).toLocaleDateString('en-GB')}
-                  {payslip.size ? ` · ${formatSize(payslip.size)}` : ''}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => download(payslip)}
-                disabled={downloadingId === payslip.id}
-                aria-label={`Download ${payslip.name}`}
-                className="btn-primary disabled:opacity-50"
-              >
-                {downloadingId === payslip.id ? 'Downloading…' : 'Download'}
-              </button>
-            </Card>
-          ))}
-        </div>
+        <Card
+          flush
+          title="Payslips"
+          description={`${items.length} ${items.length === 1 ? 'payslip' : 'payslips'}${
+            selectedEmployee
+              ? ` for ${selectedEmployee.firstName} ${selectedEmployee.lastName}`
+              : ''
+          }.`}
+        >
+          <Table>
+            <thead>
+              <tr>
+                <Th>Payslip</Th>
+                <Th>Uploaded</Th>
+                <Th>Size</Th>
+                <Th className="text-right">Action</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((payslip) => (
+                <Tr key={payslip.id}>
+                  <Td className="font-mono text-[13px] text-ink">
+                    {payslip.name}
+                  </Td>
+                  <Td className="font-mono text-[13px] text-ink-2">
+                    {new Date(payslip.uploadedAt).toLocaleDateString('en-GB')}
+                  </Td>
+                  <Td className="tabular-nums text-ink-2">
+                    {formatSize(payslip.size)}
+                  </Td>
+                  <Td className="text-right">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => download(payslip)}
+                      loading={downloadingId === payslip.id}
+                      aria-label={`Download ${payslip.name}`}
+                    >
+                      {downloadingId === payslip.id
+                        ? 'Downloading'
+                        : 'Download'}
+                    </Button>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
       )}
     </div>
   );

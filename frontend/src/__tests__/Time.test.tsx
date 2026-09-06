@@ -64,7 +64,7 @@ describe('Time/Timesheets Page', () => {
   it('should display weekly view by default', async () => {
     render(<Time />)
     await waitFor(() => {
-      expect(screen.getByText('Weekly')).toHaveClass('bg-blue-500')
+      expect(screen.getByRole('button', { name: 'Weekly' })).toHaveAttribute('aria-pressed', 'true')
     })
   })
 
@@ -72,7 +72,7 @@ describe('Time/Timesheets Page', () => {
     render(<Time />)
     await waitFor(() => {
       fireEvent.click(screen.getByText('Monthly'))
-      expect(screen.getByText('Monthly')).toHaveClass('bg-blue-500')
+      expect(screen.getByRole('button', { name: 'Monthly' })).toHaveAttribute('aria-pressed', 'true')
     })
   })
 
@@ -92,12 +92,12 @@ describe('Time/Timesheets Page', () => {
 
   it('should show form fields with proper labels', async () => {
     render(<Time />)
-    fireEvent.click(screen.getByText('+ Add Entry'))
+    fireEvent.click(screen.getByText('New entry'))
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Employee *')).toBeInTheDocument()
-      expect(screen.getByLabelText('Date *')).toBeInTheDocument()
-      expect(screen.getByLabelText('Hours *')).toBeInTheDocument()
+      expect(screen.getByLabelText('Employee')).toBeInTheDocument()
+      expect(screen.getByLabelText('Date')).toBeInTheDocument()
+      expect(screen.getByLabelText('Hours')).toBeInTheDocument()
     })
   })
 
@@ -115,24 +115,24 @@ describe('Time/Timesheets Page', () => {
 
   it('should navigate between weeks', async () => {
     render(<Time />)
-    const initialRange = screen.getByText(/ - /).textContent
+    const initialRange = screen.getByRole('heading', { name: / - / }).textContent
 
-    fireEvent.click(screen.getByText('Next →'))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
     await waitFor(() => {
-      expect(screen.getByText(/ - /).textContent).not.toBe(initialRange)
+      expect(screen.getByRole('heading', { name: / - / }).textContent).not.toBe(initialRange)
     })
   })
 
   it('should navigate between months in monthly view', async () => {
     render(<Time />)
     fireEvent.click(screen.getByText('Monthly'))
-    const initialMonth = screen.getByText(/\w+ \d{4}/).textContent
+    const initialMonth = screen.getByRole('heading', { name: /\w+ \d{4}/ }).textContent
 
-    fireEvent.click(screen.getByText('Next →'))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
     await waitFor(() => {
-      expect(screen.getByText(/\w+ \d{4}/).textContent).not.toBe(initialMonth)
+      expect(screen.getByRole('heading', { name: /\w+ \d{4}/ }).textContent).not.toBe(initialMonth)
     })
   })
 
@@ -141,12 +141,12 @@ describe('Time/Timesheets Page', () => {
     window.alert = vi.fn()
 
     render(<Time />)
-    fireEvent.click(screen.getByText('+ Add Entry'))
+    fireEvent.click(screen.getByText('New entry'))
 
-    fireEvent.change(await screen.findByLabelText('Employee *'), { target: { value: '1' } })
-    fireEvent.change(screen.getByLabelText('Date *'), { target: { value: '2025-11-19' } })
-    fireEvent.change(screen.getByLabelText('Hours *'), { target: { value: '8' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add Entry' }))
+    fireEvent.change(await screen.findByLabelText('Employee'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2025-11-19' } })
+    fireEvent.change(screen.getByLabelText('Hours'), { target: { value: '8' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add entry' }))
 
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith('/timesheets', expect.any(Object))
@@ -167,23 +167,22 @@ describe('Time/Timesheets Page', () => {
     fireEvent.click(screen.getByText('Monthly'))
 
     await waitFor(() => {
-      expect(screen.getByText('Total Hours')).toBeInTheDocument()
-      expect(screen.getByText('Days Worked')).toBeInTheDocument()
+      expect(screen.getByText('Total hours')).toBeInTheDocument()
+      expect(screen.getByText('Days worked')).toBeInTheDocument()
     })
   })
 
-  it('should delete timesheet when delete button clicked', async () => {
+  it('should delete timesheet when delete confirmed', async () => {
     ;(api.apiDelete as any).mockResolvedValue({ success: true })
-    globalThis.confirm = vi.fn(() => true)
 
     render(<Time />)
 
+    fireEvent.click(await screen.findByRole('button', { name: /Edit 8h entry for John Doe/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete entry' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete entry' })[1])
+
     await waitFor(() => {
-      const deleteButtons = screen.queryAllByText('Del')
-      if (deleteButtons.length > 0) {
-        fireEvent.click(deleteButtons[0])
-        expect(api.apiDelete).toHaveBeenCalled()
-      }
+      expect(api.apiDelete).toHaveBeenCalledWith('/timesheets/1')
     })
   })
 })
