@@ -1,16 +1,17 @@
 import React from 'react';
 
 type FieldProps = {
-  label?: string;
-  help?: string;
-  error?: string;
+  label?: React.ReactNode;
+  help?: React.ReactNode;
+  error?: React.ReactNode;
   size?: 'md' | 'lg';
   wrapperClassName?: string;
 };
 
-export type InputProps = FieldProps & React.InputHTMLAttributes<HTMLInputElement>;
-export type SelectProps = FieldProps & React.SelectHTMLAttributes<HTMLSelectElement>;
-export type TextareaProps = FieldProps & React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+// `size` is ours (36/40px control height), so the native numeric one goes.
+export type InputProps = FieldProps & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>;
+export type SelectProps = FieldProps & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'>;
+export type TextareaProps = FieldProps & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'size'>;
 
 // Label above (13/500), help or error below (12). Error turns the border bad
 // and the help text bad; the label stays neutral (README "Input").
@@ -43,7 +44,7 @@ function Field({
   );
 }
 
-function describedBy(id: string, help?: string, error?: string) {
+function describedBy(id: string, help?: React.ReactNode, error?: React.ReactNode) {
   return error ? `${id}-error` : help ? `${id}-help` : undefined;
 }
 

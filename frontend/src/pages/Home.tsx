@@ -1,33 +1,27 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ArrowRightIcon,
-  CalendarDaysIcon,
-  CheckIcon,
-  ClockIcon,
-  DocumentTextIcon,
-  LockClosedIcon,
-  ShieldCheckIcon,
-  UsersIcon,
-} from '@heroicons/react/24/outline';
 import PublicLayout from '../components/marketing/PublicLayout';
-import { DEMO_HREF } from '../components/marketing/SiteHeader';
+import DemoForm from '../components/marketing/DemoForm';
+import { useReveal } from '../components/marketing/useReveal';
+import {
+  CONTACT_EMAIL,
+  CONTACT_PHONE,
+  CONTACT_TEL,
+  DEMO_HREF,
+} from '../components/marketing/SiteHeader';
+import { Badge } from '../components/ui';
+import '../styles/landing.css';
 
 // Public landing page. Every claim below maps to something the product does
 // today (see backend/src/lib/*); keep it that way when editing copy.
 
-const PRIMARY_BTN =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap px-5 py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 dark:focus:ring-offset-slate-950 active:translate-y-px';
-const GHOST_BTN =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap px-5 py-3 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-medium hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 dark:focus:ring-offset-slate-950 active:translate-y-px';
-
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary-600 dark:text-primary-300">
-      {children}
-    </p>
-  );
-}
+const CONTAINER = 'max-w-[1200px] mx-auto px-6';
+const SECTION = 'py-[clamp(48px,7vw,112px)]';
+const DISPLAY_L =
+  'font-display text-[clamp(28px,3.6vw,40px)] leading-[1.1] tracking-[-0.02em] font-semibold text-ink text-balance';
+const EYEBROW = 'text-xs font-medium uppercase tracking-[0.06em] text-link';
+const ITEM_TITLE = 'text-[17px] font-semibold tracking-[-0.005em] text-ink';
+const ITEM_BODY = 'text-[15px] leading-[1.55] text-ink-2 text-pretty';
 
 function SectionHeading({
   eyebrow,
@@ -39,13 +33,11 @@ function SectionHeading({
   lede?: string;
 }) {
   return (
-    <div className="max-w-2xl">
-      {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight leading-[1.1] text-slate-900 dark:text-white">
-        {title}
-      </h2>
+    <div className="max-w-[640px] flex flex-col gap-3">
+      {eyebrow && <p className={EYEBROW}>{eyebrow}</p>}
+      <h2 className={DISPLAY_L}>{title}</h2>
       {lede && (
-        <p className="mt-4 text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
+        <p className="text-[17px] leading-[1.55] text-ink-2 text-pretty max-w-[52ch]">
           {lede}
         </p>
       )}
@@ -53,31 +45,79 @@ function SectionHeading({
   );
 }
 
-// The hero used to carry these as a strip under the CTAs. They are real
-// claims, so they moved here rather than being dropped.
-const STATS = [
-  { value: 'Live in an afternoon', label: 'import your people from a CSV and go' },
-  { value: 'UK hosted', label: 'data held in Manchester, England' },
+function Photo({
+  src,
+  alt,
+  className = '',
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-xl border border-line bg-surface-2 overflow-hidden aspect-[4/3] ${className}`}
+    >
+      <img
+        src={src}
+        alt={alt}
+        width={1400}
+        height={1050}
+        loading="lazy"
+        decoding="async"
+        className="block h-full w-full object-cover"
+      />
+    </div>
+  );
+}
+
+function Dot() {
+  return (
+    <span
+      aria-hidden="true"
+      className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-ink-3"
+    />
+  );
+}
+
+const COVERS = [
+  'People records',
+  'Leave & absence',
+  'Time & projects',
+  'Documents',
+  'Compliance',
+  'Security',
+];
+
+const FACTS = [
   {
-    value: 'AES-256-GCM',
-    label: 'field-level encryption for NI, passport and bank details',
+    title: 'Live in an afternoon',
+    body: 'Import your people from a CSV and go.',
+  },
+  { title: 'UK hosted', body: 'Data held in Manchester, England.' },
+  {
+    title: 'AES-256-GCM',
+    body: 'Field-level encryption for NI, passport and bank details.',
   },
   {
-    value: 'Processor agreement',
-    label: 'UK GDPR terms included, with every sensitive action logged',
+    title: 'Processor agreement',
+    body: 'UK GDPR terms included, with every sensitive action logged.',
   },
 ];
 
-const STAKES = [
+const HABITS = [
   {
+    n: '01',
     title: 'Leave lives in inboxes',
     body: 'Requests arrive by email, approvals happen in chat, and the allowance is a spreadsheet only one person understands. Nobody can say who is off next Tuesday.',
   },
   {
+    n: '02',
     title: 'Documents live in drives',
     body: 'Contracts, right-to-work checks and ID sit in shared folders with no expiry dates and no record of who has looked at them. The audit is a scramble.',
   },
   {
+    n: '03',
     title: 'Compliance lives in one head',
     body: 'GDPR consent, retention and, if you sponsor workers, Home Office reporting all depend on one person remembering. When they are away, the company is exposed.',
   },
@@ -85,7 +125,6 @@ const STAKES = [
 
 const PILLARS = [
   {
-    icon: UsersIcon,
     title: 'People records',
     items: [
       'One profile per employee, imported from CSV',
@@ -95,7 +134,6 @@ const PILLARS = [
     ],
   },
   {
-    icon: CalendarDaysIcon,
     title: 'Leave & absence',
     items: [
       'Requests and approvals with email notifications',
@@ -105,7 +143,6 @@ const PILLARS = [
     ],
   },
   {
-    icon: ClockIcon,
     title: 'Time & projects',
     items: [
       'Weekly timesheets with approval',
@@ -115,7 +152,6 @@ const PILLARS = [
     ],
   },
   {
-    icon: DocumentTextIcon,
     title: 'Documents',
     items: [
       'Contracts, right-to-work, visas and ID per employee',
@@ -125,7 +161,6 @@ const PILLARS = [
     ],
   },
   {
-    icon: ShieldCheckIcon,
     title: 'Compliance',
     items: [
       'UK GDPR consent and data-subject export',
@@ -135,7 +170,6 @@ const PILLARS = [
     ],
   },
   {
-    icon: LockClosedIcon,
     title: 'Security',
     items: [
       'Two-factor authentication',
@@ -151,23 +185,30 @@ const TEAMS = [
     title: 'Employees',
     ref: 'Self-service',
     body: 'Book leave, submit timesheets, upload documents and see their own record, and nothing else. Consent and data-export requests are a button, not an email to HR.',
+    photo: '/marketing/photos/care-worker-phone.jpg',
+    alt: 'Two care workers in scrubs in a hospital corridor, checking notes together.',
   },
   {
     title: 'Managers and directors',
     ref: 'Approvals and visibility',
     body: 'Approve leave and time from one queue, see who is off across the team, and open any report without asking HR to run it.',
+    photo: '/marketing/photos/team-lead-floor.jpg',
+    alt: 'A clinical team lead on the ward, mid-task, with a colleague beside him.',
   },
   {
     title: 'HR and office administrators',
     ref: 'Control',
     body: 'Own the employee records, documents, roles and settings. Import from CSV, export for payroll, and answer an audit or a subject-access request from the audit log.',
-  },
-  {
-    title: 'Sponsor licence holders',
-    ref: 'Included in Core + Compliance',
-    body: 'If you employ Skilled Workers, the same records feed an audit readiness score, automatic absence and salary checks against the Certificate of Sponsorship, and an Appendix D evidence checklist. It is a feature, not a separate product.',
+    photo: '/marketing/photos/handover-tablet.jpg',
+    alt: 'Two colleagues at a desk reviewing paperwork and a tablet together.',
   },
 ];
+
+const SPONSOR = {
+  title: 'Sponsor licence holders',
+  ref: 'Included in Core + Compliance',
+  body: 'If you employ Skilled Workers, the same records feed an audit readiness score, automatic absence and salary checks against the Certificate of Sponsorship, and an Appendix D evidence checklist. It is a feature, not a separate product.',
+};
 
 const STEPS = [
   {
@@ -270,357 +311,410 @@ const FAQ = [
   },
 ];
 
-function ProductShot() {
-  return (
-    <figure className="relative">
-      <img
-        src="/marketing/reports.png"
-        alt="The OnsideHR reports screen: active headcount, leave pending, hours this month and audit readiness, with headcount broken down by department."
-        width={1440}
-        height={900}
-        loading="eager"
-        decoding="async"
-        className="w-full rounded-xl border border-slate-200 shadow-2xl shadow-slate-900/10 dark:border-slate-700 dark:shadow-black/40"
-      />
-    </figure>
-  );
-}
-
 export default function Home() {
-  const signedIn = !!localStorage.getItem('token');
+  const revealRoot = useReveal<HTMLDivElement>();
 
   return (
     <PublicLayout>
-      {/* Hero */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-20 lg:pt-24 lg:pb-28 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-        <div className="lg:col-span-6">
-          <Eyebrow>HR software for UK companies</Eyebrow>
-          <h1 className="mt-4 text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05] text-slate-900 dark:text-white">
-            One HR portal for the whole company.
-          </h1>
-          <p className="mt-6 text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-[60ch]">
-            Employee records, leave, timesheets, documents and compliance in one
-            UK-hosted portal, with a login for the people team, for managers,
-            and for every employee.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-3">
-            <a href={DEMO_HREF} className={PRIMARY_BTN}>
-              Book a demo
-            </a>
-            <a href="#how" className={GHOST_BTN}>
-              See how it works
-              <ArrowRightIcon className="h-4 w-4" />
-            </a>
-          </div>
-        </div>
-        <div className="lg:col-span-6">
-          <ProductShot />
-        </div>
-      </section>
-
-      {/* Trust strip */}
-      <section className="border-y border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40">
-        <dl className="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
-          {STATS.map((s) => (
-            <div key={s.value}>
-              <dt className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                {s.value}
-              </dt>
-              <dd className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                {s.label}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      {/* Stakes */}
-      <section
-        id="why"
-        className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24"
-      >
-        <SectionHeading
-                    title="HR without a system is a set of habits. Habits do not survive an audit."
-          lede="Most UK companies under two hundred people run HR on email, spreadsheets and a shared drive. It works until the day it is checked."
-        />
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-          {STAKES.map((s) => (
-            <div
-              key={s.title}
-              className="border-t border-slate-900 dark:border-white pt-5"
+      <div ref={revealRoot}>
+        {/* Hero */}
+        <section className={`${CONTAINER} pt-[clamp(56px,9vw,112px)]`}>
+          <div className="max-w-[720px] flex flex-col items-start gap-5">
+            <p className={`reveal-hero ${EYEBROW}`}>
+              HR software for UK companies
+            </p>
+            <h1
+              className="reveal-hero font-display text-[clamp(38px,5.5vw,64px)] leading-[1.04] tracking-[-0.022em] font-semibold text-ink text-balance"
+              style={{ animationDelay: '60ms' }}
             >
-              <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
-                {s.title}
-              </h3>
-              <p className="mt-3 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                {s.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Product pillars */}
-      <section
-        id="product"
-        className="scroll-mt-20 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24">
-          <SectionHeading
-                        title="Everything HR, in one place."
-            lede="Six areas, one employee record underneath them all. What you enter once is what every report, calendar and audit trail reads from."
-          />
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-slate-200 dark:bg-slate-800 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
-            {PILLARS.map((p) => (
-              <div
-                key={p.title}
-                className="bg-white dark:bg-slate-950 p-6 lg:p-7"
-              >
-                <p.icon className="h-6 w-6 text-primary-600 dark:text-primary-300" strokeWidth={1.5} />
-                <h3 className="mt-4 text-base font-semibold tracking-tight text-slate-900 dark:text-white">
-                  {p.title}
-                </h3>
-                <ul className="mt-4 space-y-2.5">
-                  {p.items.map((item) => (
-                    <li
-                      key={item}
-                      className="flex gap-2 text-sm text-slate-600 dark:text-slate-400 leading-snug"
-                    >
-                      <CheckIcon
-                        className="h-4 w-4 mt-0.5 flex-shrink-0 text-slate-400"
-                        strokeWidth={2}
-                      />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* For every role */}
-      <section
-        id="teams"
-        className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12"
-      >
-        <div className="lg:col-span-5">
-          <div className="lg:sticky lg:top-24">
-            <SectionHeading
-              eyebrow="For every role"
-              title="One portal, four views of it."
-              lede="Everyone in the company uses the same system and sees exactly what their role allows. No second tool for managers, no PDF forms for staff."
-            />
-            <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <a href={DEMO_HREF} className={PRIMARY_BTN}>
+              One HR portal for the whole company.
+            </h1>
+            <p
+              className="reveal-hero text-[clamp(16px,1.6vw,19px)] leading-normal text-ink-2 text-pretty max-w-[56ch]"
+              style={{ animationDelay: '120ms' }}
+            >
+              Employee records, leave, timesheets, documents and compliance in
+              one UK-hosted portal, with a login for the people team, for
+              managers, and for every employee.
+            </p>
+            <div
+              className="reveal-hero mt-2 flex flex-wrap gap-3"
+              style={{ animationDelay: '180ms' }}
+            >
+              <a href={DEMO_HREF} className="btn-primary btn-hero cta-spring">
                 Book a demo
+              </a>
+              <a href="#how" className="btn-secondary btn-hero">
+                See how it works
+                <span aria-hidden="true" className="font-mono text-ink-3">
+                  →
+                </span>
               </a>
             </div>
           </div>
-        </div>
-        <ul className="lg:col-span-7 divide-y divide-slate-200 dark:divide-slate-800 border-t border-slate-200 dark:border-slate-800">
-          {TEAMS.map((c) => (
-            <li
-              key={c.title}
-              className="py-7 grid grid-cols-1 sm:grid-cols-12 gap-3"
-            >
-              <div className="sm:col-span-4">
-                <h3 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
-                  {c.title}
-                </h3>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {c.ref}
-                </p>
-              </div>
-              <p className="sm:col-span-8 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                {c.body}
-              </p>
-            </li>
-          ))}
-        </ul>
-      </section>
 
-      {/* How it works */}
-      <section
-        id="how"
-        className="scroll-mt-20 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24">
-          <SectionHeading
-                        title="Live in an afternoon, not a quarter."
-          />
-          <ol className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-            {STEPS.map((s) => (
-              <li
-                key={s.n}
-                className="border-t border-slate-900 dark:border-white pt-5"
-              >
-                <p className="text-xs font-semibold tracking-[0.08em] text-primary-600 dark:text-primary-300">
-                  {s.n}
-                </p>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
-                  {s.title}
-                </h3>
-                <p className="mt-3 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  {s.body}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      {/* Security */}
-      <section
-        id="security"
-        className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24"
-      >
-        <SectionHeading
-                    title="Answers your procurement questionnaire will accept."
-          lede="Employment records are among the most sensitive data a business holds. These are the controls in place today, described plainly."
-        />
-        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-10">
-          {SECURITY.map((s) => (
-            <div key={s.title}>
-              <h3 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
-                {s.title}
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                {s.body}
-              </p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-10 text-sm text-slate-500 dark:text-slate-400">
-          Full detail in the{' '}
-          <Link
-            to="/dpa"
-            className="underline underline-offset-4 decoration-slate-300 hover:decoration-primary-600 text-slate-700 dark:text-slate-300"
+          <div
+            className="reveal-hero mt-[clamp(40px,6vw,72px)]"
+            style={{ animationDelay: '280ms', animationDuration: '700ms' }}
           >
-            data processing agreement
-          </Link>{' '}
-          and{' '}
-          <Link
-            to="/gdpr"
-            className="underline underline-offset-4 decoration-slate-300 hover:decoration-primary-600 text-slate-700 dark:text-slate-300"
-          >
-            UK GDPR statement
-          </Link>
-          .
-        </p>
-      </section>
-
-      {/* Pricing */}
-      <section
-        id="pricing"
-        className="scroll-mt-20 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24">
-          <SectionHeading
-            eyebrow="Pricing"
-            title="Two plans. Priced per seat."
-            lede="Tell us your headcount and we will send a quote and a data processing agreement together. Add Compliance only if you hold a sponsor licence."
-          />
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-            {PLANS.map((p) => (
-              <div
-                key={p.name}
-                className={`rounded-xl border bg-white dark:bg-slate-950 p-7 flex flex-col ${
-                  p.highlight
-                    ? 'border-primary-600'
-                    : 'border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                    {p.name}
-                  </h3>
-                  {p.highlight && (
-                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary-600/10 text-primary-600 dark:text-primary-300">
-                      Most companies
-                    </span>
-                  )}
-                </div>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                  {p.tagline}
-                </p>
-                <ul className="mt-6 space-y-2.5 flex-1">
-                  {p.features.map((f) => (
-                    <li
-                      key={f}
-                      className="flex gap-2 text-sm text-slate-700 dark:text-slate-300"
-                    >
-                      <CheckIcon
-                        className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary-600 dark:text-primary-300"
-                        strokeWidth={2}
-                      />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <a
-                  href={DEMO_HREF}
-                  className={`mt-8 ${p.highlight ? PRIMARY_BTN : GHOST_BTN}`}
-                >
-                  Talk to us
-                </a>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section
-        id="faq"
-        className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12"
-      >
-        <div className="lg:col-span-4">
-          <SectionHeading title="Straight answers." />
-        </div>
-        <div className="lg:col-span-8 divide-y divide-slate-200 dark:divide-slate-800 border-t border-slate-200 dark:border-slate-800">
-          {FAQ.map((f) => (
-            <details key={f.q} className="group py-5">
-              <summary className="cursor-pointer list-none flex items-start justify-between gap-4 text-base font-medium text-slate-900 dark:text-white">
-                {f.q}
+            <div className="relative rounded-xl border border-line bg-surface shadow-lg overflow-hidden max-h-[clamp(220px,46vw,620px)]">
+              <div className="h-9 flex items-center gap-1.5 px-3.5 border-b border-line bg-surface-2">
                 <span
                   aria-hidden="true"
-                  className="mt-1 text-slate-400 group-open:rotate-45 transition-transform text-xl leading-none"
-                >
-                  +
+                  className="h-2.5 w-2.5 rounded-full bg-line-2"
+                />
+                <span
+                  aria-hidden="true"
+                  className="h-2.5 w-2.5 rounded-full bg-line-2"
+                />
+                <span
+                  aria-hidden="true"
+                  className="h-2.5 w-2.5 rounded-full bg-line-2"
+                />
+                <span className="ml-3 font-mono text-[11px] text-ink-3">
+                  app.onsidehr.co.uk/reports
                 </span>
-              </summary>
-              <p className="mt-3 text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-[70ch]">
-                {f.a}
-              </p>
-            </details>
-          ))}
-        </div>
-      </section>
+              </div>
+              <img
+                src="/marketing/reports.png"
+                alt="The OnsideHR reports screen: active headcount, leave pending, hours this month and audit readiness, with headcount broken down by department."
+                width={1280}
+                height={800}
+                loading="eager"
+                decoding="async"
+                className="block w-full h-auto"
+              />
+              <div
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 h-[120px] bg-gradient-to-b from-transparent to-bg"
+              />
+            </div>
+          </div>
+        </section>
 
-      {/* Final CTA */}
-      <section className="border-t border-slate-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20 lg:py-24 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-          <div className="max-w-2xl">
-            <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight leading-[1.1] text-slate-900 dark:text-white">
-              See OnsideHR running on your own data.
-            </h2>
-            <p className="mt-4 text-base sm:text-lg text-slate-600 dark:text-slate-400">
-              A 30-minute call and your employee CSV. We set the portal up with
-              your people in it, so the demo is your company, not ours.
+        {/* Covers */}
+        <section className={`${CONTAINER} pt-[clamp(40px,6vw,64px)]`}>
+          <div className="reveal flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="mr-2 text-[13px] text-ink-3">Covers</span>
+            {COVERS.map((c) => (
+              <a
+                key={c}
+                href="#product"
+                className="inline-flex items-center gap-2 h-8 px-3 rounded-md border border-line bg-surface text-sm font-medium text-ink"
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 rounded-full bg-accent"
+                />
+                {c}
+              </a>
+            ))}
+          </div>
+        </section>
+
+        {/* Facts */}
+        <section
+          className={`${CONTAINER} pt-[clamp(40px,6vw,64px)] pb-[clamp(48px,7vw,88px)]`}
+        >
+          <dl className="reveal grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-y-6 border-y border-line py-7">
+            {FACTS.map((f) => (
+              <div
+                key={f.title}
+                className="-ml-px px-6 flex flex-col gap-1.5 border-l border-line"
+              >
+                <dt className="text-base font-semibold tracking-[-0.005em] text-ink">
+                  {f.title}
+                </dt>
+                <dd className="text-sm text-ink-2 text-pretty">{f.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        {/* Habits */}
+        <section
+          id="how"
+          className="scroll-mt-[60px] border-t border-line bg-surface"
+        >
+          <div className={`${CONTAINER} py-[clamp(64px,9vw,112px)]`}>
+            <div className="reveal grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-x-16 gap-y-8 items-start">
+              <h2 className={DISPLAY_L}>
+                HR without a system is a set of habits. Habits do not survive an
+                audit.
+              </h2>
+              <p className="text-[17px] leading-[1.55] text-ink-2 text-pretty max-w-[52ch]">
+                Most UK companies under two hundred people run HR on email,
+                spreadsheets and a shared drive. It works until the day it is
+                checked.
+              </p>
+            </div>
+            <ol className="reveal mt-[clamp(40px,6vw,72px)] grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-8">
+              {HABITS.map((h) => (
+                <li
+                  key={h.n}
+                  className="flex flex-col gap-2 border-t border-line-2 pt-5"
+                >
+                  <span className="font-mono text-xs text-ink-3">{h.n}</span>
+                  <span className={ITEM_TITLE}>{h.title}</span>
+                  <span className={ITEM_BODY}>{h.body}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* Product pillars */}
+        <section id="product" className="scroll-mt-[60px] border-t border-line">
+          <div className={`${CONTAINER} ${SECTION}`}>
+            <div className="reveal">
+              <SectionHeading
+                title="Everything HR, in one place."
+                lede="Six areas, one employee record underneath them all. What you enter once is what every report, calendar and audit trail reads from."
+              />
+            </div>
+            <ul className="reveal mt-[clamp(32px,5vw,56px)] grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
+              {PILLARS.map((p) => (
+                <li
+                  key={p.title}
+                  className="bg-surface border border-line rounded-lg shadow-sm p-5"
+                >
+                  <h3 className="text-base font-semibold text-ink">
+                    {p.title}
+                  </h3>
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {p.items.map((item) => (
+                      <li
+                        key={item}
+                        className="flex gap-2.5 text-sm leading-snug text-ink-2"
+                      >
+                        <Dot />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        {/* For every role */}
+        <section id="teams" className="scroll-mt-[60px] border-t border-line">
+          <div className={`${CONTAINER} ${SECTION}`}>
+            <div className="reveal">
+              <SectionHeading
+                eyebrow="For every role"
+                title="One portal, four views of it."
+                lede="Everyone in the company uses the same system and sees exactly what their role allows. No second tool for managers, no PDF forms for staff."
+              />
+            </div>
+            <ul className="reveal mt-[clamp(32px,5vw,56px)] grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-8">
+              {TEAMS.map((t) => (
+                <li key={t.title} className="flex flex-col">
+                  <Photo src={t.photo} alt={t.alt} />
+                  <h3 className={`mt-5 ${ITEM_TITLE}`}>{t.title}</h3>
+                  <p className="mt-1 text-xs font-medium text-ink-3">{t.ref}</p>
+                  <p className={`mt-3 ${ITEM_BODY}`}>{t.body}</p>
+                </li>
+              ))}
+            </ul>
+            <div className="reveal mt-10 grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-x-16 gap-y-3 border-t border-line-2 pt-5">
+              <div>
+                <h3 className={ITEM_TITLE}>{SPONSOR.title}</h3>
+                <p className="mt-1 text-xs font-medium text-ink-3">
+                  {SPONSOR.ref}
+                </p>
+              </div>
+              <p className={ITEM_BODY}>{SPONSOR.body}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section
+          id="setup"
+          className="scroll-mt-[60px] border-t border-line bg-surface"
+        >
+          <div className={`${CONTAINER} ${SECTION}`}>
+            <div className="reveal grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-x-16 gap-y-10 items-start">
+              <div>
+                <SectionHeading title="Live in an afternoon, not a quarter." />
+                <ol className="mt-10 flex flex-col gap-8">
+                  {STEPS.map((s) => (
+                    <li
+                      key={s.n}
+                      className="flex flex-col gap-2 border-t border-line-2 pt-5"
+                    >
+                      <span className="font-mono text-xs text-ink-3">
+                        {s.n}
+                      </span>
+                      <span className={ITEM_TITLE}>{s.title}</span>
+                      <span className={ITEM_BODY}>{s.body}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <Photo
+                src="/marketing/photos/care-home-day-room.jpg"
+                alt="Care staff with residents in a care home day room."
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Security */}
+        <section
+          id="security"
+          className="scroll-mt-[60px] border-t border-line"
+        >
+          <div className={`${CONTAINER} ${SECTION}`}>
+            <div className="reveal">
+              <SectionHeading
+                title="Answers your procurement questionnaire will accept."
+                lede="Employment records are among the most sensitive data a business holds. These are the controls in place today, described plainly."
+              />
+            </div>
+            <ul className="reveal mt-[clamp(32px,5vw,56px)] grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-8">
+              {SECURITY.map((s) => (
+                <li
+                  key={s.title}
+                  className="flex flex-col gap-1.5 border-t border-line-2 pt-5"
+                >
+                  <h3 className="text-base font-semibold tracking-[-0.005em] text-ink">
+                    {s.title}
+                  </h3>
+                  <p className="text-sm leading-[1.55] text-ink-2 text-pretty">
+                    {s.body}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <p className="reveal mt-10 text-sm text-ink-2">
+              Full detail in the{' '}
+              <Link
+                to="/dpa"
+                className="text-link underline underline-offset-4 decoration-line-2 hover:decoration-accent"
+              >
+                data processing agreement
+              </Link>{' '}
+              and{' '}
+              <Link
+                to="/gdpr"
+                className="text-link underline underline-offset-4 decoration-line-2 hover:decoration-accent"
+              >
+                UK GDPR statement
+              </Link>
+              .
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <a href={DEMO_HREF} className={PRIMARY_BTN}>
-              Book a demo
-            </a>
-            <Link to={signedIn ? '/dashboard' : '/login'} className={GHOST_BTN}>
-              {signedIn ? 'Open app' : 'Sign in'}
-            </Link>
+        </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="scroll-mt-[60px] border-t border-line">
+          <div className={`${CONTAINER} ${SECTION}`}>
+            <div className="reveal">
+              <SectionHeading
+                eyebrow="Pricing"
+                title="Two plans. Priced per seat."
+                lede="Tell us your headcount and we will send a quote and a data processing agreement together. Add Compliance only if you hold a sponsor licence."
+              />
+            </div>
+            <ul className="reveal mt-[clamp(32px,5vw,56px)] grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 max-w-[880px]">
+              {PLANS.map((p) => (
+                <li
+                  key={p.name}
+                  className="bg-surface border border-line rounded-lg shadow-sm p-6 flex flex-col"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-xl leading-[1.3] tracking-[-0.01em] font-semibold text-ink">
+                      {p.name}
+                    </h3>
+                    {p.highlight && <Badge>Most companies</Badge>}
+                  </div>
+                  <p className="mt-1.5 text-sm text-ink-2">{p.tagline}</p>
+                  <ul className="mt-5 flex flex-col gap-2 flex-1">
+                    {p.features.map((f) => (
+                      <li
+                        key={f}
+                        className="flex gap-2.5 text-sm leading-snug text-ink"
+                      >
+                        <Dot />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <a href={DEMO_HREF} className="btn-secondary mt-8 self-start">
+                    Talk to us
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* FAQ */}
+        <section
+          id="faq"
+          className="scroll-mt-[60px] border-t border-line bg-surface"
+        >
+          <div className={`${CONTAINER} ${SECTION}`}>
+            <div className="reveal grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-x-16 gap-y-8 items-start">
+              <SectionHeading title="Straight answers." />
+              <div className="border-t border-line">
+                {FAQ.map((f) => (
+                  <details
+                    key={f.q}
+                    className="group border-b border-line py-4"
+                  >
+                    <summary className="cursor-pointer list-none flex items-start justify-between gap-4 text-[15px] font-medium text-ink">
+                      {f.q}
+                      <span
+                        aria-hidden="true"
+                        className="font-mono text-ink-3 leading-[1.5] group-open:rotate-45 transition-transform duration-hover"
+                      >
+                        +
+                      </span>
+                    </summary>
+                    <p className="mt-3 text-sm leading-[1.55] text-ink-2 text-pretty max-w-[70ch]">
+                      {f.a}
+                    </p>
+                  </details>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Demo */}
+        <section id="demo" className="scroll-mt-[60px] border-t border-line">
+          <div className={`${CONTAINER} py-[clamp(56px,8vw,96px)]`}>
+            <div className="reveal grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-x-16 gap-y-8 items-center">
+              <div className="flex flex-col gap-3">
+                <h2 className="font-display text-[clamp(26px,3.2vw,36px)] leading-[1.1] tracking-[-0.02em] font-semibold text-ink text-balance">
+                  See OnsideHR running on your own data.
+                </h2>
+                <p className="text-base leading-[1.55] text-ink-2 text-pretty max-w-[48ch]">
+                  A 30-minute call and your employee CSV. We set the portal up
+                  with your people in it, so the demo is your company, not ours.
+                </p>
+                <a
+                  href={CONTACT_TEL}
+                  className="mt-1 font-mono text-sm text-ink-2 hover:text-ink"
+                >
+                  Or call {CONTACT_PHONE}
+                </a>
+                <a
+                  href={`mailto:${CONTACT_EMAIL}`}
+                  className="font-mono text-sm text-ink-2 hover:text-ink"
+                >
+                  Or email {CONTACT_EMAIL}
+                </a>
+              </div>
+              <DemoForm />
+            </div>
+          </div>
+        </section>
+      </div>
     </PublicLayout>
   );
 }

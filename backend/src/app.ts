@@ -25,6 +25,7 @@ import documentTemplateRoutes from './routes/documentTemplates';
 import expenseRoutes from './routes/expenses';
 import trainingRoutes from './routes/training';
 import caseRoutes from './routes/cases';
+import publicRoutes from './routes/public';
 import { requireFeature } from './lib/tenantPolicy';
 import { requireAuth } from './middleware/auth';
 import { shouldRelaxRateLimits } from './lib/rateLimitPolicy';
@@ -149,6 +150,7 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 app.use('/api/platform/auth/login', authLimiter);
+app.use('/api/public/demo-request', authLimiter);
 // The per-user limit above fixes the office-behind-one-NAT problem, but it
 // also means one address can legitimately carry 300/min per signed-in user.
 // Nothing caps volume at the edge — nginx.conf has no limit_req — so a crude
@@ -256,6 +258,7 @@ app.use('/api/document-templates', documentTemplateRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/training', trainingRoutes);
 app.use('/api/cases', caseRoutes);
+app.use('/api/public', publicRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
