@@ -110,7 +110,7 @@ export default function SecuritySettingsCard() {
       {stage === 'enabled' && (
         <form onSubmit={disable} className="space-y-3">
           <p className="text-sm font-medium text-ok">
-            ✓ Two-factor authentication is on.
+            Two-factor authentication is on.
           </p>
           <p className="text-sm text-ink-2">
  To turn it off, enter a current code from your authenticator app.

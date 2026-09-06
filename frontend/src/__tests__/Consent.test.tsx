@@ -46,7 +46,7 @@ describe('Consent Page', () => {
     await screen.findByRole('heading', { name: 'Data processing consent' })
 
     expect(screen.getByText('Photo and Image Usage')).toBeInTheDocument()
-    expect(screen.getByText('✓ Consented')).toBeInTheDocument()
+    expect(screen.getByText('Consented')).toBeInTheDocument()
     await waitFor(() => {
       expect(window.alert).not.toHaveBeenCalledWith(expect.stringContaining('Failed to load consent data'))
     })

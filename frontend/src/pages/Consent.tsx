@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import Card from '../components/Card';
 import { API_BASE_URL, getCurrentUser } from '../lib/api';
-import { PageHeader } from '../components/ui';
+import { Badge, PageHeader } from '../components/ui';
 
 interface ConsentRecord {
  id: number;
@@ -306,9 +306,7 @@ const Consent: React.FC = () => {
                       </span>
                     )}
                     {isConsented && !type.required && (
-                      <span className="px-2 py-1 bg-ok-tint text-ok text-xs font-semibold rounded">
-                        ✓ Consented
-                      </span>
+                      <Badge tone="ok">Consented</Badge>
                     )}
                   </div>
                   <p className="text-ink-2 text-sm mb-3">
@@ -353,8 +351,8 @@ const Consent: React.FC = () => {
                         >
                           <div className="font-medium">
                             {record.consentGiven
-                              ? '✓ Consent Given'
-                              : '✗ Consent Withdrawn'}
+                              ? 'Consent given'
+                              : 'Consent withdrawn'}
                           </div>
                           <div className="text-ink-2">
                             {formatDate(record.createdAt)}

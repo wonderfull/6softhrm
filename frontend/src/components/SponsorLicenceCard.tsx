@@ -1,6 +1,7 @@
 import React from 'react';
 import { apiGet, apiPut } from '../lib/api';
 import Card from './Card';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 
 // Sponsor licence details the Home Office holds on file for this tenant:
 // licence number, rating, expiry, key personnel and CoS allocations. Read by
@@ -147,7 +148,7 @@ function PersonList({
  className="mt-1 px-2 text-ink-3 hover:text-bad"
  aria-label="Remove"
             >
-              ✕
+              <XMarkIcon aria-hidden="true" className="h-4 w-4" />
             </button>
           )}
         </div>

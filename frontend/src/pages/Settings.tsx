@@ -265,10 +265,10 @@ export default function Settings() {
               <div className="flex items-center justify-between mb-2">
                 <span className="font-medium">Google Drive</span>
                 <span className={`text-sm ${driveConnected ? 'text-ok' : 'text-ink-3'}`}>
-                  {driveConnected === null ? 'Checking...' : driveConnected ? '✓ Connected' : 'Not connected'}
+                  {driveConnected === null ? 'Checking…' : driveConnected ? 'Connected' : 'Not connected'}
                 </span>
               </div>
-              <button onClick={connectDrive} className="bg-accent text-white px-4 py-2 rounded hover:bg-accent text-sm">
+              <button onClick={connectDrive} className="btn-secondary">
  Connect Google Drive
               </button>
             </div>

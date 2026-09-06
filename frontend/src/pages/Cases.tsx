@@ -1,7 +1,7 @@
 import React from 'react';
 import { apiGet, apiPost, apiPut } from '../lib/api';
 import Card from '../components/Card';
-import { HiPlus } from 'react-icons/hi';
+import { PlusIcon } from '@heroicons/react/24/outline';
 
 // Disciplinary, grievance and capability cases. The most sensitive records in
 // the product: ADMIN and DIRECTOR only, and deliberately confined to this
@@ -270,7 +270,7 @@ export default function Cases() {
  onClick={() => setShowForm(!showForm)}
  className="btn-primary"
           >
-            <HiPlus /> {showForm ? 'Cancel' : 'Open a case'}
+            <PlusIcon aria-hidden="true" className="h-4 w-4" /> {showForm ? 'Cancel' : 'Open a case'}
           </button>
         </div>
       </div>

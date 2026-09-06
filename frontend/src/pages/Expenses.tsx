@@ -2,7 +2,7 @@ import React from 'react';
 import { apiDelete, apiGet, apiPost, apiPut, getCurrentUser } from '../lib/api';
 import Card from '../components/Card';
 import Dialog from '../components/Dialog';
-import { HiPlus } from 'react-icons/hi';
+import { PlusIcon } from '@heroicons/react/24/outline';
 import { isElevatedRole, normalizeRole } from '../lib/roles';
 import { Badge, Button } from '../components/ui';
 
@@ -325,7 +325,7 @@ export default function Expenses() {
  onClick={() => setShowForm(!showForm)}
  className="btn-primary"
             >
-              <HiPlus /> {showForm ? 'Cancel' : 'New claim'}
+              <PlusIcon aria-hidden="true" className="h-4 w-4" /> {showForm ? 'Cancel' : 'New claim'}
             </button>
           )}
         </div>

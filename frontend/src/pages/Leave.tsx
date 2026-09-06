@@ -4,7 +4,7 @@ import Card from '../components/Card';
 import { Badge, Button, PageHeader } from '../components/ui';
 import Dialog from '../components/Dialog';
 import LeaveCalendar from '../components/LeaveCalendar';
-import { HiPlus } from 'react-icons/hi';
+import { PlusIcon } from '@heroicons/react/24/outline';
 import { normalizeRole } from '../lib/roles';
 import { LEAVE_TYPES, formatLeaveType, formatWorkingDays } from '../lib/leave';
 
@@ -198,7 +198,7 @@ export default function Leave() {
               size="sm"
               onClick={() => setShowForm(!showForm)}
             >
-              <HiPlus aria-hidden="true" />{' '}
+              <PlusIcon aria-hidden="true" className="h-4 w-4" />{' '}
               {showForm ? 'Cancel' : 'Request leave'}
             </Button>
           ) : undefined
