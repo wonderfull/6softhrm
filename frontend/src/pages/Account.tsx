@@ -28,7 +28,7 @@ const PHOTO_MAX_SIZE = 2 * 1024 * 1024;
 const PHOTO_TYPES = ['image/png', 'image/jpeg'];
 
 const inputClass =
- 'mt-1 w-full rounded-md border border-line-2 px-3 py-2 disabled:bg-surface-2 ';
+ 'form-input mt-1 disabled:bg-surface-2';
 
 const successClass =
  'mb-3 rounded-md border border-ok bg-ok-tint px-3 py-2 text-sm text-ok ';

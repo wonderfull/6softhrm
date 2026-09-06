@@ -98,7 +98,7 @@ export default function SecuritySettingsCard() {
  maxLength={6}
  placeholder="123456"
  aria-label="Authentication code"
- className="w-32 rounded-md border border-line-2 px-3 py-2 text-center font-mono "
+ className="form-input w-32 text-center font-mono"
             />
             <button type="submit" disabled={code.length !== 6} className="btn-primary disabled:opacity-50">
  Turn on
@@ -123,7 +123,7 @@ export default function SecuritySettingsCard() {
  maxLength={6}
  placeholder="123456"
  aria-label="Authentication code"
- className="w-32 rounded-md border border-line-2 px-3 py-2 text-center font-mono "
+ className="form-input w-32 text-center font-mono"
             />
             <button type="submit" disabled={code.length !== 6} className="btn-ghost disabled:opacity-50">
  Turn off 2FA

@@ -18,6 +18,24 @@ body {
 h1, h2, h3, h4 { @apply text-ink; }
 .font-display { letter-spacing: -0.02em; }
 
+/* Safety net: any control that has not been converted to .form-input yet still
+   has to follow the theme. Base layer, so .form-input and utilities win. */
+@layer base {
+  input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  select,
+  textarea {
+    @apply bg-surface text-ink border-line-2;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-ink-3;
+  }
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--accent);
+  }
+}
+
 /* Long-form legal pages (Privacy, Terms, DPA, GDPR). */
 .prose { @apply text-ink-2 leading-relaxed px-4 sm:px-6; }
 .prose h1 { @apply font-display text-3xl sm:text-4xl font-semibold text-ink mb-2; }

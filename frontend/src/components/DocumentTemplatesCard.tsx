@@ -42,7 +42,7 @@ const PLACEHOLDERS = [
 ];
 
 const inputClass =
- 'mt-1 w-full rounded-md border border-line-2 px-3 py-2 ';
+ 'form-input mt-1';
 
 const emptyForm = {
  id: null as number | null,

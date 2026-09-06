@@ -51,7 +51,7 @@ const WEEKDAYS = [
 ];
 
 const inputClass =
- 'mt-1 w-full rounded-md border border-line-2 px-3 py-2 disabled:bg-surface-2 ';
+ 'form-input mt-1 disabled:bg-surface-2';
 
 function fromSettings(settings: Settings | null): Form {
  if (!settings) return EMPTY;

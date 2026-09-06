@@ -173,7 +173,7 @@ export default function LeaveCalendar() {
           <select
  value={department}
  onChange={(e) => setDepartment(e.target.value)}
- className="rounded-md border border-line-2 px-3 py-2 "
+ className="form-input w-auto"
           >
             <option value="">All departments</option>
             {departments.map((name) => (
