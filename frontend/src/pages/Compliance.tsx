@@ -289,7 +289,7 @@ export default function Compliance() {
                           {day.source}
                         </td>
                         <td className="px-3 py-2 text-ink-2">
-                          {day.notes || '—'}
+                          {day.notes || 'None'}
                         </td>
                       </tr>
                     ))}
@@ -395,7 +395,7 @@ export default function Compliance() {
                         <td className="px-3 py-2 text-ink-2">
                           {a.shortfall
                             ? `£${a.shortfall.toLocaleString()}`
-                            : '—'}
+                            : 'Not set'}
                         </td>
                         <td className="px-3 py-2">
                           <span

@@ -21,7 +21,7 @@ export default function Privacy() {
  on their documented instructions under a Data Processing Agreement.
  Questions about why your data is processed, requests for access,
  correction or erasure should go to your employer's HR administrator in
- the first instance — we support them in fulfilling those requests.
+ the first instance, and we support them in fulfilling those requests.
       </p>
       <p>
  6soft Ltd acts as a <strong>controller</strong> only for the limited
@@ -51,7 +51,7 @@ export default function Privacy() {
       <h2>Lawful bases</h2>
       <p>
  Your employer typically relies on UK GDPR Article 6(1)(b) (performance
- of the employment contract), 6(1)(c) (legal obligation — including Home
+ of the employment contract), 6(1)(c) (legal obligation, including Home
  Office sponsor-licence record-keeping under Appendix D) and 6(1)(f)
         (legitimate interests in running HR securely). Where special-category
  data is recorded (for example equal-opportunities monitoring), an
@@ -70,7 +70,7 @@ export default function Privacy() {
 
       <h2>Retention</h2>
       <p>
- Each employer configures retention to meet their obligations — for
+ Each employer configures retention to meet their obligations, for
  example six years for payroll records (HMRC) and, for sponsored
  workers, the duration of sponsorship plus one year (Home Office
  Appendix D). When a company leaves OnsideHR, their data is returned on

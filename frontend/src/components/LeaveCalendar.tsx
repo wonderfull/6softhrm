@@ -239,7 +239,7 @@ export default function LeaveCalendar() {
                     <div
  key={`${entry.id}-${date}`}
  className={`truncate rounded border px-1 py-0.5 text-[11px] ${chipClass(entry)}`}
- title={`${entry.employeeName} — ${entryLabel(entry.type)}`}
+ title={`${entry.employeeName}: ${entryLabel(entry.type)}`}
                     >
                       {entry.employeeName} · {entryLabel(entry.type)}
                     </div>

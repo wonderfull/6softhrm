@@ -270,7 +270,7 @@ export default function Account() {
               </div>
               <p className="mt-1 text-xs text-ink-3">
                 {me && !me.employeeId
-                  ? 'A photo needs an employee record — ask your HR administrator to link one.'
+                  ? 'A photo needs an employee record. Ask your HR administrator to link one.'
                   : 'PNG or JPG, up to 2MB.'}
               </p>
             </div>

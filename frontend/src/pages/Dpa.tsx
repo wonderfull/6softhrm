@@ -22,7 +22,7 @@ export default function Dpa() {
  return (
     <article className="prose prose-slate dark:prose-invert max-w-3xl mx-auto py-8">
       <h1>Data Processing Agreement</h1>
-      <p className="text-sm text-ink-3">Version 1.0 — 26 August 2026</p>
+      <p className="text-sm text-ink-3">Version 1.0 · 26 August 2026</p>
 
       <p>
  This DPA is entered into between the Customer (controller) and 6soft
@@ -32,8 +32,8 @@ export default function Dpa() {
 
       <h2>1. Subject matter and instructions</h2>
       <p>
- We process the personal data the Customer records in OnsideHR — staff
- records, leave, time, documents, sponsorship compliance data — solely
+ We process the personal data the Customer records in OnsideHR (staff
+ records, leave, time, documents, sponsorship compliance data) solely
  to provide the service, on the Customer's documented instructions, for
  the duration of the subscription (UK GDPR Article 28(3)).
       </p>

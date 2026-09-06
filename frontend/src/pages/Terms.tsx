@@ -17,7 +17,7 @@ export default function Terms() {
       <h2>2. The service</h2>
       <p>
  OnsideHR provides employee records, leave and time tracking, document
- storage and — where subscribed — a UK sponsor-licence compliance
+ storage and, where subscribed, a UK sponsor-licence compliance
  module. Compliance tooling supports the Customer's Home Office duties;
  it does not replace them, and it is not legal or immigration advice.
  Responsibility for reports to UKVI, and for the accuracy of data

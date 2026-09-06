@@ -302,8 +302,8 @@ export default function Platform() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs">{t.plan === 'CORE_PLUS_COMPLIANCE' ? 'Core + Compliance' : 'Core'}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{t.userCount ?? '—'}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{t.employeeCount ?? '—'}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{t.userCount ?? 0}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{t.employeeCount ?? 0}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{t.seatLimit ?? '∞'}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
@@ -346,7 +346,7 @@ export default function Platform() {
               {tenants.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-ink-3">
- No tenants yet — create the first one.
+ No tenants yet. Create the first one.
                   </td>
                 </tr>
               )}
