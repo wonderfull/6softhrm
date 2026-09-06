@@ -375,14 +375,26 @@ export default function Home() {
                   app.onsidehr.co.uk/reports
                 </span>
               </div>
+              {/* The shot follows the theme: the dark capture is the same
+                  screen, so the hero never shows a light app on a dark page. */}
               <img
                 src="/marketing/reports.png"
                 alt="The OnsideHR reports screen: active headcount, leave pending, hours this month and audit readiness, with headcount broken down by department."
-                width={1280}
-                height={800}
+                width={1440}
+                height={900}
                 loading="eager"
                 decoding="async"
-                className="block w-full h-auto"
+                className="block w-full h-auto dark:hidden"
+              />
+              <img
+                src="/marketing/reports-dark.png"
+                alt=""
+                aria-hidden="true"
+                width={1440}
+                height={900}
+                loading="eager"
+                decoding="async"
+                className="hidden w-full h-auto dark:block"
               />
               <div
                 aria-hidden="true"
