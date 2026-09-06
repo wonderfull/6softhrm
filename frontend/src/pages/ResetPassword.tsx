@@ -1,151 +1,123 @@
-import React from 'react'
-import { apiPost } from '../lib/api'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { LockClosedIcon, ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
+import React from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { apiPost } from '../lib/api';
+import { Badge, Button, Input } from '../components/ui';
+import AuthLayout from '../components/AuthLayout';
 
 export default function ResetPassword() {
-  const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
-  const [newPassword, setNewPassword] = React.useState('')
-  const [confirmPassword, setConfirmPassword] = React.useState('')
-  const [loading, setLoading] = React.useState(false)
-  const [success, setSuccess] = React.useState(false)
-  const [error, setError] = React.useState('')
-  
-  const token = searchParams.get('token')
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [success, setSuccess] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const token = searchParams.get('token');
 
   React.useEffect(() => {
     if (!token) {
-      setError('Invalid reset link - missing token')
+      setError('Invalid reset link - missing token');
     }
-  }, [token])
+  }, [token]);
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    
+    e.preventDefault();
+    setError('');
+
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match')
-      return
+      setError('Passwords do not match');
+      return;
     }
 
     if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
+      setError('Password must be at least 6 characters');
+      return;
     }
 
     if (!token) {
-      setError('Invalid reset link')
-      return
+      setError('Invalid reset link');
+      return;
     }
 
-    setLoading(true)
-    
+    setLoading(true);
+
     try {
-      await apiPost('/auth/reset-password', { token, newPassword })
-      setSuccess(true)
-      setTimeout(() => navigate('/login'), 3000)
+      await apiPost('/auth/reset-password', { token, newPassword });
+      setSuccess(true);
+      setTimeout(() => navigate('/login'), 3000);
     } catch (err: any) {
-      setError(err.message || 'Failed to reset password')
+      setError(err.message || 'Failed to reset password');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-primary-600 rounded-2xl shadow-lg mb-4">
-            <LockClosedIcon className="h-10 w-10 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">Reset Password</h1>
-          <p className="text-slate-600 dark:text-slate-400">Enter your new password</p>
+    <AuthLayout
+      title="Reset your password"
+      subtitle="Enter your new password."
+      below={
+        !success ? (
+          <p className="text-[13px] text-ink-2">
+            <Link to="/login" className="text-link hover:underline">
+              Back to sign in
+            </Link>
+          </p>
+        ) : undefined
+      }
+    >
+      {success ? (
+        <div role="status" className="flex flex-col items-start gap-2">
+          <Badge tone="ok">Password reset</Badge>
+          <p className="text-[15px] font-semibold text-ink">
+            Your password has been reset.
+          </p>
+          <p className="text-[13px] text-ink-2">Redirecting to sign in…</p>
         </div>
+      ) : (
+        <form onSubmit={submit} className="flex flex-col gap-[18px]">
+          <Input
+            size="lg"
+            label="New password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="••••••••"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={6}
+          />
 
-        {/* Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-8">
-          {success ? (
-            <div className="text-center space-y-4">
-              <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto" />
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Password Reset Successful!</h3>
-              <p className="text-slate-600 dark:text-slate-400">Redirecting to login page...</p>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="space-y-6">
-              {/* New Password Input */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  New Password
-                </label>
-                <div className="relative">
-                  <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                  <input 
-                    value={newPassword} 
-                    onChange={(e) => setNewPassword(e.target.value)} 
-                    placeholder="••••••••" 
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={6}
-                    className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all" 
-                  />
-                </div>
-              </div>
+          <Input
+            size="lg"
+            label="Confirm new password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="••••••••"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={6}
+          />
 
-              {/* Confirm Password Input */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Confirm New Password
-                </label>
-                <div className="relative">
-                  <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                  <input 
-                    value={confirmPassword} 
-                    onChange={(e) => setConfirmPassword(e.target.value)} 
-                    placeholder="••••••••" 
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={6}
-                    className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 placeholder-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 transition-all" 
-                  />
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400">
-                  {error}
-                </div>
-              )}
-
-              {/* Submit Button */}
-              <button 
-                type="submit"
-                disabled={loading || !token}
-                className="w-full bg-primary-600 hover:bg-primary-700 active:translate-y-px text-white font-semibold py-3 rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Resetting...' : 'Reset Password'}
-              </button>
-            </form>
+          {error && (
+            <p role="alert" className="text-[13px] text-bad">
+              {error}
+            </p>
           )}
 
-          {/* Back to Login */}
-          {!success && (
-            <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
-              <Link 
-                to="/login" 
-                className="flex items-center justify-center gap-2 text-sm text-primary-600 dark:text-primary-300 hover:text-primary-700 dark:hover:text-primary-200"
-              >
-                <ArrowLeftIcon className="h-4 w-4" />
-                Back to Login
-              </Link>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+          <Button
+            type="submit"
+            size="lg"
+            loading={loading}
+            disabled={!token}
+            className="mt-1 w-full"
+          >
+            {loading ? 'Resetting…' : 'Reset password'}
+          </Button>
+        </form>
+      )}
+    </AuthLayout>
+  );
 }

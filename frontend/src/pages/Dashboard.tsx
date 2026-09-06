@@ -1,7 +1,29 @@
 import React from 'react';
-import Card from '../components/Card';
+import { Link, useNavigate } from 'react-router-dom';
+import { DocumentTextIcon } from '@heroicons/react/24/outline';
 import { apiGet, getCurrentUser, hasRole } from '../lib/api';
-import { Link } from 'react-router-dom';
+import { formatLeaveType } from '../lib/leave';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  KpiTile,
+  PageHeader,
+  Table,
+  Td,
+  Th,
+  Tr,
+} from '../components/ui';
+
+// How many expiring rows the dashboard shows before sending the reader to the
+// full list.
+const EXPIRY_PREVIEW = 6;
+
+const SUMMARY_TABS = [
+  { key: 'leave' as const, label: 'Leave' },
+  { key: 'overtime' as const, label: 'Overtime' },
+];
 
 function formatDashboardDate(date = new Date()) {
   return date.toLocaleDateString('en-GB', {
@@ -14,6 +36,22 @@ function formatDashboardDate(date = new Date()) {
 
 function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function daysUntil(value: string, now = new Date()) {
+  return Math.ceil(
+    (new Date(value).getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
+}
+
+function shortDate(value: string) {
+  return new Date(value).toLocaleDateString('en-GB');
+}
+
+function remainingLabel(days: number) {
+  if (days < 0) return `${Math.abs(days)} days ago`;
+  if (days === 0) return 'Today';
+  return `${days} day${days === 1 ? '' : 's'}`;
 }
 
 function calculateMonthlyOvertime(timesheets: any[], now = new Date()) {
@@ -46,13 +84,71 @@ function calculateMonthlyOvertime(timesheets: any[], now = new Date()) {
   return { overtimeHours, totalHours };
 }
 
+// A label over a numeral, used inside the summary card. The KPI tile is a card
+// in its own right, and cards do not nest.
+function Metric({
+  label,
+  value,
+  unit,
+  children,
+}: {
+  label: string;
+  value?: React.ReactNode;
+  unit?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="text-[13px] text-ink-2">{label}</div>
+      {value !== undefined && (
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5">
+          <span className="font-display text-[30px] leading-none font-semibold tracking-[-0.02em] tabular-nums text-ink">
+            {value}
+          </span>
+          {unit && <span className="text-[13px] text-ink-3">{unit}</span>}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+// The shared Card header keeps its action on one line with the title; on a
+// phone the document counts need to drop below it, so this section header
+// wraps instead.
+function SectionHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b border-line px-5 py-3.5">
+      <div className="min-w-0">
+        <h3 className="text-base font-semibold leading-snug text-ink">
+          {title}
+        </h3>
+        {description && (
+          <p className="mt-0.5 text-[13px] text-ink-2">{description}</p>
+        )}
+      </div>
+      {action && <div className="min-w-0">{action}</div>}
+    </div>
+  );
+}
+
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = React.useState({
     totalEmployees: 0,
     totalProjects: 0,
     totalDocuments: 0,
     pendingLeave: 0,
   });
+  const [loaded, setLoaded] = React.useState(false);
   const [expiringDocs, setExpiringDocs] = React.useState<any[]>([]);
   const [expiringSponsorships, setExpiringSponsorships] = React.useState<any[]>(
     [],
@@ -101,6 +197,7 @@ export default function Dashboard() {
           setExpiringSponsorships(expiringSponsorships);
           setLeaveRequests(leave);
           setTimesheets(timesheets);
+          setLoaded(true);
         },
       );
       return;
@@ -135,6 +232,7 @@ export default function Dashboard() {
         setTimesheets(timesheets);
         setExpiringDocs(expiringDocs);
         setExpiringSponsorships(expiringSponsorships);
+        setLoaded(true);
       },
     );
   }, [isElevated, hasEmployeeProfile]);
@@ -193,872 +291,563 @@ export default function Dashboard() {
     )[0];
   const monthlyOvertime = calculateMonthlyOvertime(ownTimesheets);
 
-  return (
-    <div>
-      {/* Header */}
-      <div className="mb-8 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Welcome to OnsideHR
-          </h1>
-          <p className="text-slate-600 dark:text-slate-300">
-            Your complete HR management solution
-          </p>
-        </div>
-        <div className="text-lg font-medium text-slate-700 dark:text-slate-200">
-          {today}
-        </div>
-      </div>
+  const readinessScore =
+    readiness && typeof readiness.score === 'number' && readiness.band
+      ? readiness.score
+      : null;
+  const readinessBand = readiness?.band;
+  const readinessTone =
+    readinessBand === 'READY'
+      ? 'ok'
+      : readinessBand === 'AT_RISK'
+        ? 'warn'
+        : 'bad';
+  const readinessLabel =
+    readinessBand === 'READY'
+      ? 'Ready'
+      : readinessBand === 'AT_RISK'
+        ? 'At risk'
+        : 'Not ready';
+  // The one component costing the most points is the thing to fix first.
+  const blockingIssue: any = Array.isArray(readiness?.components)
+    ? [...readiness.components].sort(
+        (a: any, b: any) => b.penalty - a.penalty,
+      )[0]
+    : null;
 
-      {/* Audit readiness — the number a director checks weekly. Home Office
+  const timesheetEntries = summary?.timesheets?.entries;
+  const timesheetMonth = summary?.timesheets?.monthStart
+    ? new Date(summary.timesheets.monthStart).toLocaleDateString('en-GB', {
+        month: 'long',
+        year: 'numeric',
+      })
+    : '';
+  const hoursFootnote =
+    [
+      typeof timesheetEntries === 'number'
+        ? `${timesheetEntries} ${timesheetEntries === 1 ? 'entry' : 'entries'}`
+        : null,
+      timesheetMonth,
+    ]
+      .filter(Boolean)
+      .join(' · ') || 'Recorded this month';
+
+  const sortedDocs = [...expiringDocs].sort(
+    (a, b) =>
+      new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime(),
+  );
+  const docsShown = sortedDocs.slice(0, EXPIRY_PREVIEW);
+  const docsExpired = sortedDocs.filter((d) => daysUntil(d.expiryDate) < 0);
+  const docsUnder7 = sortedDocs.filter((d) => {
+    const days = daysUntil(d.expiryDate);
+    return days >= 0 && days < 7;
+  });
+  const docsUnder30 = sortedDocs.filter((d) => daysUntil(d.expiryDate) >= 7);
+
+  const sortedSponsorships = [...expiringSponsorships].sort(
+    (a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime(),
+  );
+  const sponsorshipsShown = sortedSponsorships.slice(0, EXPIRY_PREVIEW);
+
+  const quickLinks = isAdmin
+    ? [
+        {
+          to: '/employees',
+          label: 'Employees',
+          description: 'Manage employee records',
+        },
+        {
+          to: '/projects',
+          label: 'Projects',
+          description: 'View and manage projects',
+        },
+        {
+          to: '/documents',
+          label: 'Documents',
+          description: 'Access documents',
+        },
+        {
+          to: '/leave',
+          label: 'Leave requests',
+          description: 'Manage leave requests',
+        },
+      ]
+    : [
+        {
+          to: '/employees',
+          label: 'My profile',
+          description: 'View and update your details',
+        },
+        {
+          to: '/time',
+          label: 'Timesheet',
+          description: 'Track your work hours',
+        },
+        {
+          to: '/documents',
+          label: 'My documents',
+          description: 'Access your documents',
+        },
+        {
+          to: '/leave',
+          label: 'Leave requests',
+          description: 'Request time off',
+        },
+      ];
+
+  return (
+    <>
+      <PageHeader
+        title="Dashboard"
+        subline={today}
+        actions={
+          isAdmin ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate('/data-export')}
+            >
+              Export
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {/* Audit readiness is the number a director checks weekly. Home Office
           visits can be unannounced, so readiness is the product, not records. */}
-      {readiness && typeof readiness.score === 'number' && readiness.band && (
-        <div className="mb-8">
-          <div
-            className={`rounded-xl shadow-lg p-6 text-white bg-gradient-to-br ${
-              readiness.band === 'READY'
-                ? 'from-emerald-500 to-emerald-600'
-                : readiness.band === 'AT_RISK'
-                  ? 'from-amber-500 to-amber-600'
-                  : 'from-rose-500 to-rose-600'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-6 flex-wrap">
-              <div className="min-w-0">
-                <div className="text-white/80 text-sm mb-1">
-                  Sponsor audit readiness
-                </div>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-5xl font-bold">{readiness.score}</span>
-                  <span className="text-lg font-medium">
-                    /100 · {String(readiness.band).replace('_', ' ')}
+      {readinessScore !== null && (
+        <Card className="p-5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-6 items-start">
+            <div className="flex flex-col gap-2.5">
+              <div className="text-[13px] text-ink-2">
+                Sponsor audit readiness
+              </div>
+              <div className="flex flex-wrap items-baseline gap-2.5">
+                <span className="font-display text-[34px] leading-none font-semibold tracking-[-0.02em] tabular-nums text-ink">
+                  {readinessScore}
+                  <span className="font-medium text-ink-3">/100</span>
+                </span>
+                <Badge tone={readinessTone}>{readinessLabel}</Badge>
+              </div>
+              <div className="h-1 max-w-[320px] overflow-hidden rounded-sm bg-surface-3">
+                <div
+                  className="h-full rounded-sm bg-ink-3"
+                  style={{
+                    width: `${Math.max(0, Math.min(100, readinessScore))}%`,
+                  }}
+                />
+              </div>
+              <div className="text-xs text-ink-3">
+                {readiness.activeSponsorships} sponsored{' '}
+                {readiness.activeSponsorships === 1 ? 'worker' : 'workers'} ·
+                evidence {readiness.evidenceCompleteness}% complete
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="text-[13px] text-ink-2">Blocking issue</div>
+              {blockingIssue ? (
+                <div className="flex items-baseline justify-between gap-3 rounded-md border border-line bg-bg px-3.5 py-3">
+                  <span className="text-sm font-medium text-ink">
+                    {blockingIssue.label}
+                  </span>
+                  <span className="whitespace-nowrap font-mono text-[13px] text-ink-2">
+                    {blockingIssue.count} ·{' '}
+                    <span className="text-bad">−{blockingIssue.penalty}</span>
                   </span>
                 </div>
-                <div className="text-white/80 text-sm mt-1">
-                  {readiness.activeSponsorships} sponsored{' '}
-                  {readiness.activeSponsorships === 1 ? 'worker' : 'workers'} ·
-                  evidence {readiness.evidenceCompleteness}% complete
+              ) : (
+                <div className="rounded-md border border-line bg-bg px-3.5 py-3 text-sm text-ink-2">
+                  Nothing outstanding.
                 </div>
-              </div>
-              <div className="text-5xl opacity-20 flex-shrink-0" aria-hidden>
-                🛡
-              </div>
-            </div>
-
-            {readiness.components?.length > 0 && (
-              <ul className="mt-4 space-y-1 border-t border-white/20 pt-3">
-                {readiness.components.map((component: any) => (
-                  <li
-                    key={component.key}
-                    className="flex items-baseline justify-between gap-4 text-sm"
-                  >
-                    <span className="text-white/90">{component.label}</span>
-                    <span className="font-semibold flex-shrink-0">
-                      {component.count} · −{component.penalty}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="mt-4 flex items-center justify-between gap-4 flex-wrap text-sm">
-              <Link
-                to="/sponsorships"
-                className="underline underline-offset-2 hover:text-white/80"
-              >
-                Review sponsorships →
-              </Link>
-              {readiness.guidance && (
-                <span className="text-white/70">
-                  Guidance: Part 3 {readiness.guidance.sponsorGuidancePart3} ·
-                  Appendix D {readiness.guidance.appendixD}
-                </span>
               )}
+              <div className="flex flex-wrap items-baseline justify-between gap-2 text-[13px]">
+                <Link
+                  to="/sponsorships"
+                  className="font-medium text-link hover:underline"
+                >
+                  Review sponsorships →
+                </Link>
+                {readiness.guidance && (
+                  <span className="font-mono text-xs text-ink-3">
+                    Guidance: Part 3 {readiness.guidance.sponsorGuidancePart3} ·
+                    Appendix D {readiness.guidance.appendixD}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* Statistics Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <section className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
         {isElevated ? (
           <>
-            <Link
-              to="/reports"
-              className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-blue-100 text-sm mb-1">
-                    Active Headcount
-                  </div>
-                  <div className="text-4xl font-bold">
-                    {summary?.headcount?.active ?? 0}
-                  </div>
-                </div>
-                <div className="text-5xl opacity-20">👥</div>
-              </div>
-            </Link>
-            <Link
-              to="/reports"
-              className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-purple-100 text-sm mb-1">
-                    Starters / Leavers
-                  </div>
-                  <div className="text-4xl font-bold">
-                    {summary?.headcount?.starters30d ?? 0} /{' '}
-                    {summary?.headcount?.leavers30d ?? 0}
-                  </div>
-                  <div className="text-purple-100 text-xs mt-1">
-                    Last 30 days
-                  </div>
-                </div>
-                <div className="text-5xl opacity-20">📊</div>
-              </div>
-            </Link>
-            <Link
-              to="/reports"
-              className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-green-100 text-sm mb-1">
-                    Hours This Month
-                  </div>
-                  <div className="text-4xl font-bold">
-                    {formatNumber(summary?.timesheets?.hours ?? 0)}
-                  </div>
-                </div>
-                <div className="text-5xl opacity-20">⏱</div>
-              </div>
-            </Link>
-            <Link
-              to="/reports"
-              className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="text-orange-100 text-sm mb-1">
-                    Pending Leave
-                  </div>
-                  <div className="text-4xl font-bold">
-                    {summary?.leave?.pending ?? 0}
-                  </div>
-                </div>
-                <div className="text-5xl opacity-20 flex-shrink-0" aria-hidden>
-                  🗓
-                </div>
-              </div>
-            </Link>
+            <KpiTile
+              label="Active headcount"
+              value={summary?.headcount?.active ?? 0}
+              footnote="Employees currently on the books"
+              loading={!loaded}
+            />
+            <KpiTile
+              label="Starters / leavers"
+              value={`${summary?.headcount?.starters30d ?? 0} / ${summary?.headcount?.leavers30d ?? 0}`}
+              footnote="Last 30 days"
+              loading={!loaded}
+            />
+            <KpiTile
+              label="Hours this month"
+              value={formatNumber(summary?.timesheets?.hours ?? 0)}
+              footnote={hoursFootnote}
+              loading={!loaded}
+            />
+            <KpiTile
+              label="Pending leave"
+              value={summary?.leave?.pending ?? 0}
+              footnote="Requests awaiting approval"
+              loading={!loaded}
+            />
           </>
         ) : (
           <>
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-blue-100 text-sm mb-1">
-                    Total Employees
-                  </div>
-                  <div className="text-4xl font-bold">
-                    {stats.totalEmployees}
-                  </div>
-                </div>
-                <div className="text-5xl opacity-20">👥</div>
+            <KpiTile
+              label="Total employees"
+              value={stats.totalEmployees}
+              footnote="Employees currently on the books"
+              loading={!loaded}
+            />
+            <KpiTile
+              label="Active projects"
+              value={stats.totalProjects}
+              footnote="Projects in progress"
+              loading={!loaded}
+            />
+            <KpiTile
+              label="Documents"
+              value={stats.totalDocuments}
+              footnote="Files on record"
+              loading={!loaded}
+            />
+            <KpiTile
+              label="Pending leave"
+              value={stats.pendingLeave}
+              footnote="Requests awaiting approval"
+              loading={!loaded}
+            />
+          </>
+        )}
+      </section>
+
+      {hasEmployeeProfile && (
+        <Card flush>
+          <SectionHeader
+            title="My summary"
+            description="Your leave and overtime at a glance."
+            action={
+              <div className="inline-flex rounded-md border border-line bg-surface-2 p-0.5">
+                {SUMMARY_TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    aria-pressed={summaryTab === tab.key}
+                    onClick={() => setSummaryTab(tab.key)}
+                    className={`h-7 rounded-sm px-3 text-[13px] font-medium transition-colors duration-hover ease-out ${
+                      summaryTab === tab.key
+                        ? 'bg-surface text-ink shadow-sm'
+                        : 'text-ink-2 hover:text-ink'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
-            </div>
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-purple-100 text-sm mb-1">
-                    Active Projects
+            }
+          />
+          <div className="p-5">
+            {summaryTab === 'leave' ? (
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-6">
+                <Metric
+                  label="Annual leave"
+                  value={balance ? formatNumber(balance.remaining) : undefined}
+                  unit={balance ? 'days remaining' : undefined}
+                >
+                  {balance ? (
+                    <>
+                      <div className="mt-2.5 h-1 max-w-[320px] overflow-hidden rounded-sm bg-surface-3">
+                        <div
+                          className="h-full rounded-sm bg-ink-3"
+                          style={{
+                            width: `${
+                              leaveEntitlement > 0
+                                ? Math.min(
+                                    100,
+                                    (balance.remaining / leaveEntitlement) *
+                                      100,
+                                  )
+                                : 0
+                            }%`,
+                          }}
+                        />
+                      </div>
+                      <div className="mt-2 text-xs text-ink-3">
+                        {formatNumber(balance.used)} days approved
+                      </div>
+                      <div className="mt-1 text-xs text-ink-3">
+                        {leaveAllowanceLabel}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-1.5 text-[15px] text-ink-2">
+                      Balance unavailable
+                    </div>
+                  )}
+                </Metric>
+
+                <Metric
+                  label="Pending requests"
+                  value={pendingLeaveCount}
+                  unit={`pending request${pendingLeaveCount === 1 ? '' : 's'}`}
+                >
+                  <div className="mt-2 text-xs text-ink-3">
+                    Awaiting approval
                   </div>
-                  <div className="text-4xl font-bold">
-                    {stats.totalProjects}
+                </Metric>
+
+                <Metric label="Next up">
+                  <div className="mt-1.5 text-[15px] font-medium text-ink">
+                    {nextLeave
+                      ? `${formatLeaveType(nextLeave.type)}, ${shortDate(nextLeave.startDate)}`
+                      : 'No absences coming up'}
                   </div>
-                </div>
-                <div className="text-5xl opacity-20">📊</div>
+                  <Link
+                    to="/leave"
+                    className="mt-2 inline-flex text-[13px] font-medium text-link hover:underline"
+                  >
+                    View leave requests →
+                  </Link>
+                </Metric>
               </div>
-            </div>
-            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-green-100 text-sm mb-1">Documents</div>
-                  <div className="text-4xl font-bold">
-                    {stats.totalDocuments}
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-6">
+                <Metric
+                  label="Overtime this month"
+                  value={formatNumber(monthlyOvertime.overtimeHours)}
+                  unit="hours"
+                >
+                  <div className="mt-2 text-xs text-ink-3">
+                    Hours over 8 per day
                   </div>
-                </div>
-                <div className="text-5xl opacity-20">📁</div>
-              </div>
-            </div>
-            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="text-orange-100 text-sm mb-1">
-                    Pending Leave
+                </Metric>
+                <Metric
+                  label="Recorded hours"
+                  value={formatNumber(monthlyOvertime.totalHours)}
+                  unit="hours"
+                >
+                  <div className="mt-2 text-xs text-ink-3">
+                    Current calendar month
                   </div>
-                  <div className="text-4xl font-bold">{stats.pendingLeave}</div>
-                </div>
-                <div className="text-5xl opacity-20 flex-shrink-0" aria-hidden>
-                  🗓
-                </div>
+                </Metric>
+                <Metric label="Timesheet">
+                  <div className="mt-1.5 text-[15px] font-medium text-ink">
+                    Keep your hours up to date
+                  </div>
+                  <Link
+                    to="/time"
+                    className="mt-2 inline-flex text-[13px] font-medium text-link hover:underline"
+                  >
+                    Open timesheet →
+                  </Link>
+                </Metric>
               </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      <Card flush>
+        <SectionHeader
+          title="Document expiry"
+          description={
+            sortedDocs.length === 1
+              ? '1 document expires within 30 days.'
+              : `${sortedDocs.length} documents expire within 30 days.`
+          }
+          action={
+            sortedDocs.length > 0 ? (
+              <div className="flex gap-5">
+                <span className="flex flex-col">
+                  <span className="text-[18px] font-semibold leading-tight tabular-nums text-ink">
+                    {docsExpired.length}
+                  </span>
+                  <span className="text-xs text-ink-3">Expired</span>
+                </span>
+                <span className="flex flex-col">
+                  <span
+                    className={`text-[18px] font-semibold leading-tight tabular-nums ${
+                      docsUnder7.length > 0 ? 'text-warn' : 'text-ink'
+                    }`}
+                  >
+                    {docsUnder7.length}
+                  </span>
+                  <span className="text-xs text-ink-3">Under 7 days</span>
+                </span>
+                <span className="flex flex-col">
+                  <span className="text-[18px] font-semibold leading-tight tabular-nums text-ink">
+                    {docsUnder30.length}
+                  </span>
+                  <span className="text-xs text-ink-3">8 to 30 days</span>
+                </span>
+              </div>
+            ) : undefined
+          }
+        />
+        {sortedDocs.length === 0 ? (
+          <div className="p-5">
+            <EmptyState
+              icon={<DocumentTextIcon />}
+              title="Nothing expiring"
+              body="No documents expire in the next 30 days."
+            />
+          </div>
+        ) : (
+          <>
+            <Table className="min-w-[760px]">
+              <thead>
+                <tr>
+                  <Th>Document</Th>
+                  <Th>Type</Th>
+                  <Th>Employee</Th>
+                  <Th>Expiry date</Th>
+                  <Th className="text-right">Remaining</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {docsShown.map((doc: any) => {
+                  const days = daysUntil(doc.expiryDate);
+                  return (
+                    <Tr key={doc.id}>
+                      <Td className="font-medium text-ink">{doc.name}</Td>
+                      <Td>{doc.type ? <Badge>{doc.type}</Badge> : null}</Td>
+                      <Td className="text-ink-2">
+                        {doc.employee
+                          ? `${doc.employee.firstName} ${doc.employee.lastName}`
+                          : ''}
+                      </Td>
+                      <Td className="font-mono text-[13px] text-ink-2">
+                        {shortDate(doc.expiryDate)}
+                      </Td>
+                      <Td className="text-right">
+                        <Badge tone={days < 1 ? 'bad' : 'warn'}>
+                          {remainingLabel(days)}
+                        </Badge>
+                      </Td>
+                    </Tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+            <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-[13px] text-ink-3">
+              <span>
+                Showing {docsShown.length} of {sortedDocs.length}
+              </span>
+              <Link
+                to="/documents"
+                className="font-medium text-link hover:underline"
+              >
+                View all in Documents →
+              </Link>
             </div>
           </>
         )}
-      </div>
+      </Card>
 
-      {hasEmployeeProfile && (
-        <Card className="p-6 mb-8 border border-blue-200 dark:border-blue-800">
-          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                My summary
-              </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Your leave and overtime at a glance.
-              </p>
-            </div>
-            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
-              <button
-                type="button"
-                onClick={() => setSummaryTab('leave')}
-                className={`rounded-md px-4 py-2 text-sm font-semibold ${summaryTab === 'leave' ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-700'}`}
-              >
-                Leave
-              </button>
-              <button
-                type="button"
-                onClick={() => setSummaryTab('overtime')}
-                className={`rounded-md px-4 py-2 text-sm font-semibold ${summaryTab === 'overtime' ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-700'}`}
-              >
-                Overtime
-              </button>
-            </div>
-          </div>
-
-          {summaryTab === 'leave' ? (
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  Annual leave
-                </div>
-                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {balance
-                    ? `${formatNumber(balance.remaining)} days remaining`
-                    : 'Balance unavailable'}
-                </div>
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  {balance ? `${formatNumber(balance.used)} days approved` : ''}
-                </div>
-                <div className="mt-3 h-2 rounded-full bg-blue-100 dark:bg-blue-950">
-                  <div
-                    className="h-2 rounded-full bg-blue-600"
-                    style={{
-                      width: `${leaveEntitlement > 0 ? Math.min(100, (balance.remaining / leaveEntitlement) * 100) : 0}%`,
-                    }}
-                  />
-                </div>
-                <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  {leaveAllowanceLabel}
-                </div>
-              </div>
-              <div className="rounded-lg bg-orange-50 p-4 dark:bg-orange-900/20">
-                <div className="text-sm font-medium text-orange-700 dark:text-orange-300">
-                  Pending leave
-                </div>
-                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {pendingLeaveCount} pending request
-                  {pendingLeaveCount === 1 ? '' : 's'}
-                </div>
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Awaiting approval
-                </div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-                <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Next up
-                </div>
-                <div className="mt-2 text-lg font-bold text-slate-900 dark:text-white">
-                  {nextLeave
-                    ? `${nextLeave.type} - ${new Date(nextLeave.startDate).toLocaleDateString('en-GB')}`
-                    : 'No absences coming up'}
-                </div>
-                <Link
-                  to="/leave"
-                  className="mt-3 inline-flex text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-300"
-                >
-                  View leave requests
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20">
-                <div className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                  Overtime this month
-                </div>
-                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {formatNumber(monthlyOvertime.overtimeHours)} overtime hours
-                  this month
-                </div>
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Hours over 8 per day
-                </div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-                <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Recorded hours
-                </div>
-                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {formatNumber(monthlyOvertime.totalHours)} total hours
-                  recorded
-                </div>
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Current calendar month
-                </div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-                <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Timesheet
-                </div>
-                <div className="mt-2 text-lg font-bold text-slate-900 dark:text-white">
-                  Keep your hours up to date
-                </div>
-                <Link
-                  to="/time"
-                  className="mt-3 inline-flex text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-300"
-                >
-                  Open timesheet
-                </Link>
-              </div>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* Critical Alerts Section */}
-      {expiringDocs.length > 0 && (
-        <Card className="p-6 mb-8 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-2 border-red-300 dark:border-red-700">
-          <div className="flex items-start gap-4">
-            <div className="text-4xl">⚠️</div>
-            <div className="flex-1">
-              <h3 className="text-2xl font-bold mb-2 text-red-900 dark:text-red-100">
-                🚨 Critical Alerts - Document Expiry
-              </h3>
-              <p className="text-red-700 dark:text-red-300 mb-4">
-                {expiringDocs.length} document
-                {expiringDocs.length !== 1 ? 's' : ''} require immediate
-                attention (expiring within 30 days)
-              </p>
-
-              {/* Summary Statistics */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="bg-red-600 dark:bg-red-700 rounded-lg p-3 text-white text-center">
-                  <div className="text-2xl font-bold">
-                    {
-                      expiringDocs.filter((d: any) => {
-                        const days = Math.ceil(
-                          (new Date(d.expiryDate).getTime() -
-                            new Date().getTime()) /
-                            (1000 * 60 * 60 * 24),
-                        );
-                        return days < 0;
-                      }).length
-                    }
-                  </div>
-                  <div className="text-xs uppercase">Expired</div>
-                </div>
-                <div className="bg-orange-600 dark:bg-orange-700 rounded-lg p-3 text-white text-center">
-                  <div className="text-2xl font-bold">
-                    {
-                      expiringDocs.filter((d: any) => {
-                        const days = Math.ceil(
-                          (new Date(d.expiryDate).getTime() -
-                            new Date().getTime()) /
-                            (1000 * 60 * 60 * 24),
-                        );
-                        return days >= 0 && days < 7;
-                      }).length
-                    }
-                  </div>
-                  <div className="text-xs uppercase">{'< 7 Days'}</div>
-                </div>
-                <div className="bg-yellow-600 dark:bg-yellow-700 rounded-lg p-3 text-white text-center">
-                  <div className="text-2xl font-bold">
-                    {
-                      expiringDocs.filter((d: any) => {
-                        const days = Math.ceil(
-                          (new Date(d.expiryDate).getTime() -
-                            new Date().getTime()) /
-                            (1000 * 60 * 60 * 24),
-                        );
-                        return days >= 7 && days < 30;
-                      }).length
-                    }
-                  </div>
-                  <div className="text-xs uppercase">{'< 30 Days'}</div>
-                </div>
-              </div>
-
-              {/* Detailed Document List */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 uppercase text-xs">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Status</th>
-                        <th className="px-4 py-3 text-left">Document Name</th>
-                        <th className="px-4 py-3 text-left">Type</th>
-                        <th className="px-4 py-3 text-left">Employee</th>
-                        <th className="px-4 py-3 text-left">Expiry Date</th>
-                        <th className="px-4 py-3 text-left">Days Remaining</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                      {expiringDocs.map((doc: any) => {
-                        const now = new Date();
-                        const expiry = new Date(doc.expiryDate);
-                        const daysUntilExpiry = Math.ceil(
-                          (expiry.getTime() - now.getTime()) /
-                            (1000 * 60 * 60 * 24),
-                        );
-
-                        let statusIcon, statusText, statusColor, rowBgClass;
-                        if (daysUntilExpiry < 0) {
-                          statusIcon = '⛔';
-                          statusText = 'EXPIRED';
-                          statusColor =
-                            'text-red-700 dark:text-red-400 font-bold';
-                          rowBgClass = 'bg-red-50 dark:bg-red-900/20';
-                        } else if (daysUntilExpiry === 0) {
-                          statusIcon = '🔴';
-                          statusText = 'TODAY';
-                          statusColor =
-                            'text-red-600 dark:text-red-400 font-bold';
-                          rowBgClass = 'bg-red-50 dark:bg-red-900/20';
-                        } else if (daysUntilExpiry < 7) {
-                          statusIcon = '🔴';
-                          statusText = 'URGENT';
-                          statusColor =
-                            'text-red-600 dark:text-red-400 font-semibold';
-                          rowBgClass = 'bg-red-50 dark:bg-red-900/10';
-                        } else if (daysUntilExpiry < 30) {
-                          statusIcon = '🟡';
-                          statusText = 'WARNING';
-                          statusColor =
-                            'text-yellow-700 dark:text-yellow-400 font-semibold';
-                          rowBgClass = 'bg-yellow-50 dark:bg-yellow-900/10';
-                        }
-
-                        return (
-                          <tr
-                            key={doc.id}
-                            className={`${rowBgClass} hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors`}
-                          >
-                            <td className="px-4 py-3">
-                              <div
-                                className={`flex items-center gap-1 ${statusColor}`}
-                              >
-                                <span>{statusIcon}</span>
-                                <span className="text-xs">{statusText}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
-                              {doc.name}
-                            </td>
-                            <td className="px-4 py-3">
-                              {doc.type ? (
-                                <span className="px-2 py-1 text-xs font-semibold rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                                  {doc.type}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400">-</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
-                              {doc.employee.firstName} {doc.employee.lastName}
-                            </td>
-                            <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-mono">
-                              {expiry.toLocaleDateString('en-GB')}
-                            </td>
-                            <td
-                              className={`px-4 py-3 font-semibold ${statusColor}`}
-                            >
-                              {daysUntilExpiry < 0 ? (
-                                <span>
-                                  {Math.abs(daysUntilExpiry)} days ago
-                                </span>
-                              ) : daysUntilExpiry === 0 ? (
-                                <span>Expires today!</span>
-                              ) : (
-                                <span>
-                                  {daysUntilExpiry} day
-                                  {daysUntilExpiry !== 1 ? 's' : ''}
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="mt-4 flex justify-between items-center">
-                <Link
-                  to="/documents"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                    className="w-5 h-5"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-                    />
-                  </svg>
-                  Manage All Documents
-                </Link>
-                <div className="text-sm text-slate-600 dark:text-slate-400">
-                  Last updated:{' '}
-                  {new Date().toLocaleString('en-GB', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
-                </div>
-              </div>
-            </div>
+      {sortedSponsorships.length > 0 && (
+        <Card flush>
+          <SectionHeader
+            title="Sponsorship expiry"
+            description={
+              sortedSponsorships.length === 1
+                ? '1 sponsorship expires within 30 days.'
+                : `${sortedSponsorships.length} sponsorships expire within 30 days.`
+            }
+          />
+          <Table className="min-w-[760px]">
+            <thead>
+              <tr>
+                <Th>Employee</Th>
+                <Th>Visa type</Th>
+                <Th>CAS number</Th>
+                <Th>Start date</Th>
+                <Th>Expiry date</Th>
+                <Th className="text-right">Remaining</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {sponsorshipsShown.map((sponsorship: any) => {
+                const days = daysUntil(sponsorship.endDate);
+                return (
+                  <Tr key={sponsorship.id}>
+                    <Td className="font-medium text-ink">
+                      {sponsorship.employee
+                        ? `${sponsorship.employee.firstName} ${sponsorship.employee.lastName}`
+                        : ''}
+                    </Td>
+                    <Td>
+                      {sponsorship.visaType ? (
+                        <Badge>{sponsorship.visaType}</Badge>
+                      ) : null}
+                    </Td>
+                    <Td className="font-mono text-[13px] text-ink-2">
+                      {sponsorship.casNumber || 'Not set'}
+                    </Td>
+                    <Td className="font-mono text-[13px] text-ink-2">
+                      {shortDate(sponsorship.startDate)}
+                    </Td>
+                    <Td className="font-mono text-[13px] text-ink-2">
+                      {shortDate(sponsorship.endDate)}
+                    </Td>
+                    <Td className="text-right">
+                      <Badge tone={days < 1 ? 'bad' : 'warn'}>
+                        {remainingLabel(days)}
+                      </Badge>
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </tbody>
+          </Table>
+          <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-[13px] text-ink-3">
+            <span>
+              Showing {sponsorshipsShown.length} of {sortedSponsorships.length}
+            </span>
+            <Link
+              to="/sponsorships"
+              className="font-medium text-link hover:underline"
+            >
+              View all in Sponsorships →
+            </Link>
           </div>
         </Card>
       )}
 
-      {/* Sponsorship Expiry Alerts Section */}
-      {expiringSponsorships.length > 0 && (
-        <Card className="p-6 mb-8 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-300 dark:border-purple-700">
-          <div className="flex items-start gap-4">
-            <div className="text-4xl">🛂</div>
-            <div className="flex-1">
-              <h3 className="text-2xl font-bold mb-2 text-purple-900 dark:text-purple-100">
-                🚨 Critical Alerts - Sponsorship Expiry
-              </h3>
-              <p className="text-purple-700 dark:text-purple-300 mb-4">
-                {expiringSponsorships.length} sponsorship
-                {expiringSponsorships.length !== 1 ? 's' : ''} require immediate
-                attention (expiring within 30 days)
-              </p>
-
-              {/* Summary Statistics */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="bg-red-600 dark:bg-red-700 rounded-lg p-3 text-white text-center">
-                  <div className="text-2xl font-bold">
-                    {
-                      expiringSponsorships.filter((s: any) => {
-                        const days = Math.ceil(
-                          (new Date(s.endDate).getTime() -
-                            new Date().getTime()) /
-                            (1000 * 60 * 60 * 24),
-                        );
-                        return days < 0;
-                      }).length
-                    }
-                  </div>
-                  <div className="text-xs uppercase">Expired</div>
-                </div>
-                <div className="bg-orange-600 dark:bg-orange-700 rounded-lg p-3 text-white text-center">
-                  <div className="text-2xl font-bold">
-                    {
-                      expiringSponsorships.filter((s: any) => {
-                        const days = Math.ceil(
-                          (new Date(s.endDate).getTime() -
-                            new Date().getTime()) /
-                            (1000 * 60 * 60 * 24),
-                        );
-                        return days >= 0 && days < 7;
-                      }).length
-                    }
-                  </div>
-                  <div className="text-xs uppercase">{'< 7 Days'}</div>
-                </div>
-                <div className="bg-yellow-600 dark:bg-yellow-700 rounded-lg p-3 text-white text-center">
-                  <div className="text-2xl font-bold">
-                    {
-                      expiringSponsorships.filter((s: any) => {
-                        const days = Math.ceil(
-                          (new Date(s.endDate).getTime() -
-                            new Date().getTime()) /
-                            (1000 * 60 * 60 * 24),
-                        );
-                        return days >= 7 && days < 30;
-                      }).length
-                    }
-                  </div>
-                  <div className="text-xs uppercase">{'< 30 Days'}</div>
-                </div>
-              </div>
-
-              {/* Detailed Sponsorship List */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 uppercase text-xs">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Status</th>
-                        <th className="px-4 py-3 text-left">Employee</th>
-                        <th className="px-4 py-3 text-left">Visa Type</th>
-                        <th className="px-4 py-3 text-left">CAS Number</th>
-                        <th className="px-4 py-3 text-left">Start Date</th>
-                        <th className="px-4 py-3 text-left">Expiry Date</th>
-                        <th className="px-4 py-3 text-left">Days Remaining</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                      {expiringSponsorships.map((sponsorship: any) => {
-                        const now = new Date();
-                        const expiry = new Date(sponsorship.endDate);
-                        const daysUntilExpiry = Math.ceil(
-                          (expiry.getTime() - now.getTime()) /
-                            (1000 * 60 * 60 * 24),
-                        );
-
-                        let statusIcon, statusText, statusColor, rowBgClass;
-                        if (daysUntilExpiry < 0) {
-                          statusIcon = '⛔';
-                          statusText = 'EXPIRED';
-                          statusColor =
-                            'text-red-700 dark:text-red-400 font-bold';
-                          rowBgClass = 'bg-red-50 dark:bg-red-900/20';
-                        } else if (daysUntilExpiry === 0) {
-                          statusIcon = '🔴';
-                          statusText = 'TODAY';
-                          statusColor =
-                            'text-red-600 dark:text-red-400 font-bold';
-                          rowBgClass = 'bg-red-50 dark:bg-red-900/20';
-                        } else if (daysUntilExpiry < 7) {
-                          statusIcon = '🔴';
-                          statusText = 'URGENT';
-                          statusColor =
-                            'text-red-600 dark:text-red-400 font-semibold';
-                          rowBgClass = 'bg-red-50 dark:bg-red-900/10';
-                        } else if (daysUntilExpiry < 30) {
-                          statusIcon = '🟡';
-                          statusText = 'WARNING';
-                          statusColor =
-                            'text-yellow-700 dark:text-yellow-400 font-semibold';
-                          rowBgClass = 'bg-yellow-50 dark:bg-yellow-900/10';
-                        }
-
-                        return (
-                          <tr
-                            key={sponsorship.id}
-                            className={`${rowBgClass} hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors`}
-                          >
-                            <td className="px-4 py-3">
-                              <div
-                                className={`flex items-center gap-1 ${statusColor}`}
-                              >
-                                <span>{statusIcon}</span>
-                                <span className="text-xs">{statusText}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
-                              {sponsorship.employee.firstName}{' '}
-                              {sponsorship.employee.lastName}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="px-2 py-1 text-xs font-semibold rounded bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-200">
-                                {sponsorship.visaType}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-mono text-xs">
-                              {sponsorship.casNumber || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-mono text-xs">
-                              {new Date(
-                                sponsorship.startDate,
-                              ).toLocaleDateString('en-GB')}
-                            </td>
-                            <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-mono">
-                              {expiry.toLocaleDateString('en-GB')}
-                            </td>
-                            <td
-                              className={`px-4 py-3 font-semibold ${statusColor}`}
-                            >
-                              {daysUntilExpiry < 0 ? (
-                                <span>
-                                  {Math.abs(daysUntilExpiry)} days ago
-                                </span>
-                              ) : daysUntilExpiry === 0 ? (
-                                <span>Expires today!</span>
-                              ) : (
-                                <span>
-                                  {daysUntilExpiry} day
-                                  {daysUntilExpiry !== 1 ? 's' : ''}
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="mt-4 flex justify-between items-center">
-                <Link
-                  to="/sponsorships"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                    className="w-5 h-5"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"
-                    />
-                  </svg>
-                  Manage All Sponsorships
-                </Link>
-                <div className="text-sm text-slate-600 dark:text-slate-400">
-                  Last updated:{' '}
-                  {new Date().toLocaleString('en-GB', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Quick Access */}
-      <Card className="p-6">
-        <h3 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">
-          Quick Access
-        </h3>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {isAdmin ? (
-            <>
-              <Link
-                to="/employees"
-                className="group block p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg hover:shadow-md transition-all border border-blue-200 dark:border-blue-800"
-              >
-                <div className="text-3xl mb-2">👥</div>
-                <div className="font-bold text-blue-900 dark:text-blue-100 group-hover:text-blue-600 dark:group-hover:text-blue-300">
-                  Employees
-                </div>
-                <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                  Manage employee records
-                </div>
-              </Link>
-              <Link
-                to="/projects"
-                className="group block p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg hover:shadow-md transition-all border border-purple-200 dark:border-purple-800"
-              >
-                <div className="text-3xl mb-2">📊</div>
-                <div className="font-bold text-purple-900 dark:text-purple-100 group-hover:text-purple-600 dark:group-hover:text-purple-300">
-                  Projects
-                </div>
-                <div className="text-sm text-purple-700 dark:text-purple-300 mt-1">
-                  View and manage projects
-                </div>
-              </Link>
-              <Link
-                to="/documents"
-                className="group block p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg hover:shadow-md transition-all border border-green-200 dark:border-green-800"
-              >
-                <div className="text-3xl mb-2">📁</div>
-                <div className="font-bold text-green-900 dark:text-green-100 group-hover:text-green-600 dark:group-hover:text-green-300">
-                  Documents
-                </div>
-                <div className="text-sm text-green-700 dark:text-green-300 mt-1">
-                  Access documents
-                </div>
-              </Link>
-              <Link
-                to="/leave"
-                className="group block p-6 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg hover:shadow-md transition-all border border-orange-200 dark:border-orange-800"
-              >
-                <div className="text-3xl mb-2">📅</div>
-                <div className="font-bold text-orange-900 dark:text-orange-100 group-hover:text-orange-600 dark:group-hover:text-orange-300">
-                  Leave Requests
-                </div>
-                <div className="text-sm text-orange-700 dark:text-orange-300 mt-1">
-                  Manage leave requests
-                </div>
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/employees"
-                className="group block p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg hover:shadow-md transition-all border border-blue-200 dark:border-blue-800"
-              >
-                <div className="text-3xl mb-2">👤</div>
-                <div className="font-bold text-blue-900 dark:text-blue-100 group-hover:text-blue-600 dark:group-hover:text-blue-300">
-                  My Profile
-                </div>
-                <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                  View and update your info
-                </div>
-              </Link>
-              <Link
-                to="/time"
-                className="group block p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg hover:shadow-md transition-all border border-purple-200 dark:border-purple-800"
-              >
-                <div className="text-3xl mb-2">⏰</div>
-                <div className="font-bold text-purple-900 dark:text-purple-100 group-hover:text-purple-600 dark:group-hover:text-purple-300">
-                  Timesheet
-                </div>
-                <div className="text-sm text-purple-700 dark:text-purple-300 mt-1">
-                  Track your work hours
-                </div>
-              </Link>
-              <Link
-                to="/documents"
-                className="group block p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg hover:shadow-md transition-all border border-green-200 dark:border-green-800"
-              >
-                <div className="text-3xl mb-2">📁</div>
-                <div className="font-bold text-green-900 dark:text-green-100 group-hover:text-green-600 dark:group-hover:text-green-300">
-                  My Documents
-                </div>
-                <div className="text-sm text-green-700 dark:text-green-300 mt-1">
-                  Access your documents
-                </div>
-              </Link>
-              <Link
-                to="/leave"
-                className="group block p-6 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg hover:shadow-md transition-all border border-orange-200 dark:border-orange-800"
-              >
-                <div className="text-3xl mb-2">📅</div>
-                <div className="font-bold text-orange-900 dark:text-orange-100 group-hover:text-orange-600 dark:group-hover:text-orange-300">
-                  Leave Requests
-                </div>
-                <div className="text-sm text-orange-700 dark:text-orange-300 mt-1">
-                  Request time off
-                </div>
-              </Link>
-            </>
-          )}
+      <Card title="Quick links">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+          {quickLinks.map((link) => (
+            <Link
+              key={link.label}
+              to={link.to}
+              className="rounded-md border border-line bg-bg px-3.5 py-3 transition-colors duration-hover ease-out hover:bg-surface-2"
+            >
+              <span className="block text-sm font-medium text-ink">
+                {link.label}
+              </span>
+              <span className="mt-0.5 block text-xs text-ink-3">
+                {link.description}
+              </span>
+            </Link>
+          ))}
         </div>
       </Card>
-    </div>
+    </>
   );
 }

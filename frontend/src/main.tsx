@@ -167,15 +167,15 @@ function App() {
           path="/*"
           element={
             <ProtectedRoute>
-              <div className="min-h-screen bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col">
-                <NavBar
-                  darkMode={dark}
-                  onToggleDarkMode={() => setDark((d) => !d)}
-                  onLogout={handleLogout}
-                />
-                <div className="flex flex-1">
-                  <Sidebar />
-                  <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+              <div className="min-h-screen bg-bg text-ink flex">
+                <Sidebar />
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <NavBar
+                    darkMode={dark}
+                    onToggleDarkMode={() => setDark((d) => !d)}
+                    onLogout={handleLogout}
+                  />
+                  <main className="flex-1 w-full max-w-[1200px] mx-auto px-6 pt-8 pb-12 flex flex-col gap-6">
                     <Routes>
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/employees" element={<Employees />} />
@@ -288,8 +288,8 @@ function App() {
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </main>
+                  <Footer />
                 </div>
-                <Footer />
               </div>
             </ProtectedRoute>
           }

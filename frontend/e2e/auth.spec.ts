@@ -10,12 +10,12 @@ test('login page no longer exposes demo credentials', async ({ page }) => {
 
 test('admin can log in and see the dashboard shell', async ({ page }) => {
   await loginThroughForm(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD)
-  await expect(page.getByRole('heading', { name: 'Welcome to OnsideHR' })).toBeVisible()
-  await expect(page.getByText(/Active Headcount|Total Employees/)).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByText(/Active headcount|Total employees/)).toBeVisible()
 })
 
 test('linked employee can log in with assigned credentials', async ({ page }) => {
   await loginThroughForm(page, E2E_EMPLOYEE_EMAIL, E2E_EMPLOYEE_PASSWORD)
-  await expect(page.getByRole('heading', { name: 'Welcome to OnsideHR' })).toBeVisible()
-  await expect(page.getByText('Pending Leave', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByText('Pending leave', { exact: true })).toBeVisible()
 })

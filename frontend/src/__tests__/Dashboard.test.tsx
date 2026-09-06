@@ -88,14 +88,20 @@ describe('Dashboard Page', () => {
     render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     expect(await screen.findByText('My summary')).toBeInTheDocument()
-    expect(await screen.findByText('18.5 days remaining')).toBeInTheDocument()
-    expect(screen.getByText('9.5 days approved')).toBeInTheDocument()
+    const annualLeave = (await screen.findByText('Annual leave')).parentElement as HTMLElement
+    expect(within(annualLeave).getByText('18.5')).toBeInTheDocument()
+    expect(within(annualLeave).getByText('days remaining')).toBeInTheDocument()
+    expect(within(annualLeave).getByText('9.5 days approved')).toBeInTheDocument()
     expect(screen.getByText('28 days allowance · 2 carried over · 6 Apr 2026 to 5 Apr 2027')).toBeInTheDocument()
-    expect(screen.getByText('1 pending request')).toBeInTheDocument()
+    const pendingRequests = screen.getByText('Pending requests').parentElement as HTMLElement
+    expect(within(pendingRequests).getByText('1')).toBeInTheDocument()
+    expect(within(pendingRequests).getByText('pending request')).toBeInTheDocument()
     expect(screen.getByText(/Next up/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Overtime' }))
-    expect(screen.getByText('1.5 overtime hours this month')).toBeInTheDocument()
-    expect(screen.getByText('17.5 total hours recorded')).toBeInTheDocument()
+    const overtime = screen.getByText('Overtime this month').parentElement as HTMLElement
+    expect(within(overtime).getByText('1.5')).toBeInTheDocument()
+    const recorded = screen.getByText('Recorded hours').parentElement as HTMLElement
+    expect(within(recorded).getByText('17.5')).toBeInTheDocument()
   })
 
   it('shows a linked director their own employee summary without counting other employees', async () => {
@@ -150,13 +156,16 @@ describe('Dashboard Page', () => {
     render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     expect(await screen.findByText('My summary')).toBeInTheDocument()
-    const headcountTile = screen.getByText('Active Headcount').closest('a') as HTMLElement
+    const headcountTile = screen.getByText('Active headcount').parentElement as HTMLElement
     expect(within(headcountTile).getByText('7')).toBeInTheDocument()
-    expect(await screen.findByText('26 days remaining')).toBeInTheDocument()
-    expect(screen.getByText('2 days approved')).toBeInTheDocument()
+    const annualLeave = (await screen.findByText('Annual leave')).parentElement as HTMLElement
+    expect(within(annualLeave).getByText('26')).toBeInTheDocument()
+    expect(within(annualLeave).getByText('2 days approved')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Overtime' }))
-    expect(screen.getByText('2 overtime hours this month')).toBeInTheDocument()
-    expect(screen.getByText('10 total hours recorded')).toBeInTheDocument()
+    const overtime = screen.getByText('Overtime this month').parentElement as HTMLElement
+    expect(within(overtime).getByText('2')).toBeInTheDocument()
+    const recorded = screen.getByText('Recorded hours').parentElement as HTMLElement
+    expect(within(recorded).getByText('10')).toBeInTheDocument()
   })
   it('says the balance is unavailable when the leave balance cannot be read', async () => {
     const token = makeToken({ role: 'EMPLOYEE', email: 'employee@example.com', employeeId: 42 })
@@ -191,7 +200,8 @@ describe('Dashboard Page', () => {
     render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     expect(await screen.findByText('62')).toBeInTheDocument()
-    expect(screen.getByText(/AT RISK/)).toBeInTheDocument()
+    expect(screen.getByText('At risk')).toBeInTheDocument()
+    expect(screen.getByText('Blocking issue')).toBeInTheDocument()
     expect(screen.getByText('Pay periods below the CoS salary')).toBeInTheDocument()
     expect(screen.getByText(/3 sponsored workers/)).toBeInTheDocument()
   })
@@ -223,8 +233,7 @@ describe('Dashboard Page', () => {
     expect(screen.getByText('3 / 1')).toBeInTheDocument()
     expect(screen.getByText('320.5')).toBeInTheDocument()
 
-    const pendingTile = screen.getByText('Pending Leave').closest('a') as HTMLElement
-    expect(pendingTile).toHaveAttribute('href', '/reports')
+    const pendingTile = screen.getByText('Pending leave').parentElement as HTMLElement
     expect(within(pendingTile).getByText('5')).toBeInTheDocument()
 
     // The four-collection fan-out is what the summary replaced.
@@ -246,7 +255,7 @@ describe('Dashboard Page', () => {
 
     render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
-    expect(await screen.findByText('Active Headcount')).toBeInTheDocument()
+    expect(await screen.findByText('Active headcount')).toBeInTheDocument()
     expect(screen.queryByText(/audit readiness/i)).not.toBeInTheDocument()
   })
 
