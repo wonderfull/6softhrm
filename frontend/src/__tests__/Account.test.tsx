@@ -86,6 +86,10 @@ describe('Account page', () => {
     renderPage();
 
     const nameInput = await screen.findByLabelText('Display name');
+    // The field is controlled and filled by the profile fetch. Clearing before
+    // that lands leaves the typed name appended to the loaded one, which is
+    // what CI kept catching on a slower machine.
+    await waitFor(() => expect(nameInput).toHaveValue(ME.name));
     await user.clear(nameInput);
     await user.type(nameInput, 'Nadia K');
     await user.click(screen.getByRole('button', { name: 'Save profile' }));
