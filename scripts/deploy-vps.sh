@@ -4,6 +4,10 @@ set -euo pipefail
 
 HRM_REPO_DIR="${HRM_REPO_DIR:-/var/www/6softhrm}"
 HRM_FRONTEND_ROOT="${HRM_FRONTEND_ROOT:-/var/www/onsidehr.co.uk}"
+# The pre-rebrand address still has its own nginx site and its own directory.
+# It is refreshed with the same build so there is never a stale copy of the
+# product on a public URL.
+HRM_LEGACY_FRONTEND_ROOT="${HRM_LEGACY_FRONTEND_ROOT:-/var/www/hrm.6soft.co.uk}"
 MAIN_REPO_DIR="${MAIN_REPO_DIR:-/var/www/6soft-visionary-web}"
 MAIN_SITE_ROOT="${MAIN_SITE_ROOT:-/var/www/6soft-main}"
 
@@ -81,6 +85,13 @@ mkdir -p "$HRM_FRONTEND_ROOT"
 rm -rf "${HRM_FRONTEND_ROOT:?}"/*
 cp -r dist/* "$HRM_FRONTEND_ROOT/"
 chown -R www-data:www-data "$HRM_FRONTEND_ROOT"
+
+if [ -d "$HRM_LEGACY_FRONTEND_ROOT" ]; then
+  echo "[deploy] refreshing the legacy hrm.6soft.co.uk copy"
+  rm -rf "${HRM_LEGACY_FRONTEND_ROOT:?}"/*
+  cp -r dist/* "$HRM_LEGACY_FRONTEND_ROOT/"
+  chown -R www-data:www-data "$HRM_LEGACY_FRONTEND_ROOT"
+fi
 
 if [ "${DEPLOY_MAIN_SITE:-1}" = "1" ]; then
   echo "[deploy] updating main website repo"
