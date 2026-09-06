@@ -4,6 +4,7 @@ import Card from '../components/Card';
 import Dialog from '../components/Dialog';
 import { HiPlus } from 'react-icons/hi';
 import { isElevatedRole, normalizeRole } from '../lib/roles';
+import { Badge, Button } from '../components/ui';
 
 // Expense claims. The API already scopes the list to what the viewer may see —
 // their own claims plus their reports' — so the page only has to sort what
@@ -42,13 +43,18 @@ const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
  CATEGORIES.map((c) => [c.value, c.label]),
 );
 
-const STATUS_STYLES: Record<string, string> = {
- PENDING:
- 'bg-warn-tint text-warn ',
- APPROVED:
- 'bg-ok-tint text-ok ',
- REJECTED: 'bg-bad-tint text-bad ',
- PAID: 'bg-surface-2 text-ink-2 ',
+const STATUS_TONE: Record<string, 'ok' | 'warn' | 'bad' | 'neutral'> = {
+  PENDING: 'warn',
+  APPROVED: 'ok',
+  REJECTED: 'bad',
+  PAID: 'neutral',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Pending',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  PAID: 'Paid',
 };
 
 const gbp = new Intl.NumberFormat('en-GB', {
@@ -230,11 +236,9 @@ export default function Expenses() {
               </div>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span
- className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${STATUS_STYLES[expense.status]}`}
-              >
-                {expense.status}
-              </span>
+              <Badge tone={STATUS_TONE[expense.status] ?? 'neutral'}>
+                {STATUS_LABEL[expense.status] ?? expense.status}
+              </Badge>
               {expense.decidedAt && (
                 <span className="text-xs text-ink-3">
  Decided {day(expense.decidedAt)}
@@ -245,39 +249,34 @@ export default function Expenses() {
           <div className="flex flex-wrap gap-2">
             {canDecide && (
               <>
-                <button
- type="button"
- disabled={busy}
- onClick={() => {
- setDecisionNote('');
- setDecision({ id: expense.id, action: 'approve' });
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setDecisionNote('');
+                    setDecision({ id: expense.id, action: 'approve' });
                   }}
- className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent disabled:opacity-50"
                 >
- Approve
-                </button>
-                <button
- type="button"
- disabled={busy}
- onClick={() => {
- setDecisionNote('');
- setDecision({ id: expense.id, action: 'reject' });
+                  Approve
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setDecisionNote('');
+                    setDecision({ id: expense.id, action: 'reject' });
                   }}
- className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent disabled:opacity-50"
                 >
- Reject
-                </button>
+                  Reject
+                </Button>
               </>
             )}
             {isElevated && expense.status === 'APPROVED' && (
-              <button
- type="button"
- disabled={busy}
- onClick={() => markPaid(expense.id)}
- className="btn-primary text-sm disabled:opacity-50"
-              >
- Mark paid
-              </button>
+              <Button size="sm" disabled={busy} onClick={() => markPaid(expense.id)}>
+                Mark paid
+              </Button>
             )}
             {isOwn(expense) && expense.status === 'PENDING' && (
               <button
