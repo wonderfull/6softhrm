@@ -657,3 +657,16 @@ model CaseRecord {
 
   @@index([tenantId, employeeId])
 }
+
+// Sales enquiry from the public landing page. Platform level: there is no
+// tenant yet, and the row is the durable record because the email to the
+// sales inbox is best effort.
+model DemoRequest {
+  id        Int       @id @default(autoincrement())
+  email     String
+  headcount Int
+  emailedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([createdAt])
+}

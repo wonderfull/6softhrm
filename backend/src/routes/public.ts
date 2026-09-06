@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { platformPrisma } from '../prismaClient';
 import { sendEmail } from '../lib/emailService';
 
 const router = express.Router();
@@ -42,13 +43,26 @@ router.post('/demo-request', async (req: Request, res: Response) => {
     return res.status(202).json({ ok: true });
   }
 
+  // Recorded before the email goes out: SMTP is the part that can fail, and a
+  // sales enquiry must not depend on it.
+  const record = await platformPrisma.demoRequest.create({
+    data: { email, headcount },
+  });
+
   const subject = `Demo request: ${email} (${headcount} people)`;
   const text = `Demo request from the OnsideHR landing page.\n\nEmail: ${email}\nHeadcount: ${headcount}\n`;
   const html = `<p>Demo request from the OnsideHR landing page.</p><p>Email: ${email}<br>Headcount: ${headcount}</p>`;
 
   const sent = await sendEmail({ to: DEMO_INBOX, subject, text, html });
-  if (!sent) {
-    console.warn(`Demo request from ${email} could not be emailed to ${DEMO_INBOX}`);
+  if (sent) {
+    await platformPrisma.demoRequest.update({
+      where: { id: record.id },
+      data: { emailedAt: new Date() },
+    });
+  } else {
+    console.warn(
+      `Demo request ${record.id} from ${email} could not be emailed to ${DEMO_INBOX}; the row is kept for follow-up`,
+    );
   }
 
   // The visitor gets the same answer either way; a failed send is our problem.

@@ -1,5 +1,6 @@
 import request from './helpers/http';
 import app from '../app';
+import { platformPrisma } from '../prismaClient';
 import { sendEmail } from '../lib/emailService';
 
 jest.mock('../lib/emailService', () => ({
@@ -9,8 +10,13 @@ jest.mock('../lib/emailService', () => ({
 const mockSend = sendEmail as jest.MockedFunction<typeof sendEmail>;
 
 describe('POST /api/public/demo-request', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockSend.mockClear();
+    await platformPrisma.demoRequest.deleteMany({});
+  });
+
+  afterAll(async () => {
+    await platformPrisma.demoRequest.deleteMany({});
   });
 
   it('accepts a valid request and emails the demo inbox', async () => {
@@ -25,6 +31,25 @@ describe('POST /api/public/demo-request', () => {
     expect(sent.to).toBe('hello@onsidehr.co.uk');
     expect(sent.subject).toContain('ops@northgate-care.co.uk');
     expect(sent.subject).toContain('42');
+
+    // The email is best effort; the row is the record that must survive.
+    const rows = await platformPrisma.demoRequest.findMany({});
+    expect(rows).toHaveLength(1);
+    expect(rows[0].email).toBe('ops@northgate-care.co.uk');
+    expect(rows[0].headcount).toBe(42);
+    expect(rows[0].emailedAt).not.toBeNull();
+  });
+
+  it('keeps the request when the mail cannot be sent, so no lead is lost', async () => {
+    mockSend.mockResolvedValueOnce(false);
+    await request(app)
+      .post('/api/public/demo-request')
+      .send({ email: 'lost@northgate-care.co.uk', headcount: 12 });
+
+    const rows = await platformPrisma.demoRequest.findMany({});
+    expect(rows).toHaveLength(1);
+    expect(rows[0].email).toBe('lost@northgate-care.co.uk');
+    expect(rows[0].emailedAt).toBeNull();
   });
 
   it('still answers 202 when the mail fails, so the visitor is not shown an error', async () => {
@@ -63,6 +88,7 @@ describe('POST /api/public/demo-request', () => {
     expect(res.status).toBe(202);
     expect(res.body).toEqual({ ok: true });
     expect(mockSend).not.toHaveBeenCalled();
+    expect(await platformPrisma.demoRequest.count()).toBe(0);
   });
 
   it('does not require authentication', async () => {
