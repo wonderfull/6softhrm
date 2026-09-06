@@ -1,5 +1,17 @@
 import React from 'react';
-import Card from '../components/Card';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  KpiTile,
+  PageHeader,
+  Skeleton,
+  Table,
+  Td,
+  Th,
+  Tr,
+} from '../components/ui';
 import { API_BASE_URL, apiGet } from '../lib/api';
 
 // Management reporting: one read of /reports/summary feeds every panel, and
@@ -75,10 +87,16 @@ const EXPIRY_LABELS: Record<string, string> = {
   COS_START_BY: 'CoS start-by',
 };
 
-const BAND_STYLES: Record<string, string> = {
-  READY: 'from-emerald-500 to-emerald-600',
-  AT_RISK: 'from-amber-500 to-amber-600',
-  NOT_READY: 'from-rose-500 to-rose-600',
+const BAND_TONE: Record<string, 'ok' | 'warn' | 'bad'> = {
+  READY: 'ok',
+  AT_RISK: 'warn',
+  NOT_READY: 'bad',
+};
+
+const BAND_LABEL: Record<string, string> = {
+  READY: 'Ready',
+  AT_RISK: 'At risk',
+  NOT_READY: 'Not ready',
 };
 
 const gbp = new Intl.NumberFormat('en-GB', {
@@ -98,24 +116,14 @@ function Kpi({
   label,
   value,
   hint,
+  badge,
 }: {
   label: string;
   value: string;
   hint?: string;
+  badge?: React.ReactNode;
 }) {
-  return (
-    <Card>
-      <div className="text-sm text-slate-600 dark:text-slate-300">{label}</div>
-      <div className="mt-1 text-3xl font-bold text-slate-900 dark:text-white">
-        {value}
-      </div>
-      {hint && (
-        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          {hint}
-        </div>
-      )}
-    </Card>
-  );
+  return <KpiTile label={label} value={value} footnote={hint} badge={badge} />;
 }
 
 function BarRow({
@@ -133,19 +141,46 @@ function BarRow({
   const width = max > 0 && value > 0 ? Math.max(2, (value / max) * 100) : 0;
   return (
     <div className="flex items-center gap-3">
-      <div className="w-40 flex-shrink-0 truncate text-sm text-slate-700 dark:text-slate-200">
+      <div className="w-40 flex-shrink-0 truncate text-sm text-ink-2">
         {label}
       </div>
-      <div className="h-2 flex-1 rounded-full bg-slate-100 dark:bg-slate-700">
+      <div className="h-1.5 flex-1 rounded-full bg-surface-3">
         <div
-          className="h-2 rounded-full bg-primary-500"
+          data-bar
+          className="h-1.5 rounded-full bg-accent"
           style={{ width: `${width}%` }}
         />
       </div>
-      <div className="w-20 flex-shrink-0 text-right text-sm font-semibold text-slate-900 dark:text-white">
+      <div className="w-20 flex-shrink-0 text-right text-sm font-medium tabular-nums text-ink">
         {formatNumber(value)}
         {suffix}
       </div>
+    </div>
+  );
+}
+
+function Figure({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: 'warn' | 'bad';
+}) {
+  return (
+    <div>
+      <dt className="text-[13px] text-ink-2">{label}</dt>
+      <dd
+        className={`mt-1 text-[26px] leading-none font-semibold tabular-nums ${
+          tone === 'bad' ? 'text-bad' : tone === 'warn' ? 'text-warn' : 'text-ink'
+        }`}
+      >
+        {value}
+      </dd>
+      {hint && <dd className="mt-1.5 text-xs text-ink-3">{hint}</dd>}
     </div>
   );
 }
@@ -162,14 +197,15 @@ function ExportButton({
   onExport: (report: string) => void;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
+      size="sm"
       onClick={() => onExport(report)}
+      loading={downloading === report}
       disabled={downloading !== null}
-      className="btn-primary text-sm disabled:opacity-50"
     >
-      {downloading === report ? 'Exporting…' : label}
-    </button>
+      {label}
+    </Button>
   );
 }
 
@@ -218,19 +254,34 @@ export default function Reports() {
 
   if (loading) {
     return (
-      <Card>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Loading reports…
-        </p>
-      </Card>
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-40" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Card key={i} dense>
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-3 h-[30px] w-16" />
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <Skeleton className="h-4 w-48" />
+          <div className="mt-4 space-y-3">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-4 w-full" />
+            ))}
+          </div>
+        </Card>
+      </div>
     );
   }
 
   if (!summary) {
     return (
-      <div className="rounded-lg bg-rose-50 dark:bg-rose-900/30 px-4 py-3 text-sm text-rose-800 dark:text-rose-200">
-        {error || 'No reporting data is available.'}
-      </div>
+      <EmptyState
+        title="No reporting data is available"
+        body={error || 'Nothing has been recorded for this company yet.'}
+      />
     );
   }
 
@@ -251,25 +302,25 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-          Reports
-        </h1>
-        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-          Headcount, leave, expiries and time across the whole organisation.
-          Generated{' '}
-          {new Date(summary.generatedAt).toLocaleString('en-GB', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          })}
-          .
-        </p>
-      </div>
+      <PageHeader
+        title="Reports"
+        subline={
+          <>
+            Headcount, leave, expiries and time across the whole organisation.
+            Generated{' '}
+            {new Date(summary.generatedAt).toLocaleString('en-GB', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })}
+            .
+          </>
+        }
+      />
 
       {error && (
-        <div className="rounded-lg bg-rose-50 dark:bg-rose-900/30 px-4 py-3 text-sm text-rose-800 dark:text-rose-200">
+        <p role="alert" className="text-sm text-bad">
           {error}
-        </div>
+        </p>
       )}
 
       <div
@@ -299,28 +350,27 @@ export default function Reports() {
           <Kpi
             label="Audit readiness"
             value={`${readiness.score}/100`}
-            hint={String(readiness.band).replace('_', ' ')}
+            hint={`Evidence ${readiness.evidenceCompleteness}% complete`}
+            badge={
+              <Badge tone={BAND_TONE[readiness.band] ?? 'bad'}>
+                {BAND_LABEL[readiness.band] ?? 'Not ready'}
+              </Badge>
+            }
           />
         )}
       </div>
 
-      <Card>
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              Headcount by department
-            </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              {headcount.active} active · {headcount.starters30d} joined and{' '}
-              {headcount.leavers30d} left in the last 30 days.
-            </p>
-          </div>
+      <Card
+        title="Headcount by department"
+        description={`${headcount.active} active · ${headcount.starters30d} joined and ${headcount.leavers30d} left in the last 30 days.`}
+        action={
           <ExportButton
             report="headcount"
             downloading={downloading}
             onExport={exportReport}
           />
-        </div>
+        }
+      >
         {headcount.byDepartment.length ? (
           <div className="space-y-2">
             {headcount.byDepartment.map((dept) => (
@@ -333,22 +383,16 @@ export default function Reports() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-ink-3">
             No departments recorded.
           </p>
         )}
       </Card>
 
-      <Card>
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              Leave and absence
-            </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Leave year {leave.leaveYear.label}.
-            </p>
-          </div>
+      <Card
+        title="Leave and absence"
+        description={`Leave year ${leave.leaveYear.label}.`}
+        action={
           <div className="flex flex-wrap gap-2">
             <ExportButton
               report="leave"
@@ -363,34 +407,20 @@ export default function Reports() {
               onExport={exportReport}
             />
           </div>
-        </div>
-        <div className="mb-4 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-            <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              Annual leave taken
-            </div>
-            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {formatNumber(leave.annualUsed)} days
-            </div>
-          </div>
-          <div className="rounded-lg bg-amber-50 p-4 dark:bg-amber-900/20">
-            <div className="text-sm font-medium text-amber-700 dark:text-amber-300">
-              Sickness taken
-            </div>
-            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {formatNumber(leave.sickUsed)} days
-            </div>
-          </div>
-          <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Pending requests
-            </div>
-            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {leave.pending}
-            </div>
-          </div>
-        </div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        }
+      >
+        <dl className="mb-5 grid gap-4 sm:grid-cols-3">
+          <Figure
+            label="Annual leave taken"
+            value={`${formatNumber(leave.annualUsed)} days`}
+          />
+          <Figure
+            label="Sickness taken"
+            value={`${formatNumber(leave.sickUsed)} days`}
+          />
+          <Figure label="Pending requests" value={String(leave.pending)} />
+        </dl>
+        <h3 className="mb-3 text-[13px] font-medium text-ink-2">
           Sickness by department
         </h3>
         {leave.sickByDepartment.length ? (
@@ -406,93 +436,73 @@ export default function Reports() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-ink-3">
             No sickness recorded this leave year.
           </p>
         )}
       </Card>
 
-      <Card>
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              Expiries
-            </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              {expiries.overdue} overdue · {expiries.total} due within{' '}
-              {expiries.buckets[expiries.buckets.length - 1]} days.
-            </p>
-          </div>
+      <Card
+        title="Expiries"
+        description={`${expiries.overdue} overdue · ${expiries.total} due within ${expiries.buckets[expiries.buckets.length - 1]} days.`}
+        action={
           <ExportButton
             report="expiries"
             downloading={downloading}
             onExport={exportReport}
           />
-        </div>
+        }
+      >
         {expiries.byKind.length ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500 dark:text-slate-400">
-                  <th className="px-3 py-2">Kind</th>
-                  <th className="px-3 py-2">Overdue</th>
-                  {expiries.buckets.map((bucket) => (
-                    <th key={bucket} className="px-3 py-2">
-                      {bucket} days
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {expiries.byKind.map((row) => (
-                  <tr
-                    key={row.kind}
-                    className="border-t border-slate-200 dark:border-slate-700"
-                  >
-                    <td className="px-3 py-2 text-slate-700 dark:text-slate-200">
-                      {EXPIRY_LABELS[row.kind] ?? row.kind}
-                    </td>
-                    <td className="px-3 py-2 font-semibold text-rose-700 dark:text-rose-300">
-                      {row.overdue}
-                    </td>
-                    {expiries.buckets.map((bucket) => (
-                      <td
-                        key={bucket}
-                        className="px-3 py-2 text-slate-600 dark:text-slate-300"
-                      >
-                        {bucketCount(row, bucket)}
-                      </td>
-                    ))}
-                  </tr>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Kind</Th>
+                <Th>Overdue</Th>
+                {expiries.buckets.map((bucket) => (
+                  <Th key={bucket}>{bucket} days</Th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody>
+              {expiries.byKind.map((row) => (
+                <Tr key={row.kind}>
+                  <Td className="text-ink">
+                    {EXPIRY_LABELS[row.kind] ?? row.kind}
+                  </Td>
+                  <Td
+                    className={`tabular-nums font-medium ${row.overdue > 0 ? 'text-bad' : 'text-ink-3'}`}
+                  >
+                    {row.overdue}
+                  </Td>
+                  {expiries.buckets.map((bucket) => (
+                    <Td key={bucket} className="tabular-nums text-ink-2">
+                      {bucketCount(row, bucket)}
+                    </Td>
+                  ))}
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-ink-3">
             Nothing expiring in the next{' '}
             {expiries.buckets[expiries.buckets.length - 1]} days.
           </p>
         )}
       </Card>
 
-      <Card>
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              Time by project
-            </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              {formatNumber(timesheets.hours)} hours across {timesheets.entries}{' '}
-              entries in {monthLabel}.
-            </p>
-          </div>
+      <Card
+        title="Time by project"
+        description={`${formatNumber(timesheets.hours)} hours across ${timesheets.entries} entries in ${monthLabel}.`}
+        action={
           <ExportButton
             report="timesheets"
             downloading={downloading}
             onExport={exportReport}
           />
-        </div>
+        }
+      >
         {timesheets.byProject.length ? (
           <div className="space-y-2">
             {timesheets.byProject.map((project) => (
@@ -506,104 +516,79 @@ export default function Reports() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-ink-3">
             No hours recorded this month.
           </p>
         )}
       </Card>
 
-      <Card>
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            HR file
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-300">
-            Reviews, onboarding and expenses waiting on someone. Employee
-            relations is a count only — who the cases concern stays on the cases
-            screen.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Reviews due in 30 days
-            </div>
-            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {hrFile.reviewsDue30d}
-            </div>
-          </div>
-          <div className="rounded-lg bg-rose-50 p-4 dark:bg-rose-900/20">
-            <div className="text-sm font-medium text-rose-700 dark:text-rose-300">
-              Reviews overdue
-            </div>
-            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {hrFile.reviewsOverdue}
-            </div>
-          </div>
-          <div className="rounded-lg bg-amber-50 p-4 dark:bg-amber-900/20">
-            <div className="text-sm font-medium text-amber-700 dark:text-amber-300">
-              Onboarding outstanding
-            </div>
-            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {hrFile.onboardingOutstanding}
-            </div>
-          </div>
-          <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-            <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              Expenses pending
-            </div>
-            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {hrFile.expensesPending}
-            </div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {gbp.format(hrFile.expensesPendingValue)} awaiting a decision
-            </div>
-          </div>
-          <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Open cases
-            </div>
-            <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {hrFile.openCases}
-            </div>
-          </div>
-        </div>
+      <Card
+        title="HR file"
+        description="Reviews, onboarding and expenses waiting on someone. Employee relations is a count only: who the cases concern stays on the cases screen."
+      >
+        <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <Figure
+            label="Reviews due in 30 days"
+            value={String(hrFile.reviewsDue30d)}
+          />
+          <Figure
+            label="Reviews overdue"
+            value={String(hrFile.reviewsOverdue)}
+            tone={hrFile.reviewsOverdue > 0 ? 'bad' : undefined}
+          />
+          <Figure
+            label="Onboarding outstanding"
+            value={String(hrFile.onboardingOutstanding)}
+            tone={hrFile.onboardingOutstanding > 0 ? 'warn' : undefined}
+          />
+          <Figure
+            label="Expenses pending"
+            value={String(hrFile.expensesPending)}
+            hint={`${gbp.format(hrFile.expensesPendingValue)} awaiting a decision`}
+          />
+          <Figure label="Open cases" value={String(hrFile.openCases)} />
+        </dl>
       </Card>
 
       {readiness && (
-        <div
-          className={`rounded-xl shadow-lg p-6 text-white bg-gradient-to-br ${BAND_STYLES[readiness.band] ?? BAND_STYLES.NOT_READY}`}
-        >
-          <div className="text-white/80 text-sm mb-1">
-            Sponsor audit readiness
-          </div>
-          <div className="flex items-baseline gap-3">
-            <span className="text-4xl font-bold">{readiness.score}</span>
-            <span className="text-lg font-medium">
-              /100 · {String(readiness.band).replace('_', ' ')}
+        <Card title="Sponsor audit readiness">
+          <div className="flex items-center gap-3">
+            <span className="font-display text-[34px] leading-none font-semibold tabular-nums text-ink">
+              {readiness.score}
             </span>
+            <span className="text-[15px] font-medium text-ink-3">/100</span>
+            <Badge tone={BAND_TONE[readiness.band] ?? 'bad'}>
+              {BAND_LABEL[readiness.band] ?? 'Not ready'}
+            </Badge>
           </div>
-          <div className="text-white/80 text-sm mt-1">
+          <div className="mt-3 h-1 w-full max-w-[320px] rounded-full bg-surface-3">
+            <div
+              className="h-1 rounded-full bg-accent"
+              style={{ width: `${Math.max(0, Math.min(100, readiness.score))}%` }}
+            />
+          </div>
+          <p className="mt-3 text-[13px] text-ink-2">
             {readiness.activeSponsorships} sponsored{' '}
             {readiness.activeSponsorships === 1 ? 'worker' : 'workers'} ·
             evidence {readiness.evidenceCompleteness}% complete
-          </div>
+          </p>
           {readiness.components.length > 0 && (
-            <ul className="mt-4 space-y-1 border-t border-white/20 pt-3">
+            <ul className="mt-4 border-t border-line pt-3">
               {readiness.components.map((component) => (
                 <li
                   key={component.key}
-                  className="flex items-baseline justify-between gap-4 text-sm"
+                  className="flex items-baseline justify-between gap-4 py-1.5 text-sm"
                 >
-                  <span className="text-white/90">{component.label}</span>
-                  <span className="font-semibold flex-shrink-0">
-                    {component.count} · −{component.penalty}
+                  <span className="text-ink-2">{component.label}</span>
+                  <span className="font-mono text-[13px] flex-shrink-0 text-ink">
+                    {component.count} ·{' '}
+                    <span className="text-bad">−{component.penalty}</span>
                   </span>
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       )}
     </div>
   );
