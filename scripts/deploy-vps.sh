@@ -11,6 +11,18 @@ HRM_LEGACY_FRONTEND_ROOT="${HRM_LEGACY_FRONTEND_ROOT:-/var/www/hrm.6soft.co.uk}"
 MAIN_REPO_DIR="${MAIN_REPO_DIR:-/var/www/6soft-visionary-web}"
 MAIN_SITE_ROOT="${MAIN_SITE_ROOT:-/var/www/6soft-main}"
 
+# npm ci deletes node_modules itself, and a deploy interrupted mid-install
+# leaves it in a state where that delete fails with ENOTEMPTY. One clean retry
+# turns a stuck server into a normal install instead of a failed release.
+install_deps() {
+  if npm ci; then
+    return 0
+  fi
+  echo "[deploy] npm ci failed in $(pwd); clearing node_modules and retrying once"
+  rm -rf node_modules
+  npm ci
+}
+
 echo "[deploy] updating HRM repo"
 cd "$HRM_REPO_DIR"
 git fetch origin
@@ -24,7 +36,7 @@ git pull --ff-only origin main
 
 echo "[deploy] deploying HRM backend"
 cd "$HRM_REPO_DIR/backend"
-npm ci
+install_deps
 npx prisma generate
 
 # Last point at which nothing has changed: the migrations below auto-commit
@@ -79,7 +91,7 @@ pm2 save
 
 echo "[deploy] deploying HRM frontend"
 cd "$HRM_REPO_DIR/frontend"
-npm ci
+install_deps
 npm run build
 mkdir -p "$HRM_FRONTEND_ROOT"
 rm -rf "${HRM_FRONTEND_ROOT:?}"/*
