@@ -43,7 +43,7 @@ describe('Consent Page', () => {
 
     render(<Consent />)
 
-    await screen.findByRole('heading', { name: 'Data Processing Consent' })
+    await screen.findByRole('heading', { name: 'Data processing consent' })
 
     expect(screen.getByText('Photo and Image Usage')).toBeInTheDocument()
     expect(screen.getByText('✓ Consented')).toBeInTheDocument()

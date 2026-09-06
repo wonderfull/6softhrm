@@ -9,26 +9,26 @@ import { HiPlus } from 'react-icons/hi';
 // profile where a colleague could read it over a shoulder.
 
 type CaseRecord = {
-  id: number;
-  employeeId: number;
-  type: string;
-  openedAt: string;
-  stage: string;
-  outcome: string | null;
-  notes: string | null;
-  closedAt: string | null;
-  employee?: {
-    id: number;
-    firstName: string;
-    lastName: string;
-    department?: string | null;
+ id: number;
+ employeeId: number;
+ type: string;
+ openedAt: string;
+ stage: string;
+ outcome: string | null;
+ notes: string | null;
+ closedAt: string | null;
+ employee?: {
+ id: number;
+ firstName: string;
+ lastName: string;
+ department?: string | null;
   } | null;
 };
 
 type EmployeeOption = {
-  id: number;
-  firstName: string;
-  lastName: string;
+ id: number;
+ firstName: string;
+ lastName: string;
 };
 
 const TYPES = [
@@ -46,58 +46,58 @@ const STAGES = [
 ];
 
 const TYPE_LABELS: Record<string, string> = Object.fromEntries(
-  TYPES.map((t) => [t.value, t.label]),
+ TYPES.map((t) => [t.value, t.label]),
 );
 
 const STAGE_LABELS: Record<string, string> = Object.fromEntries(
-  STAGES.map((s) => [s.value, s.label]),
+ STAGES.map((s) => [s.value, s.label]),
 );
 
 const day = (value: string) => new Date(value).toLocaleDateString('en-GB');
 
 const emptyForm = {
-  employeeId: '',
-  type: 'DISCIPLINARY',
-  openedAt: '',
-  stage: 'INFORMAL',
-  outcome: '',
-  notes: '',
+ employeeId: '',
+ type: 'DISCIPLINARY',
+ openedAt: '',
+ stage: 'INFORMAL',
+ outcome: '',
+ notes: '',
 };
 
 function CaseCard({
-  record,
-  onUpdated,
+ record,
+ onUpdated,
 }: {
-  record: CaseRecord;
-  onUpdated: (updated: CaseRecord) => void;
+ record: CaseRecord;
+ onUpdated: (updated: CaseRecord) => void;
 }) {
-  const [outcome, setOutcome] = React.useState(record.outcome ?? '');
-  const [notes, setNotes] = React.useState(record.notes ?? '');
-  const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState('');
+ const [outcome, setOutcome] = React.useState(record.outcome ?? '');
+ const [notes, setNotes] = React.useState(record.notes ?? '');
+ const [saving, setSaving] = React.useState(false);
+ const [error, setError] = React.useState('');
 
-  async function update(patch: Record<string, unknown>) {
-    setError('');
-    try {
-      setSaving(true);
-      onUpdated(await apiPut(`/cases/${record.id}`, patch));
+ async function update(patch: Record<string, unknown>) {
+ setError('');
+ try {
+ setSaving(true);
+ onUpdated(await apiPut(`/cases/${record.id}`, patch));
     } catch (e: any) {
-      setError(e.message || 'Failed to update the case.');
+ setError(e.message || 'Failed to update the case.');
     } finally {
-      setSaving(false);
+ setSaving(false);
     }
   }
 
-  const name = record.employee
+ const name = record.employee
     ? `${record.employee.firstName} ${record.employee.lastName}`
     : `Employee ${record.employeeId}`;
 
-  return (
+ return (
     <Card className="p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="font-bold text-slate-900 dark:text-white">{name}</div>
-          <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <div className="font-bold text-ink">{name}</div>
+          <div className="mt-1 text-sm text-ink-2">
             {TYPE_LABELS[record.type] ?? record.type} · opened{' '}
             {day(record.openedAt)}
             {record.employee?.department
@@ -106,10 +106,9 @@ function CaseCard({
           </div>
         </div>
         <span
-          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-            record.closedAt
-              ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
-              : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+ className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${ record.closedAt
+              ? 'bg-surface-2 text-ink-2 '
+              : 'bg-warn-tint text-warn '
           }`}
         >
           {record.closedAt
@@ -120,8 +119,8 @@ function CaseCard({
 
       {error && (
         <div
-          role="alert"
-          className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
+ role="alert"
+ className="mt-3 rounded-md border border-bad bg-bad-tint px-3 py-2 text-sm text-bad "
         >
           {error}
         </div>
@@ -130,17 +129,17 @@ function CaseCard({
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
           <label
-            htmlFor={`case-stage-${record.id}`}
-            className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+ htmlFor={`case-stage-${record.id}`}
+ className="mb-1 block text-sm font-medium text-ink-2"
           >
-            Stage
+ Stage
           </label>
           <select
-            id={`case-stage-${record.id}`}
-            value={record.stage}
-            disabled={saving}
-            onChange={(e) => update({ stage: e.target.value })}
-            className="form-input py-2"
+ id={`case-stage-${record.id}`}
+ value={record.stage}
+ disabled={saving}
+ onChange={(e) => update({ stage: e.target.value })}
+ className="form-input py-2"
           >
             {STAGES.map((stage) => (
               <option key={stage.value} value={stage.value}>
@@ -151,53 +150,53 @@ function CaseCard({
         </div>
         <div>
           <label
-            htmlFor={`case-outcome-${record.id}`}
-            className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+ htmlFor={`case-outcome-${record.id}`}
+ className="mb-1 block text-sm font-medium text-ink-2"
           >
-            Outcome
+ Outcome
           </label>
           <input
-            id={`case-outcome-${record.id}`}
-            value={outcome}
-            onChange={(e) => setOutcome(e.target.value)}
-            placeholder="e.g. Written warning, 12 months"
-            className="form-input py-2"
+ id={`case-outcome-${record.id}`}
+ value={outcome}
+ onChange={(e) => setOutcome(e.target.value)}
+ placeholder="e.g. Written warning, 12 months"
+ className="form-input py-2"
           />
         </div>
         <div className="sm:col-span-2">
           <label
-            htmlFor={`case-notes-${record.id}`}
-            className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+ htmlFor={`case-notes-${record.id}`}
+ className="mb-1 block text-sm font-medium text-ink-2"
           >
-            Notes
+ Notes
           </label>
           <textarea
-            id={`case-notes-${record.id}`}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="form-input"
+ id={`case-notes-${record.id}`}
+ value={notes}
+ onChange={(e) => setNotes(e.target.value)}
+ rows={3}
+ className="form-input"
           />
         </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
         <button
-          type="button"
-          disabled={saving}
-          onClick={() => update({ outcome, notes })}
-          className="btn-primary text-sm disabled:opacity-50"
+ type="button"
+ disabled={saving}
+ onClick={() => update({ outcome, notes })}
+ className="btn-primary text-sm disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save outcome and notes'}
         </button>
         {!record.closedAt && (
           <button
-            type="button"
-            disabled={saving}
-            onClick={() => update({ outcome, notes, closed: true })}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+ type="button"
+ disabled={saving}
+ onClick={() => update({ outcome, notes, closed: true })}
+ className="rounded-lg border border-line-2 px-4 py-2 text-sm font-semibold text-ink-2 hover:bg-surface-2 disabled:opacity-50 "
           >
-            Close case
+ Close case
           </button>
         )}
       </div>
@@ -206,86 +205,86 @@ function CaseCard({
 }
 
 export default function Cases() {
-  const [items, setItems] = React.useState<CaseRecord[]>([]);
-  const [employees, setEmployees] = React.useState<EmployeeOption[]>([]);
-  const [openOnly, setOpenOnly] = React.useState(true);
-  const [showForm, setShowForm] = React.useState(false);
-  const [form, setForm] = React.useState(emptyForm);
-  const [error, setError] = React.useState('');
+ const [items, setItems] = React.useState<CaseRecord[]>([]);
+ const [employees, setEmployees] = React.useState<EmployeeOption[]>([]);
+ const [openOnly, setOpenOnly] = React.useState(true);
+ const [showForm, setShowForm] = React.useState(false);
+ const [form, setForm] = React.useState(emptyForm);
+ const [error, setError] = React.useState('');
 
-  const load = React.useCallback(() => {
-    apiGet('/cases', openOnly ? { open: 1 } : undefined)
+ const load = React.useCallback(() => {
+ apiGet('/cases', openOnly ? { open: 1 } : undefined)
       .then(setItems)
       .catch((e: any) => setError(e.message || 'Could not load cases.'));
   }, [openOnly]);
 
-  React.useEffect(() => {
-    load();
+ React.useEffect(() => {
+ load();
   }, [load]);
 
-  React.useEffect(() => {
-    apiGet('/employees')
+ React.useEffect(() => {
+ apiGet('/employees')
       .then(setEmployees)
       .catch(() => setEmployees([]));
   }, []);
 
-  async function createCase(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    try {
-      const created = await apiPost('/cases', {
-        employeeId: Number(form.employeeId),
-        type: form.type,
-        openedAt: form.openedAt,
-        stage: form.stage,
-        outcome: form.outcome.trim() || undefined,
-        notes: form.notes.trim() || undefined,
+ async function createCase(e: React.FormEvent) {
+ e.preventDefault();
+ setError('');
+ try {
+ const created = await apiPost('/cases', {
+ employeeId: Number(form.employeeId),
+ type: form.type,
+ openedAt: form.openedAt,
+ stage: form.stage,
+ outcome: form.outcome.trim() || undefined,
+ notes: form.notes.trim() || undefined,
       });
-      setItems((list) => [created, ...list]);
-      setForm(emptyForm);
-      setShowForm(false);
+ setItems((list) => [created, ...list]);
+ setForm(emptyForm);
+ setShowForm(false);
     } catch (e: any) {
-      setError(e.message || 'Failed to open the case.');
+ setError(e.message || 'Failed to open the case.');
     }
   }
 
-  return (
+ return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-semibold">Employee relations cases</h2>
         <div className="flex flex-wrap items-center gap-2">
           <label htmlFor="case-filter" className="sr-only">
-            Show
+ Show
           </label>
           <select
-            id="case-filter"
-            value={openOnly ? 'open' : 'all'}
-            onChange={(e) => setOpenOnly(e.target.value === 'open')}
-            className="form-input w-auto py-2"
+ id="case-filter"
+ value={openOnly ? 'open' : 'all'}
+ onChange={(e) => setOpenOnly(e.target.value === 'open')}
+ className="form-input w-auto py-2"
           >
             <option value="open">Open cases</option>
             <option value="all">Open and closed</option>
           </select>
           <button
-            type="button"
-            onClick={() => setShowForm(!showForm)}
-            className="btn-primary"
+ type="button"
+ onClick={() => setShowForm(!showForm)}
+ className="btn-primary"
           >
             <HiPlus /> {showForm ? 'Cancel' : 'Open a case'}
           </button>
         </div>
       </div>
 
-      <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
-        Strictly confidential. Disciplinary, grievance and capability records
-        are visible to admins and directors only, they appear nowhere else in
-        the product, and every read and change here is written to the audit log.
+      <div className="mb-6 rounded-md border border-warn bg-warn-tint px-4 py-3 text-sm text-warn ">
+ Strictly confidential. Disciplinary, grievance and capability records
+ are visible to admins and directors only, they appear nowhere else in
+ the product, and every read and change here is written to the audit log.
       </div>
 
       {error && (
         <div
-          role="alert"
-          className="mb-6 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
+ role="alert"
+ className="mb-6 rounded-md border border-bad bg-bad-tint px-3 py-2 text-sm text-bad "
         >
           {error}
         </div>
@@ -293,25 +292,25 @@ export default function Cases() {
 
       {showForm && (
         <Card className="mb-6 p-6">
-          <h3 className="mb-4 text-lg font-semibold text-slate-800 dark:text-white">
-            Open a case
+          <h3 className="mb-4 text-lg font-semibold text-ink ">
+ Open a case
           </h3>
           <form onSubmit={createCase} className="grid gap-4 sm:grid-cols-2">
             <div>
               <label
-                htmlFor="case-employee"
-                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+ htmlFor="case-employee"
+ className="mb-2 block text-sm font-medium text-ink-2"
               >
-                Employee *
+ Employee *
               </label>
               <select
-                id="case-employee"
-                value={form.employeeId}
-                onChange={(e) =>
-                  setForm({ ...form, employeeId: e.target.value })
+ id="case-employee"
+ value={form.employeeId}
+ onChange={(e) =>
+ setForm({ ...form, employeeId: e.target.value })
                 }
-                className="form-input"
-                required
+ className="form-input"
+ required
               >
                 <option value="">Select an employee</option>
                 {employees.map((employee) => (
@@ -323,17 +322,17 @@ export default function Cases() {
             </div>
             <div>
               <label
-                htmlFor="case-type"
-                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+ htmlFor="case-type"
+ className="mb-2 block text-sm font-medium text-ink-2"
               >
-                Type *
+ Type *
               </label>
               <select
-                id="case-type"
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className="form-input"
-                required
+ id="case-type"
+ value={form.type}
+ onChange={(e) => setForm({ ...form, type: e.target.value })}
+ className="form-input"
+ required
               >
                 {TYPES.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -344,33 +343,33 @@ export default function Cases() {
             </div>
             <div>
               <label
-                htmlFor="case-opened"
-                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+ htmlFor="case-opened"
+ className="mb-2 block text-sm font-medium text-ink-2"
               >
-                Opened *
+ Opened *
               </label>
               <input
-                id="case-opened"
-                type="date"
-                value={form.openedAt}
-                onChange={(e) => setForm({ ...form, openedAt: e.target.value })}
-                className="form-input"
-                required
+ id="case-opened"
+ type="date"
+ value={form.openedAt}
+ onChange={(e) => setForm({ ...form, openedAt: e.target.value })}
+ className="form-input"
+ required
               />
             </div>
             <div>
               <label
-                htmlFor="case-initial-stage"
-                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+ htmlFor="case-initial-stage"
+ className="mb-2 block text-sm font-medium text-ink-2"
               >
-                Stage *
+ Stage *
               </label>
               <select
-                id="case-initial-stage"
-                value={form.stage}
-                onChange={(e) => setForm({ ...form, stage: e.target.value })}
-                className="form-input"
-                required
+ id="case-initial-stage"
+ value={form.stage}
+ onChange={(e) => setForm({ ...form, stage: e.target.value })}
+ className="form-input"
+ required
               >
                 {STAGES.map((stage) => (
                   <option key={stage.value} value={stage.value}>
@@ -381,23 +380,23 @@ export default function Cases() {
             </div>
             <div className="sm:col-span-2">
               <label
-                htmlFor="case-initial-notes"
-                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+ htmlFor="case-initial-notes"
+ className="mb-2 block text-sm font-medium text-ink-2"
               >
-                Notes
+ Notes
               </label>
               <textarea
-                id="case-initial-notes"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                rows={3}
-                placeholder="Keep to the facts — the employee can ask for a copy of what is held about them."
-                className="form-input"
+ id="case-initial-notes"
+ value={form.notes}
+ onChange={(e) => setForm({ ...form, notes: e.target.value })}
+ rows={3}
+ placeholder="Keep to the facts. The employee can ask for a copy of what is held about them."
+ className="form-input"
               />
             </div>
             <div className="sm:col-span-2">
               <button type="submit" className="btn-primary">
-                Open case
+ Open case
               </button>
             </div>
           </form>
@@ -406,17 +405,17 @@ export default function Cases() {
 
       <div className="space-y-3">
         {items.length === 0 ? (
-          <Card className="p-6 text-center text-slate-600 dark:text-slate-400">
+          <Card className="p-6 text-center text-ink-2">
             {openOnly ? 'No open cases.' : 'No cases recorded.'}
           </Card>
         ) : (
-          items.map((record) => (
+ items.map((record) => (
             <CaseCard
-              key={record.id}
-              record={record}
-              onUpdated={(updated) =>
-                setItems((list) =>
-                  list.map((it) => (it.id === updated.id ? updated : it)),
+ key={record.id}
+ record={record}
+ onUpdated={(updated) =>
+ setItems((list) =>
+ list.map((it) => (it.id === updated.id ? updated : it)),
                 )
               }
             />

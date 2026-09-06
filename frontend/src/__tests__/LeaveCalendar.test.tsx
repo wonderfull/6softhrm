@@ -77,7 +77,7 @@ describe('LeaveCalendar', () => {
     render(<LeaveCalendar />);
     await screen.findByText('Grace Hopper · Away');
     const cell = screen.getByTestId(`day-${BANK_HOLIDAY}`);
-    expect(cell.className).toContain('bg-amber-50');
+    expect(cell.className).toContain('bg-warn-tint');
     expect(cell).toHaveTextContent('Bank holiday');
   });
 
