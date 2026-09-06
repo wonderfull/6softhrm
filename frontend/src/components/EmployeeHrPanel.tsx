@@ -1,10 +1,11 @@
 import React from 'react';
 import { apiDelete, apiGet, apiPost, apiPut } from '../lib/api';
 import Dialog from './Dialog';
+import { Badge, Button, Input, Select, Textarea } from './ui';
 
 // The HR file for one employee: performance reviews, the onboarding or
 // offboarding checklist, and training. Employee relations cases are
-// deliberately absent — they live on their own screen so a profile never
+// deliberately absent, they live on their own screen so a profile never
 // reveals who has a live grievance.
 
 type Review = {
@@ -78,20 +79,25 @@ const KIND_LABELS: Record<string, string> = {
 };
 
 const day = (value?: string | null) =>
-  value ? new Date(value).toLocaleDateString('en-GB') : '—';
-
-const inputClass =
-  'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700';
+  value ? new Date(value).toLocaleDateString('en-GB') : 'Not set';
 
 function ErrorBanner({ message }: { message: string }) {
   if (!message) return null;
   return (
     <div
       role="alert"
-      className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
+      className="mb-3 rounded-md bg-bad-tint px-3 py-2 text-[13px] text-bad"
     >
       {message}
     </div>
+  );
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="rounded-md border border-line p-3 text-[13px]">
+      {children}
+    </li>
   );
 }
 
@@ -167,142 +173,120 @@ function Reviews({
     <div>
       <ErrorBanner message={error} />
       {reviews.length === 0 ? (
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          No reviews recorded.
-        </p>
+        <p className="text-[13px] text-ink-2">No reviews recorded.</p>
       ) : (
         <ul className="space-y-2">
           {reviews.map((review) => {
             const overdue =
               !review.completedAt && new Date(review.dueDate) < new Date();
             return (
-              <li
-                key={review.id}
-                className="rounded-md border border-slate-200 p-3 text-sm dark:border-slate-700"
-              >
+              <Card key={review.id}>
                 <div className="flex items-start justify-between gap-2">
-                  <span className="font-semibold text-slate-900 dark:text-white">
+                  <span className="font-medium text-ink">
                     {REVIEW_TYPE_LABELS[review.type] ?? review.type}
                   </span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                      review.completedAt
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
-                        : overdue
-                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200'
-                          : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
-                    }`}
+                  <Badge
+                    tone={review.completedAt ? 'ok' : overdue ? 'bad' : 'warn'}
                   >
                     {review.completedAt
                       ? 'Complete'
                       : overdue
                         ? 'Overdue'
                         : 'Due'}
-                  </span>
+                  </Badge>
                 </div>
-                <div className="mt-1 text-slate-600 dark:text-slate-400">
-                  Due {day(review.dueDate)}
+                <div className="mt-1 text-ink-2">
+                  Due <span className="font-mono">{day(review.dueDate)}</span>
                   {review.reviewer
                     ? ` · ${review.reviewer.firstName} ${review.reviewer.lastName}`
                     : ''}
                 </div>
                 {review.rating && (
-                  <div className="mt-1 text-slate-700 dark:text-slate-300">
+                  <div className="mt-1 text-ink">
                     {RATING_LABELS[review.rating] ?? review.rating}
                   </div>
                 )}
                 {review.summary && (
-                  <p className="mt-1 text-slate-600 dark:text-slate-400">
-                    {review.summary}
-                  </p>
+                  <p className="mt-1 text-ink-2">{review.summary}</p>
                 )}
                 {canManage && !review.completedAt && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-2"
                     onClick={() => {
                       setDecision({ rating: 'MEETS', summary: '' });
                       setCompleting(review);
                     }}
-                    className="mt-2 text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400"
                   >
                     Mark complete
-                  </button>
+                  </Button>
                 )}
-              </li>
+              </Card>
             );
           })}
         </ul>
       )}
 
-      <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+      <p className="mt-3 text-xs text-ink-3">
         Probation reviews are scheduled automatically from the probation end
         date.
       </p>
 
       {canManage &&
         (adding ? (
-          <form onSubmit={addReview} className="mt-3 space-y-2">
-            <label className="block text-sm">
-              <span className="font-medium">Type</span>
-              <select
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className={inputClass}
-              >
-                <option value="ANNUAL">Annual</option>
-                <option value="MID_YEAR">Mid-year</option>
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="font-medium">Due date</span>
-              <input
-                type="date"
-                required
-                value={form.dueDate}
-                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-                className={inputClass}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="font-medium">Reviewer</span>
-              <select
-                value={form.reviewerId}
-                onChange={(e) =>
-                  setForm({ ...form, reviewerId: e.target.value })
-                }
-                className={inputClass}
-              >
-                <option value="">Not assigned</option>
-                {employees
-                  .filter((employee) => employee.id !== employeeId)
-                  .map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.firstName} {employee.lastName}
-                    </option>
-                  ))}
-              </select>
-            </label>
+          <form onSubmit={addReview} className="mt-3 space-y-3">
+            <Select
+              label="Type"
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+            >
+              <option value="ANNUAL">Annual</option>
+              <option value="MID_YEAR">Mid-year</option>
+            </Select>
+            <Input
+              label="Due date"
+              type="date"
+              required
+              value={form.dueDate}
+              onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+            />
+            <Select
+              label="Reviewer"
+              value={form.reviewerId}
+              onChange={(e) => setForm({ ...form, reviewerId: e.target.value })}
+            >
+              <option value="">Not assigned</option>
+              {employees
+                .filter((employee) => employee.id !== employeeId)
+                .map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.firstName} {employee.lastName}
+                  </option>
+                ))}
+            </Select>
             <div className="flex gap-2">
-              <button type="submit" className="btn-primary min-h-9 text-sm">
+              <Button type="submit" size="sm">
                 Schedule review
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setAdding(false)}
-                className="btn-ghost min-h-9 text-sm"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-3"
             onClick={() => setAdding(true)}
-            className="mt-3 text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400"
           >
-            + Add a review
-          </button>
+            Add a review
+          </Button>
         ))}
 
       <Dialog
@@ -315,45 +299,35 @@ function Reviews({
         }
         onClose={() => setCompleting(null)}
       >
-        <label className="block text-sm">
-          <span className="font-medium">Rating</span>
-          <select
+        <div className="space-y-3">
+          <Select
+            label="Rating"
             value={decision.rating}
             onChange={(e) =>
               setDecision({ ...decision, rating: e.target.value })
             }
-            className={inputClass}
           >
             {RATINGS.map((rating) => (
               <option key={rating.value} value={rating.value}>
                 {rating.label}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="mt-3 block text-sm">
-          <span className="font-medium">Summary</span>
-          <textarea
+          </Select>
+          <Textarea
+            label="Summary"
             rows={4}
             value={decision.summary}
             onChange={(e) =>
               setDecision({ ...decision, summary: e.target.value })
             }
             placeholder="What was agreed, and anything to pick up next time"
-            className={inputClass}
           />
-        </label>
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => setCompleting(null)}
-            className="btn-ghost"
-          >
-            Cancel
-          </button>
-          <button type="button" onClick={complete} className="btn-primary">
-            Save and complete
-          </button>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setCompleting(null)}>
+              Cancel
+            </Button>
+            <Button onClick={complete}>Save and complete</Button>
+          </div>
         </div>
       </Dialog>
     </div>
@@ -404,7 +378,7 @@ function Checklist({
       setItems((list) =>
         list.map((it) => (it.id === item.id ? { ...it, ...updated } : it)),
       );
-      // Some items act as well as record — a revoked login or a retention date
+      // Some items act as well as record: a revoked login or a retention date
       // set. Say so, or the tick quietly hides real consequences.
       if (updated.actionResult) {
         setActionResults((results) => [
@@ -425,7 +399,7 @@ function Checklist({
     <div>
       <ErrorBanner message={error} />
       {actionResults.length > 0 && (
-        <div className="mb-3 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-200">
+        <div className="mb-3 rounded-md bg-accent-tint px-3 py-2 text-[13px] text-link">
           <p className="font-medium">What ticking that did:</p>
           <ul className="ml-4 list-disc">
             {actionResults.map((result) => (
@@ -444,17 +418,18 @@ function Checklist({
         if (kindItems.length === 0) {
           return (
             <div key={kind} className="mb-4">
-              <p className="text-sm text-slate-600 dark:text-slate-400">
+              <p className="text-[13px] text-ink-2">
                 No {KIND_LABELS[kind].toLowerCase()} checklist yet.
               </p>
               {canManage && (
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-2"
                   onClick={() => start(kind)}
-                  className="mt-2 text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400"
                 >
                   Start {KIND_LABELS[kind].toLowerCase()}
-                </button>
+                </Button>
               )}
             </div>
           );
@@ -463,10 +438,10 @@ function Checklist({
         return (
           <div key={kind} className="mb-4">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-sm font-semibold text-slate-900 dark:text-white">
+              <span className="text-[13px] font-medium text-ink">
                 {KIND_LABELS[kind]}
               </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+              <span className="text-xs text-ink-3">
                 {done} of {kindItems.length} done
               </span>
             </div>
@@ -476,32 +451,38 @@ function Checklist({
               aria-valuenow={percent}
               aria-valuemin={0}
               aria-valuemax={100}
-              className="mt-1 h-2 rounded-full bg-slate-100 dark:bg-slate-700"
+              className="mt-1.5 h-1 rounded-full bg-surface-3"
             >
               <div
-                className="h-2 rounded-full bg-primary-500"
+                className="h-1 rounded-full bg-accent transition-[width] duration-state ease-out"
                 style={{ width: `${percent}%` }}
               />
             </div>
-            <ul className="mt-2 space-y-1">
+            <ul className="mt-3 space-y-1.5">
               {kindItems.map((item) => (
-                <li key={item.id} className="flex items-start gap-2 text-sm">
+                <li
+                  key={item.id}
+                  className="flex items-start gap-2 text-[13px]"
+                >
                   <input
                     id={`checklist-item-${item.id}`}
                     type="checkbox"
                     checked={!!item.completedAt}
                     disabled={!canManage || busyId === item.id}
                     onChange={(e) => toggle(item, e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                    className="mt-0.5 h-4 w-4 rounded-sm border-line-2 text-accent focus:ring-accent-tint"
                   />
                   <label
                     htmlFor={`checklist-item-${item.id}`}
-                    className="flex-1 text-slate-700 dark:text-slate-200"
+                    className="flex-1 text-ink"
                   >
                     {item.title}
                     {item.completedAt && (
-                      <span className="block text-xs text-slate-500 dark:text-slate-400">
-                        Done {day(item.completedAt)}
+                      <span className="block text-xs text-ink-3">
+                        Done{' '}
+                        <span className="font-mono">
+                          {day(item.completedAt)}
+                        </span>
                         {item.completedBy ? ` by ${item.completedBy}` : ''}
                       </span>
                     )}
@@ -528,6 +509,7 @@ function Training({
   const [records, setRecords] = React.useState<TrainingRecord[]>([]);
   const [error, setError] = React.useState('');
   const [adding, setAdding] = React.useState(false);
+  const [removing, setRemoving] = React.useState<TrainingRecord | null>(null);
   const [form, setForm] = React.useState({
     title: '',
     provider: '',
@@ -565,7 +547,7 @@ function Training({
   }
 
   async function remove(id: number) {
-    if (!confirm('Delete this training record?')) return;
+    setRemoving(null);
     setError('');
     try {
       await apiDelete(`/training/${id}`);
@@ -579,52 +561,43 @@ function Training({
     <div>
       <ErrorBanner message={error} />
       {records.length === 0 ? (
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          No training recorded.
-        </p>
+        <p className="text-[13px] text-ink-2">No training recorded.</p>
       ) : (
         <ul className="space-y-2">
           {records.map((record) => {
             const expired =
               !!record.expiresAt && new Date(record.expiresAt) < new Date();
             return (
-              <li
-                key={record.id}
-                className="rounded-md border border-slate-200 p-3 text-sm dark:border-slate-700"
-              >
-                <div className="font-semibold text-slate-900 dark:text-white">
-                  {record.title}
-                </div>
-                <div className="mt-1 text-slate-600 dark:text-slate-400">
+              <Card key={record.id}>
+                <div className="font-medium text-ink">{record.title}</div>
+                <div className="mt-1 text-ink-2">
                   {record.provider ? `${record.provider} · ` : ''}completed{' '}
-                  {day(record.completedAt)}
+                  <span className="font-mono">{day(record.completedAt)}</span>
                 </div>
                 {record.expiresAt && (
                   <div
-                    className={
-                      expired
-                        ? 'mt-1 font-semibold text-rose-700 dark:text-rose-300'
-                        : 'mt-1 text-slate-600 dark:text-slate-400'
-                    }
+                    className={expired ? 'mt-1 text-bad' : 'mt-1 text-ink-2'}
                   >
-                    {expired ? 'Expired' : 'Expires'} {day(record.expiresAt)}
+                    {expired ? 'Expired' : 'Expires'}{' '}
+                    <span className="font-mono">{day(record.expiresAt)}</span>
                   </div>
                 )}
                 {record.certificate && (
-                  <div className="mt-1 text-slate-600 dark:text-slate-400">
+                  <div className="mt-1 text-ink-2">
                     Certificate: {record.certificate.name}
                   </div>
                 )}
                 {canDelete && (
-                  <button
-                    type="button"
-                    onClick={() => remove(record.id)}
-                    className="mt-2 text-sm font-semibold text-red-600 hover:underline"
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => setRemoving(record)}
                   >
                     Delete
-                  </button>
+                  </Button>
                 )}
-              </li>
+              </Card>
             );
           })}
         </ul>
@@ -632,70 +605,80 @@ function Training({
 
       {canManage &&
         (adding ? (
-          <form onSubmit={add} className="mt-3 space-y-2">
-            <label className="block text-sm">
-              <span className="font-medium">Course</span>
-              <input
-                required
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className={inputClass}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="font-medium">Provider</span>
-              <input
-                value={form.provider}
-                onChange={(e) => setForm({ ...form, provider: e.target.value })}
-                className={inputClass}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="font-medium">Completed</span>
-              <input
-                type="date"
-                required
-                value={form.completedAt}
-                onChange={(e) =>
-                  setForm({ ...form, completedAt: e.target.value })
-                }
-                className={inputClass}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="font-medium">Expires</span>
-              <input
-                type="date"
-                min={form.completedAt || undefined}
-                value={form.expiresAt}
-                onChange={(e) =>
-                  setForm({ ...form, expiresAt: e.target.value })
-                }
-                className={inputClass}
-              />
-            </label>
+          <form onSubmit={add} className="mt-3 space-y-3">
+            <Input
+              label="Course"
+              required
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+            <Input
+              label="Provider"
+              value={form.provider}
+              onChange={(e) => setForm({ ...form, provider: e.target.value })}
+            />
+            <Input
+              label="Completed"
+              type="date"
+              required
+              value={form.completedAt}
+              onChange={(e) =>
+                setForm({ ...form, completedAt: e.target.value })
+              }
+            />
+            <Input
+              label="Expires"
+              type="date"
+              min={form.completedAt || undefined}
+              value={form.expiresAt}
+              onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
+            />
             <div className="flex gap-2">
-              <button type="submit" className="btn-primary min-h-9 text-sm">
+              <Button type="submit" size="sm">
                 Add training
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setAdding(false)}
-                className="btn-ghost min-h-9 text-sm"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-3"
             onClick={() => setAdding(true)}
-            className="mt-3 text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400"
           >
-            + Add training
-          </button>
+            Add training
+          </Button>
         ))}
+
+      <Dialog
+        open={removing !== null}
+        title="Delete this training record?"
+        description={
+          removing
+            ? `${removing.title} is removed from this employee's HR file.`
+            : undefined
+        }
+        onClose={() => setRemoving(null)}
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setRemoving(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => removing && remove(removing.id)}
+          >
+            Delete record
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -714,14 +697,11 @@ export default function EmployeeHrPanel({
   const [tab, setTab] = React.useState<Tab>('reviews');
 
   return (
-    <div className="border-b border-slate-200 p-5 dark:border-slate-700">
-      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        HR file
-      </div>
+    <div>
       <div
         role="tablist"
         aria-label="HR file"
-        className="mb-4 flex gap-1 rounded-md bg-slate-100 p-1 dark:bg-slate-900"
+        className="mb-4 flex gap-1 rounded-md bg-surface-2 p-1"
       >
         {TABS.map((entry) => (
           <button
@@ -730,10 +710,10 @@ export default function EmployeeHrPanel({
             role="tab"
             aria-selected={tab === entry.key}
             onClick={() => setTab(entry.key)}
-            className={`flex-1 rounded px-2 py-1 text-sm font-semibold ${
+            className={`flex-1 rounded-sm px-2 py-1 text-[13px] font-medium transition-colors duration-hover ease-out ${
               tab === entry.key
-                ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
-                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                ? 'bg-surface text-ink shadow-sm'
+                : 'text-ink-2 hover:text-ink'
             }`}
           >
             {entry.label}

@@ -1,5 +1,8 @@
 import React from 'react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { API_BASE_URL, apiUpload } from '../lib/api';
+import { Badge, Button, Table, Td, Th } from './ui';
+import { IconButton } from './employees/Bits';
 
 type PlanRow = {
   row: number;
@@ -21,10 +24,10 @@ type ImportResult = {
   rows: PlanRow[];
 };
 
-const ACTION_STYLES: Record<PlanRow['action'], string> = {
-  create: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-  update: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-  error: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+const ACTION_TONE: Record<PlanRow['action'], 'ok' | 'warn' | 'bad'> = {
+  create: 'ok',
+  update: 'warn',
+  error: 'bad',
 };
 
 export default function ImportEmployeesModal({
@@ -92,34 +95,40 @@ export default function ImportEmployeesModal({
     : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-slate-800">
-        <div className="mb-4 flex items-start justify-between">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Import employees"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-[fade-in_200ms_var(--ease-out)] motion-reduce:animate-none"
+    >
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-line bg-surface p-6 shadow-lg animate-[dialog-in_320ms_var(--ease-out)] motion-reduce:animate-none">
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold">Import employees</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <h2 className="text-xl font-semibold leading-[1.3] tracking-[-0.01em] text-ink">
+              Import employees
+            </h2>
+            <p className="mt-1 text-sm text-ink-2">
               Upload a CSV or Excel file. Existing employees are matched by
               email and updated; new emails create records.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close import"
-            className="rounded-md p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-          >
-            ✕
-          </button>
+          <IconButton label="Close import" onClick={onClose}>
+            <XMarkIcon className="h-4 w-4" />
+          </IconButton>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200">
+          <div
+            role="alert"
+            className="mb-4 rounded-md bg-bad-tint px-4 py-3 text-[13px] text-bad"
+          >
             {error}
           </div>
         )}
 
         {result ? (
           <div className="space-y-4">
-            <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
+            <div className="rounded-md bg-ok-tint px-4 py-3 text-[13px] text-ok">
               Import complete: {result.summary.created} created,{' '}
               {result.summary.updated} updated
               {result.summary.errors
@@ -128,7 +137,7 @@ export default function ImportEmployeesModal({
               .
             </div>
             {result.rows.length > 0 && (
-              <ul className="list-disc pl-5 text-sm text-red-700 dark:text-red-300">
+              <ul className="list-disc pl-5 text-[13px] text-bad">
                 {result.rows.map((r) => (
                   <li key={r.row}>
                     Row {r.row} ({r.email || 'no email'}): {r.errors.join('; ')}
@@ -136,14 +145,12 @@ export default function ImportEmployeesModal({
                 ))}
               </ul>
             )}
-            <button onClick={onClose} className="btn-primary">
-              Done
-            </button>
+            <Button onClick={onClose}>Done</Button>
           </div>
         ) : (
           <>
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <label className="btn-primary cursor-pointer">
+              <label className="btn-secondary h-9 cursor-pointer px-3.5">
                 {file ? 'Choose a different file' : 'Choose file'}
                 <input
                   type="file"
@@ -157,77 +164,71 @@ export default function ImportEmployeesModal({
                 />
               </label>
               <button
+                type="button"
                 onClick={downloadTemplate}
-                className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-300"
+                className="text-[13px] font-medium text-link hover:underline"
               >
                 Download template CSV
               </button>
               {file && (
-                <span className="text-sm text-slate-500">{file.name}</span>
+                <span className="font-mono text-xs text-ink-3">
+                  {file.name}
+                </span>
               )}
             </div>
 
-            {busy && <p className="text-sm text-slate-500">Checking file…</p>}
+            {busy && <p className="text-[13px] text-ink-3">Checking file…</p>}
 
             {preview && (
               <div className="space-y-4">
-                <div className="flex gap-4 text-sm">
-                  <span className="font-semibold text-emerald-700 dark:text-emerald-300">
-                    {preview.summary.creates} to create
-                  </span>
-                  <span className="font-semibold text-blue-700 dark:text-blue-300">
-                    {preview.summary.updates} to update
-                  </span>
-                  <span className="font-semibold text-red-700 dark:text-red-300">
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone="ok">{preview.summary.creates} to create</Badge>
+                  <Badge tone="warn">{preview.summary.updates} to update</Badge>
+                  <Badge tone={preview.summary.errors ? 'bad' : 'ok'}>
                     {preview.summary.errors} with errors
-                  </span>
+                  </Badge>
                 </div>
-                <div className="max-h-64 overflow-y-auto rounded-md border border-slate-200 dark:border-slate-700">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900">
-                      <tr className="text-left text-xs font-semibold uppercase text-slate-500">
-                        <th className="px-3 py-2">Row</th>
-                        <th className="px-3 py-2">Email</th>
-                        <th className="px-3 py-2">Action</th>
-                        <th className="px-3 py-2">Problems</th>
+                <div className="max-h-64 overflow-y-auto rounded-lg border border-line">
+                  <Table>
+                    <thead>
+                      <tr>
+                        <Th>Row</Th>
+                        <Th>Email</Th>
+                        <Th>Action</Th>
+                        <Th>Problems</Th>
                       </tr>
                     </thead>
                     <tbody>
                       {preview.rows.map((r) => (
-                        <tr
-                          key={r.row}
-                          className="border-t border-slate-100 dark:border-slate-700/60"
-                        >
-                          <td className="px-3 py-1.5 tabular-nums">{r.row}</td>
-                          <td className="px-3 py-1.5">{r.email || '—'}</td>
-                          <td className="px-3 py-1.5">
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ACTION_STYLES[r.action]}`}
-                            >
+                        <tr key={r.row} className="border-t border-line">
+                          <Td className="font-mono tabular-nums">{r.row}</Td>
+                          <Td className="font-mono text-xs">
+                            {r.email || 'No email'}
+                          </Td>
+                          <Td>
+                            <Badge tone={ACTION_TONE[r.action]}>
                               {r.action}
-                            </span>
-                          </td>
-                          <td className="px-3 py-1.5 text-xs text-red-700 dark:text-red-300">
+                            </Badge>
+                          </Td>
+                          <Td className="text-xs text-bad">
                             {r.errors.join('; ')}
-                          </td>
+                          </Td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Table>
                 </div>
-                <div className="flex gap-3">
-                  <button
+                <div className="flex flex-wrap gap-2">
+                  <Button
                     onClick={commit}
-                    disabled={busy || importable === 0}
-                    className="btn-primary disabled:opacity-50"
+                    disabled={importable === 0}
+                    loading={busy}
                   >
-                    {busy
-                      ? 'Importing…'
-                      : `Import ${importable} employee${importable === 1 ? '' : 's'}`}
-                  </button>
-                  <button onClick={onClose} className="btn-ghost">
+                    {`Import ${importable} employee${importable === 1 ? '' : 's'}`}
+                  </Button>
+                  <Button variant="ghost" onClick={onClose}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}

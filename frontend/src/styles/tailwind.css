@@ -21,17 +21,15 @@ h1, h2, h3, h4 { @apply text-ink; }
 /* Safety net: any control that has not been converted to .form-input yet still
    has to follow the theme. Base layer, so .form-input and utilities win. */
 @layer base {
-  input:not([type='checkbox']):not([type='radio']):not([type='file']),
-  select,
-  textarea {
+  :where(input:not([type='checkbox']):not([type='radio']):not([type='file'])),
+  :where(select),
+  :where(textarea) {
     @apply bg-surface text-ink border-line-2;
   }
-  input::placeholder,
-  textarea::placeholder {
+  :where(input, textarea)::placeholder {
     @apply text-ink-3;
   }
-  input[type='checkbox'],
-  input[type='radio'] {
+  :where(input[type='checkbox'], input[type='radio']) {
     accent-color: var(--accent);
   }
 }
@@ -49,53 +47,55 @@ h1, h2, h3, h4 { @apply text-ink; }
 .prose table { @apply w-full text-sm my-4 border-collapse; }
 .prose th, .prose td { @apply text-left align-top border-b border-line py-2 pr-4; }
 
-/* Card: surface, hairline, radius 10, shadow sm. No coloured headers, no
-   nested cards, no left borders. */
-.card { @apply bg-surface rounded-lg border border-line shadow-sm p-5; }
+@layer components {
+  /* Card: surface, hairline, radius 10, shadow sm. No coloured headers, no
+     nested cards, no left borders. */
+  .card { @apply bg-surface rounded-lg border border-line shadow-sm p-5; }
 
-/* Buttons. One primary per view. Press is a 120ms scale; focus is a ring in
-   the accent tint. Destructive is text-only and confirms in a dialog: there
-   is deliberately no red fill anywhere in the system. */
-.btn-primary {
-  @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-accent text-white text-sm font-medium
-         hover:bg-accent-hover active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
-         focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint disabled:bg-surface-2 disabled:text-ink-3 disabled:cursor-not-allowed;
-}
-.btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-surface border border-line-2 shadow-sm text-ink text-sm font-medium
-         hover:bg-surface-2 active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
-         focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint disabled:bg-surface-2 disabled:text-ink-3 disabled:cursor-not-allowed;
-}
-.btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-transparent text-ink-2 text-sm font-medium
-         hover:bg-surface-2 active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
-         focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint;
-}
-.btn-destructive {
-  @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-transparent text-bad text-sm font-medium
-         hover:bg-bad-tint active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
-         focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint;
-}
+  /* Buttons. One primary per view. Press is a 120ms scale; focus is a ring in
+     the accent tint. Destructive is text-only and confirms in a dialog: there
+     is deliberately no red fill anywhere in the system. */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-accent text-white text-sm font-medium
+           hover:bg-accent-hover active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
+           focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint disabled:bg-surface-2 disabled:text-ink-3 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-surface border border-line-2 shadow-sm text-ink text-sm font-medium
+           hover:bg-surface-2 active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
+           focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint disabled:bg-surface-2 disabled:text-ink-3 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-transparent text-ink-2 text-sm font-medium
+           hover:bg-surface-2 active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
+           focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint;
+  }
+  .btn-destructive {
+    @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-md bg-transparent text-bad text-sm font-medium
+           hover:bg-bad-tint active:scale-[0.98] transition-[background-color,transform] duration-hover ease-out
+           focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-tint;
+  }
 
-/* Input: 36px, radius 6, border-2, label above. Focus is border accent plus
-   the tint ring. Error is border bad; the label stays neutral. */
-.form-input {
-  @apply w-full h-9 px-3 rounded-md border border-line-2 bg-surface text-ink text-sm placeholder:text-ink-3
-         focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-tint transition-[border-color,box-shadow] duration-hover;
-}
-.form-input[aria-invalid='true'] { @apply border-bad; }
-textarea.form-input { @apply h-auto py-2; }
-select.form-input { @apply pr-8; }
+  /* Input: 36px, radius 6, border-2, label above. Focus is border accent plus
+     the tint ring. Error is border bad; the label stays neutral. */
+  .form-input {
+    @apply w-full h-9 px-3 rounded-md border border-line-2 bg-surface text-ink text-sm placeholder:text-ink-3
+           focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-tint transition-[border-color,box-shadow] duration-hover;
+  }
+  .form-input[aria-invalid='true'] { @apply border-bad; }
+  textarea.form-input { @apply h-auto py-2; }
+  select.form-input { @apply pr-8; }
 
-/* Badges: status is text plus tint with a dot; neutral is mono uppercase.
-   Three tones, no icons, no large size. */
-.badge { @apply inline-flex items-center gap-1.5 h-[22px] px-2 rounded-sm text-xs font-medium whitespace-nowrap; }
-.badge-ok { @apply badge bg-ok-tint text-ok; }
-.badge-warn { @apply badge bg-warn-tint text-warn; }
-.badge-bad { @apply badge bg-bad-tint text-bad; }
-.badge-neutral { @apply badge font-mono text-[11px] uppercase tracking-wide bg-surface-2 border border-line text-ink-2; }
-.badge-ok::before, .badge-warn::before, .badge-bad::before {
-  content: ''; @apply inline-block w-1.5 h-1.5 rounded-full bg-current;
+  /* Badges: status is text plus tint with a dot; neutral is mono uppercase.
+     Three tones, no icons, no large size. */
+  .badge { @apply inline-flex items-center gap-1.5 h-[22px] px-2 rounded-sm text-xs font-medium whitespace-nowrap; }
+  .badge-ok { @apply badge bg-ok-tint text-ok; }
+  .badge-warn { @apply badge bg-warn-tint text-warn; }
+  .badge-bad { @apply badge bg-bad-tint text-bad; }
+  .badge-neutral { @apply badge font-mono text-[11px] uppercase tracking-wide bg-surface-2 border border-line text-ink-2; }
+  .badge-ok::before, .badge-warn::before, .badge-bad::before {
+    content: ''; @apply inline-block w-1.5 h-1.5 rounded-full bg-current;
+  }
 }
 
 /* Skeleton: surface-2 with a surface-3 shimmer, shapes at their final radii. */

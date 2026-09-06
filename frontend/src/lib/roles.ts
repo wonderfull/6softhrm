@@ -24,14 +24,6 @@ export function roleLabel(role?: string | null): string {
   return normalized.charAt(0) + normalized.slice(1).toLowerCase();
 }
 
-export function roleBadgeClass(role?: string | null): string {
-  const normalized = normalizeRole(role);
-  if (normalized === 'ADMIN') return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800';
-  if (normalized === 'DIRECTOR') return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-800';
-  if (normalized === 'OFFICE_ASSISTANT') return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800';
-  return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600';
-}
-
 export function isElevatedRole(role?: string | null): boolean {
   const normalized = normalizeRole(role);
   return normalized === 'ADMIN' || normalized === 'DIRECTOR';
