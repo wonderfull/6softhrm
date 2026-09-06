@@ -185,22 +185,22 @@ const TEAMS = [
     title: 'Employees',
     ref: 'Self-service',
     body: 'Book leave, submit timesheets, upload documents and see their own record, and nothing else. Consent and data-export requests are a button, not an email to HR.',
-    photo: '/marketing/photos/care-worker-phone.webp',
-    alt: 'Two care workers in scrubs in a hospital corridor, checking notes together.',
+    photo: '/marketing/photos/employee-desk.webp',
+    alt: 'An employee working at a laptop with a second screen beside it.',
   },
   {
     title: 'Managers and directors',
     ref: 'Approvals and visibility',
     body: 'Approve leave and time from one queue, see who is off across the team, and open any report without asking HR to run it.',
-    photo: '/marketing/photos/team-lead-floor.webp',
-    alt: 'A clinical team lead on the ward, mid-task, with a colleague beside him.',
+    photo: '/marketing/photos/leadership-meeting.webp',
+    alt: 'Managers around a meeting table with laptops and printed figures.',
   },
   {
     title: 'HR and office administrators',
     ref: 'Control',
     body: 'Own the employee records, documents, roles and settings. Import from CSV, export for payroll, and answer an audit or a subject-access request from the audit log.',
-    photo: '/marketing/photos/handover-tablet.webp',
-    alt: 'Two colleagues at a desk reviewing paperwork and a tablet together.',
+    photo: '/marketing/photos/admin-desk.webp',
+    alt: 'An administrator at a laptop with a colleague at the next desk.',
   },
 ];
 
@@ -567,8 +567,8 @@ export default function Home() {
                 </ol>
               </div>
               <Photo
-                src="/marketing/photos/care-home-day-room.webp"
-                alt="Care staff with residents in a care home day room."
+                src="/marketing/photos/office-setup.webp"
+                alt="Three colleagues working at laptops in a bright office."
               />
             </div>
           </div>
