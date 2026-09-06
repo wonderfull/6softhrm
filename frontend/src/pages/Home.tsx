@@ -372,7 +372,7 @@ export default function Home() {
                   className="h-2.5 w-2.5 rounded-full bg-line-2"
                 />
                 <span className="ml-3 font-mono text-[11px] text-ink-3">
-                  app.onsidehr.co.uk/reports
+                  onsidehr.co.uk/reports
                 </span>
               </div>
               {/* The shot follows the theme: the dark capture is the same
