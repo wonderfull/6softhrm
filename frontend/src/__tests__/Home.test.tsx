@@ -111,3 +111,56 @@ describe('Home page', () => {
     expect(screen.getAllByRole('link', { name: /open app/i }).length).toBeGreaterThan(0)
   })
 })
+
+describe('Landing motion (v2)', () => {
+  beforeEach(() => {
+    ;(localStorage.getItem as any).mockReturnValue(null)
+    mockPost.mockReset()
+  })
+
+  it('keeps the photography the page was built around', () => {
+    renderHome()
+    const sources = screen
+      .getAllByRole('img', { hidden: true })
+      .map((img) => img.getAttribute('src'))
+    for (const file of [
+      '/marketing/reports.webp',
+      '/marketing/photos/employee-desk.webp',
+      '/marketing/photos/leadership-meeting.webp',
+      '/marketing/photos/admin-desk.webp',
+      '/marketing/photos/office-setup.webp',
+    ]) {
+      expect(sources, file).toContain(file)
+    }
+  })
+
+  it('runs the hero feed as decoration, with three of six events in view', () => {
+    const { container } = renderHome()
+    const cards = container.querySelectorAll('.feed-card')
+    expect(cards).toHaveLength(6)
+    // Slots 0 to 2 are the visible stack; everything else is transparent.
+    const visible = [...cards].filter(
+      (c) => (c as HTMLElement).style.opacity === '1',
+    )
+    expect(visible).toHaveLength(3)
+    expect(container.querySelector('.feed-card')?.closest('[aria-hidden]')).not.toBeNull()
+  })
+
+  it('gives each habit an animated graphic that screen readers skip', () => {
+    const { container } = renderHome()
+    expect(container.querySelectorAll('.cell-on')).toHaveLength(3)
+    expect(container.querySelector('.bar-deplete')).not.toBeNull()
+    expect(container.querySelectorAll('.log-line')).toHaveLength(5)
+    for (const el of container.querySelectorAll('.cell-on, .log-line')) {
+      expect(el.closest('[aria-hidden="true"]')).not.toBeNull()
+    }
+  })
+
+  it('leaves the loops switchable off from the root', () => {
+    const { container } = renderHome()
+    expect(container.querySelector('.landing')).toHaveAttribute(
+      'data-motion',
+      'full',
+    )
+  })
+})

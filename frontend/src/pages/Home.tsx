@@ -2,7 +2,14 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import PublicLayout from '../components/marketing/PublicLayout';
 import DemoForm from '../components/marketing/DemoForm';
+import HeroFeed from '../components/marketing/HeroFeed';
+import {
+  AuditLogGraphic,
+  CalendarGraphic,
+  DocumentsGraphic,
+} from '../components/marketing/HabitGraphics';
 import { useReveal } from '../components/marketing/useReveal';
+import { useParallax } from '../components/marketing/useParallax';
 import {
   CONTACT_EMAIL,
   CONTACT_PHONE,
@@ -108,16 +115,19 @@ const FACTS = [
 const HABITS = [
   {
     n: '01',
+    graphic: <CalendarGraphic />,
     title: 'Leave lives in inboxes',
     body: 'Requests arrive by email, approvals happen in chat, and the allowance is a spreadsheet only one person understands. Nobody can say who is off next Tuesday.',
   },
   {
     n: '02',
+    graphic: <DocumentsGraphic />,
     title: 'Documents live in drives',
     body: 'Contracts, right-to-work checks and ID sit in shared folders with no expiry dates and no record of who has looked at them. The audit is a scramble.',
   },
   {
     n: '03',
+    graphic: <AuditLogGraphic />,
     title: 'Compliance lives in one head',
     body: 'GDPR consent, retention and, if you sponsor workers, Home Office reporting all depend on one person remembering. When they are away, the company is exposed.',
   },
@@ -313,14 +323,31 @@ const FAQ = [
 
 export default function Home() {
   const revealRoot = useReveal<HTMLDivElement>();
+  const parallaxRef = useParallax<HTMLDivElement>();
 
   return (
     <PublicLayout>
-      <div ref={revealRoot}>
+      {/* data-motion switches every loop off in CSS; prefers-reduced-motion
+          does the same, so a calm toggle can be added without touching JS. */}
+      <div ref={revealRoot} className="landing" data-motion="full">
         {/* Hero */}
-        <section className={`${CONTAINER} pt-[clamp(56px,9vw,112px)]`}>
+        <section className="relative isolate">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+          >
+            <div className="hero-dots absolute inset-0" />
+            <div className="hero-glow-a absolute left-[10%] top-[-20%] h-[80%] w-[55%]" />
+            <div className="hero-glow-b absolute right-0 top-[10%] h-[70%] w-[45%]" />
+          </div>
+          <div className={`${CONTAINER} pt-[clamp(56px,9vw,112px)]`}>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-12 gap-y-10">
           <div className="max-w-[720px] flex flex-col items-start gap-5">
-            <p className={`reveal-hero ${EYEBROW}`}>
+            <p className={`reveal-hero ${EYEBROW} inline-flex items-center gap-2`}>
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 rounded-full bg-accent ring-4 ring-accent-tint"
+              />
               HR software for UK companies
             </p>
             <h1
@@ -352,12 +379,11 @@ export default function Home() {
               </a>
             </div>
           </div>
+          <HeroFeed />
+          </div>
 
-          <div
-            className="reveal-hero mt-[clamp(40px,6vw,72px)]"
-            style={{ animationDelay: '280ms', animationDuration: '700ms' }}
-          >
-            <div className="relative rounded-xl border border-line bg-surface shadow-lg overflow-hidden max-h-[clamp(220px,46vw,620px)]">
+          <div ref={parallaxRef} className="parallax mt-[clamp(40px,6vw,72px)] will-change-transform">
+            <div className="frame-in relative rounded-xl border border-line bg-surface shadow-lg overflow-hidden max-h-[clamp(220px,46vw,620px)]">
               <div className="h-9 flex items-center gap-1.5 px-3.5 border-b border-line bg-surface-2">
                 <span
                   aria-hidden="true"
@@ -402,17 +428,19 @@ export default function Home() {
               />
             </div>
           </div>
+          </div>
         </section>
 
         {/* Covers */}
         <section className={`${CONTAINER} pt-[clamp(40px,6vw,64px)]`}>
-          <div className="reveal flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span className="mr-2 text-[13px] text-ink-3">Covers</span>
-            {COVERS.map((c) => (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="reveal mr-2 text-[13px] text-ink-3">Covers</span>
+            {COVERS.map((c, i) => (
               <a
                 key={c}
                 href="#product"
-                className="inline-flex items-center gap-2 h-8 px-3 rounded-md border border-line bg-surface text-sm font-medium text-ink"
+                style={{ transitionDelay: `${i * 50}ms` }}
+                className="reveal chip-hover inline-flex items-center gap-2 h-8 px-3 rounded-md border border-line bg-surface text-sm font-medium text-ink"
               >
                 <span
                   aria-hidden="true"
@@ -460,15 +488,19 @@ export default function Home() {
                 checked.
               </p>
             </div>
-            <ol className="reveal mt-[clamp(40px,6vw,72px)] grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-8">
-              {HABITS.map((h) => (
+            <ol className="mt-[clamp(40px,6vw,72px)] grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-6">
+              {HABITS.map((h, i) => (
                 <li
                   key={h.n}
-                  className="flex flex-col gap-2 border-t border-line-2 pt-5"
+                  style={{ transitionDelay: `${i * 80}ms` }}
+                  className="reveal card-hover flex flex-col overflow-hidden rounded-xl border border-line bg-bg"
                 >
-                  <span className="font-mono text-xs text-ink-3">{h.n}</span>
-                  <span className={ITEM_TITLE}>{h.title}</span>
-                  <span className={ITEM_BODY}>{h.body}</span>
+                  {h.graphic}
+                  <div className="flex flex-col gap-2 px-6 pb-6 pt-5">
+                    <span className="font-mono text-xs text-ink-3">{h.n}</span>
+                    <span className={ITEM_TITLE}>{h.title}</span>
+                    <span className={ITEM_BODY}>{h.body}</span>
+                  </div>
                 </li>
               ))}
             </ol>
