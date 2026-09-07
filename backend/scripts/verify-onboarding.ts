@@ -109,12 +109,14 @@ async function main() {
   const leave = await request(app)
     .post('/api/leave')
     .set('Authorization', token)
-    .send({ employeeId: emp.id, type: 'Annual Leave', startDate: '2026-09-07', endDate: '2026-09-09', reason: 'Gate' })
-  check('leave request created', leave.status === 200 && leave.body.status === 'PENDING')
+    // Leave types became an enum when the leave policy landed; the old
+    // 'Annual Leave' label is rejected by the route's validation now.
+    .send({ employeeId: emp.id, type: 'ANNUAL', startDate: '2026-09-07', endDate: '2026-09-09', reason: 'Gate' })
+  check('leave request created', leave.status === 200 && leave.body.status === 'PENDING', `status ${leave.status} ${JSON.stringify(leave.body?.error ?? '')}`)
   const approve = await request(app)
     .put(`/api/leave/${leave.body.id}/approve`)
     .set('Authorization', token)
-  check('leave approved', approve.status === 200 && approve.body.status === 'APPROVED')
+  check('leave approved', approve.status === 200 && approve.body.status === 'APPROVED', `status ${approve.status} ${JSON.stringify(approve.body?.error ?? '')}`)
 
   // document upload
   const upload = await request(app)
