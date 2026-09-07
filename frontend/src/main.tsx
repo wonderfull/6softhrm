@@ -21,6 +21,7 @@ import NavBar from './components/NavBar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
+import SessionGuard from './components/SessionGuard';
 import './styles/tailwind.css';
 
 // The landing page, sign-in and the legal pages load eagerly; everything
@@ -133,6 +134,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <SessionGuard>
       <RouteTitle />
       <React.Suspense fallback={<RouteFallback />}>
       <Routes>
@@ -313,6 +315,7 @@ function App() {
         />
       </Routes>
       </React.Suspense>
+      </SessionGuard>
     </BrowserRouter>
   );
 }

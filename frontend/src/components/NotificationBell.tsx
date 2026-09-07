@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BellIcon } from '@heroicons/react/24/outline';
 import { apiGet, apiPut } from '../lib/api';
+import { safeInternalPath } from '../lib/navigation';
 
 // The signed-in user's own notification inbox: unread count in the shell,
 // recent items in a popover. The count is polled once and shared between the
@@ -129,7 +130,10 @@ export default function NotificationBell() {
         // Still follow the link; a failed read flag is not worth blocking on.
       }
     }
-    if (item.link) navigate(item.link);
+    // Links come from our own notify() calls, so this is belt and braces: a
+    // target that ever stopped being an internal path would not be followed.
+    const target = safeInternalPath(item.link);
+    if (target) navigate(target);
   }
 
   async function markAllRead() {
