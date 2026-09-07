@@ -157,6 +157,13 @@ function PersonList({
   );
 }
 
+// Allocated minus used, floored at zero: a negative remaining would mean the
+// allocation was reduced after certificates were assigned, and reads as noise.
+function remainingLabel(allocated: number, used: number) {
+  const remaining = Math.max(0, (Number(allocated) || 0) - used);
+  return `${used} used · ${remaining} remaining of ${Number(allocated) || 0} this allocation year`;
+}
+
 export default function SponsorLicenceCard({ canEdit }: { canEdit: boolean }) {
  const [form, setForm] = React.useState<Form>(EMPTY);
  const [usage, setUsage] = React.useState({ cosDefinedUsed: 0, cosUndefinedUsed: 0 });
@@ -329,7 +336,7 @@ export default function SponsorLicenceCard({ canEdit }: { canEdit: boolean }) {
  className={inputClass}
           />
           <span className="mt-1 block text-xs text-ink-3">
-            {usage.cosDefinedUsed} used this allocation year
+            {remainingLabel(form.cosDefinedAllocated, usage.cosDefinedUsed)}
           </span>
         </label>
         <label className="block text-sm">
@@ -343,7 +350,7 @@ export default function SponsorLicenceCard({ canEdit }: { canEdit: boolean }) {
  className={inputClass}
           />
           <span className="mt-1 block text-xs text-ink-3">
-            {usage.cosUndefinedUsed} used this allocation year
+            {remainingLabel(form.cosUndefinedAllocated, usage.cosUndefinedUsed)}
           </span>
         </label>
 

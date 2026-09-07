@@ -139,7 +139,7 @@ describe('Landing motion (v2)', () => {
     const cards = container.querySelectorAll('.feed-card')
     expect(cards).toHaveLength(6)
     // Slots 0 to 2 are the visible stack; everything else is transparent.
-    const visible = [...cards].filter(
+    const visible = Array.from(cards).filter(
       (c) => (c as HTMLElement).style.opacity === '1',
     )
     expect(visible).toHaveLength(3)
@@ -151,7 +151,7 @@ describe('Landing motion (v2)', () => {
     expect(container.querySelectorAll('.cell-on')).toHaveLength(3)
     expect(container.querySelector('.bar-deplete')).not.toBeNull()
     expect(container.querySelectorAll('.log-line')).toHaveLength(5)
-    for (const el of container.querySelectorAll('.cell-on, .log-line')) {
+    for (const el of Array.from(container.querySelectorAll('.cell-on, .log-line'))) {
       expect(el.closest('[aria-hidden="true"]')).not.toBeNull()
     }
   })

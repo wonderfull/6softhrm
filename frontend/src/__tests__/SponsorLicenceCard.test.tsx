@@ -43,8 +43,13 @@ describe('SponsorLicenceCard', () => {
   it('shows the licence, usage counts, expiry warning and action plan for a B rating', async () => {
     render(<SponsorLicenceCard canEdit />);
     expect(await screen.findByDisplayValue('ABC123')).toBeInTheDocument();
-    expect(screen.getByText('2 used this allocation year')).toBeInTheDocument();
-    expect(screen.getByText('7 used this allocation year')).toBeInTheDocument();
+    // Allocated, used and what is left, so nobody has to do the subtraction.
+    expect(
+      screen.getByText('2 used · 3 remaining of 5 this allocation year'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('7 used · 3 remaining of 10 this allocation year'),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Licence expires in 40 days/)).toBeInTheDocument();
     expect(screen.getByDisplayValue('Fix reporting')).toBeInTheDocument();
     expect(screen.getByDisplayValue('lee@example.test')).toBeInTheDocument();
